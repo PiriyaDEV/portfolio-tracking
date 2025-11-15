@@ -25,11 +25,12 @@ export default function StockPrice() {
   const [currencyRate, setCurrencyRate] = useState<number>(0);
 
   const assets: Asset[] = [
-    { symbol: "NVDA", quantity: 5, costPerShare: 272.41 },
-    { symbol: "AAPL", quantity: 10, costPerShare: 150 },
+    { symbol: "NVDA", quantity: 13, costPerShare: 181.9361 },
+    { symbol: "TSLA", quantity: 2.4963855, costPerShare: 391.3258 },
+    { symbol: "IONQ", quantity: 6, costPerShare: 42.57 },
   ];
 
-  let mockRes = { c: 272.41 };
+  let mockRes = { c: 190.17 };
 
   async function fetchFinancialData() {
     setIsLoading(true);
@@ -52,15 +53,13 @@ export default function StockPrice() {
     //   method: "POST",
     //   headers: { "Content-Type": "application/json" },
     // });
-
     // if (!res.ok) {
     //   throw new Error(`BOT API Error: ${res.status} ${res.statusText}`);
     // }
-
     // const data = await res.json();
     // setCurrencyRate(Number(data.rate) ?? 0);
-
-    setCurrencyRate(Number(33.2) ?? 0);
+    // console.log("data", data);
+    setCurrencyRate(Number(32.31) ?? 0);
   }
 
   useEffect(() => {
@@ -171,8 +170,7 @@ export default function StockPrice() {
                   </div>
 
                   <div className={`text-[12px] ${profitColor}`}>
-                    {profit > 0 ? "+" : ""}
-                    {fNumber(profit)} USD
+                    ({profit > 0 ? "+" : ""}{fNumber(profit * currencyRate)} บาท)
                   </div>
                 </div>
               </div>
@@ -182,7 +180,9 @@ export default function StockPrice() {
                 <div className="mt-2 bg-black-lighter text-[12px] grid grid-cols-2 gap-1 px-4 py-2 text-gray-300">
                   <div>
                     จำนวนหุ้น:{" "}
-                    <span className="text-white">{asset.quantity}</span>
+                    <span className="text-white">
+                      {fNumber(asset.quantity, { decimalNumber: 7 })}
+                    </span>
                   </div>
                   <div>
                     ราคาปัจจุบัน:{" "}

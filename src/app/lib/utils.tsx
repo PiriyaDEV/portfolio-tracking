@@ -116,12 +116,14 @@ export function fPercent(number: number) {
 
 export function fNumber(
   number: string | number,
-  options?: { disabledDecimal: boolean }
+  options?: { disabledDecimal?: boolean; decimalNumber?: number }
 ) {
-  if (options) {
-    if (options.disabledDecimal) return numeral(number).format();
-  }
-  return numeral(number).format("0,0.00");
+  const { disabledDecimal = false, decimalNumber = 2 } = options || {};
+
+  if (disabledDecimal) return numeral(number).format("0,0");
+
+  const format = `0,0.${"0".repeat(decimalNumber)}`;
+  return numeral(number).format(format);
 }
 
 export function f3Number(
