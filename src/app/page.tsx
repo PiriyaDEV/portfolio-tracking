@@ -26,13 +26,16 @@ export default function StockPrice() {
   const [currencyRate, setCurrencyRate] = useState<number>(0);
   const isMock = true;
   const [formattedDate, setFormattedDate] = useState("");
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [password, setPassword] = useState("");
+  const [loginError, setLoginError] = useState("");
 
   useEffect(() => {
-    loadData();
+    if (isLoggedIn) {
+      loadData();
+    }
 
     const now = new Date();
-
-    // Map month to Thai abbreviation
     const thaiMonths = [
       "ม.ค",
       "ก.พ",
@@ -53,9 +56,8 @@ export default function StockPrice() {
     const year = (now.getFullYear() + 543) % 100;
     const hours = now.getHours().toString().padStart(2, "0");
     const minutes = now.getMinutes().toString().padStart(2, "0");
-
     setFormattedDate(`${day} ${month} ${year} ${hours}:${minutes} น.`);
-  }, []);
+  }, [isLoggedIn]);
 
   let assets: Asset[] = [
     { symbol: "AAPL", quantity: 13, costPerShare: 181.9361 },
@@ -81,6 +83,16 @@ export default function StockPrice() {
     const logo = logos?.[symbol];
 
     return logo ?? defaultStockLogo;
+  }
+
+  function handleLogin() {
+    const correctPassword = "1234";
+    if (password === correctPassword) {
+      setIsLoggedIn(true);
+      setLoginError("");
+    } else {
+      setLoginError("รหัสผ่านไม่ถูกต้อง");
+    }
   }
 
   async function loadData() {
@@ -278,6 +290,31 @@ export default function StockPrice() {
       </div>
     </div>
   );
+
+  if (!isLoggedIn) {
+    return (
+      <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-70 z-50">
+        <div className="bg-black-lighter p-6 rounded-lg w-[300px] flex flex-col gap-4">
+          <h2 className="text-white text-xl font-bold text-center">Login</h2>
+          <input
+            type="password"
+            placeholder="Enter password"
+            className="p-2 rounded bg-white !text-black border border-accent-yellow"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleLogin()}
+          />
+          {loginError && <p className="text-red-500 text-sm">{loginError}</p>}
+          <button
+            className="bg-accent-yellow text-white p-2 rounded"
+            onClick={handleLogin}
+          >
+            Login
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (isLoading) return <CommonLoading />;
 
