@@ -26,14 +26,14 @@ export const metadata: Metadata = {
 const BackgroundLayout: FC<BackgroundLayoutProps> = ({ children }) => {
   return (
     <html lang="en" className={`${sarabun.variable}`}>
-      <body className="antialiased">
+      <body className="antialiased font-sarabun">
         <div className="bg-cover bg-center flex flex-col items-center sm:bg-gray-100 min-h-screen">
-          <div className="w-full sm:max-w-[450px] bg-[#111111] z-[98] text-center font-bold py-4 mb-2 text-[22px] text-white">
+          <div className="w-full sm:max-w-[450px] bg-black z-[98] text-center font-bold py-4 text-[22px] text-white">
             P'tracker
-            <div className="text-xs text-center text-[#c5c6c7]">
+            <div className="text-xs text-center text-text-light">
               Made by{" "}
               <span
-                className="!text-[#FFC107] underline cursor-pointer"
+                className="!text-accent-yellow underline cursor-pointer"
                 onClick={() => {
                   window.open(
                     "https://www.instagram.com/pd.piriya/#",
@@ -46,7 +46,7 @@ const BackgroundLayout: FC<BackgroundLayoutProps> = ({ children }) => {
               🤪✨
             </div>
           </div>
-          <div className="container sm:max-w-[450px] mx-auto sm:mx-0 px-4 flex-grow bg-[white]">
+          <div className="container sm:max-w-[450px] mx-auto sm:mx-0 flex-grow bg-black">
             {children}
           </div>
         </div>

@@ -1,5 +1,7 @@
 import { MemberObj } from "@/app/lib/interface";
 import { MODE } from "./constants";
+import { replace } from 'lodash'
+import numeral from 'numeral'
 
 export const getMemberObjByName = (
   name: string,
@@ -100,4 +102,55 @@ export function getPrice(
   }
 
   return basePrice;
+}
+
+// ----------------------------------------------------------------------
+
+export function fCurrency(number: string | number) {
+  return numeral(number).format(Number.isInteger(number) ? '$0,0' : '$0,0.00')
+}
+
+export function fPercent(number: number) {
+  return numeral(number / 100).format('0.0%')
+}
+
+export function fNumber(number: string | number, options?: { disabledDecimal: boolean }) {
+  if (options) {
+    if (options.disabledDecimal) return numeral(number).format()
+  }
+  return numeral(number).format('0,0.00')
+}
+
+export function f3Number(number: string | number, options?: { disabledDecimal: boolean }) {
+  if (options) {
+    if (options.disabledDecimal) return numeral(number).format()
+  }
+  return numeral(number).format('0,0.000')
+}
+
+export function fInteger(number: string | number, options?: { disabledDecimal: boolean }) {
+  if (options) {
+    if (options.disabledDecimal) return numeral(number).format()
+  }
+  return numeral(number).format('0,0')
+}
+
+export function fShortenNumber(number: string | number) {
+  return replace(numeral(number).format('0.00a'), '.00', '')
+}
+
+export function fData(number: string | number) {
+  return numeral(number).format('0.0 b')
+}
+
+export function formatNumber(val: string, min?: number) {
+  const numVal = parseFloat(val)
+  const formattedVal = min !== undefined && numVal < min ? min : numVal
+
+  return numeral(formattedVal).format(Number.isInteger(formattedVal) ? '0' : '0.[00]')
+}
+
+export function fTon(number: string | number) {
+  const n = Number(number) / 1000
+  return numeral(n).format(Number.isInteger(n) ? '0,0' : '$0,0.00'.replace('$', ''))
 }

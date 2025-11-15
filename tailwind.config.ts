@@ -12,11 +12,23 @@ export default {
       colors: {
         background: "var(--background)",
         foreground: "var(--foreground)",
+        "black": "#212020",
+        'black-lighter': '#2c2b2b',
+        "text-light": "#c5c6c7",
+        "accent-yellow": "#FFC107",
       },
     },
   },
   daisyui: {
-    themes: ["light"],
+    themes: [
+      {
+        dark: {
+          ...require("daisyui/src/theming/themes")["dark"],
+          "base-content": "#ffffff",
+          "neutral-content": "#ffffff",
+        },
+      },
+    ],
   },
   plugins: [require("daisyui")],
 } satisfies Config;
