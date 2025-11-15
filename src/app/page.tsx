@@ -20,15 +20,14 @@ type Asset = {
 
 export default function StockPrice() {
   const [prices, setPrices] = useState<Record<string, number | null>>({});
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [currencyRate, setCurrencyRate] = useState<number>(0);
   const isMock = true;
   const [formattedDate, setFormattedDate] = useState("");
 
   useEffect(() => {
-    fetchFinancialData();
-    fetchFxRate();
+    loadData();
 
     const now = new Date();
 
@@ -68,63 +67,68 @@ export default function StockPrice() {
     },
   ];
 
-  const FINNHUB_API_BASE_URL = "https://finnhub.io/api/v1";
-  const API_KEY = "d4c807hr01qudf6h35i0d4c807hr01qudf6h35ig";
-
-  async function fetchFinancialData() {
+  async function loadData() {
     setIsLoading(true);
 
     try {
-      const results: Record<string, number | null> = {};
-      let res: any = {};
+      // Run both promises in parallel
+      await Promise.all([fetchFinancialData(), fetchFxRate()]);
 
-      // We'll create a new array to store valid assets
-      const validAssets: Asset[] = [];
+      // Wait 1 second before turning off loader
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
-      for (const asset of assets) {
-        if (isMock) {
-          res = { c: 190.17, d: null, dp: null, h: 0, l: 0, o: 0, pc: 0, t: 0 };
-        } else {
-          const url = new URL(`${FINNHUB_API_BASE_URL}/quote`);
-          url.searchParams.append("symbol", asset.symbol);
-          url.searchParams.append("token", API_KEY);
+  // Call this on initial load or button click
+  useEffect(() => {
+    loadData();
+  }, []);
 
-          const response = await fetch(url.toString());
-          if (!response.ok) throw new Error("Fetch error");
+  async function fetchFinancialData() {
+    try {
+      let data: { prices: Record<string, number | null>; assets: Asset[] };
 
-          res = await response.json();
-        }
+      if (!isMock) {
+        const res = await fetch("/api/stock", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ assets, isMock }),
+        });
 
-        // Check if response is valid
-        const isInvalid =
-          res.c === 0 &&
-          (res.d === null || res.dp === null) &&
-          res.h === 0 &&
-          res.l === 0 &&
-          res.o === 0 &&
-          res.pc === 0;
+        if (!res.ok) throw new Error("Failed to fetch API");
 
-        if (!isInvalid) {
-          results[asset.symbol] = res.c ?? null;
+        data = await res.json();
+      } else {
+        // Mock data directly
+        const mockPrices: Record<string, number> = {};
+        const validAssets: Asset[] = [];
+
+        for (const asset of assets) {
+          mockPrices[asset.symbol] = 190.17;
           validAssets.push(asset);
         }
+
+        data = { prices: mockPrices, assets: validAssets };
       }
 
-      // Update state and assets array
-      setPrices(results);
-      assets = validAssets; // remove invalid assets
+      setPrices(data.prices);
+      assets = data.assets;
+      return data;
     } catch (error) {
-      console.error("Error fetching prices:", error);
+      console.error(error);
+      return { prices: {}, assets: [] };
     }
-
-    setTimeout(() => setIsLoading(false), 1000);
   }
 
   async function fetchFxRate() {
     if (isMock) {
       setCurrencyRate(Number(32.31) ?? 0);
     } else {
-      const res = await fetch("/api/usbToThb", {
+      const res = await fetch("/api/rate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
       });
