@@ -22,25 +22,18 @@ export default function StockPrice() {
   const [prices, setPrices] = useState<Record<string, number | null>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [currencyRate, setCurrencyRate] = useState<number>(0);
 
   const assets: Asset[] = [
     { symbol: "NVDA", quantity: 5, costPerShare: 272.41 },
     { symbol: "AAPL", quantity: 10, costPerShare: 150 },
   ];
 
-  let mockRes = {
-    c: 272.41,
-    d: -0.54,
-    dp: -0.1978,
-    h: 275.96,
-    l: 269.6,
-    o: 271.05,
-    pc: 272.95,
-    t: 1763154000,
-  };
+  let mockRes = { c: 272.41 };
 
   async function fetchFinancialData() {
     setIsLoading(true);
+
     try {
       const results: Record<string, number | null> = {};
       for (const asset of assets) {
@@ -50,11 +43,29 @@ export default function StockPrice() {
     } catch (error) {
       console.error("Error fetching prices:", error);
     }
-    setIsLoading(false);
+
+    setTimeout(() => setIsLoading(false), 1000);
+  }
+
+  async function fetchFxRate() {
+    // const res = await fetch("/api/usbToThb", {
+    //   method: "POST",
+    //   headers: { "Content-Type": "application/json" },
+    // });
+
+    // if (!res.ok) {
+    //   throw new Error(`BOT API Error: ${res.status} ${res.statusText}`);
+    // }
+
+    // const data = await res.json();
+    // setCurrencyRate(Number(data.rate) ?? 0);
+
+    setCurrencyRate(Number(33.2) ?? 0);
   }
 
   useEffect(() => {
     fetchFinancialData();
+    fetchFxRate();
   }, []);
 
   const toggleExpand = (symbol: string) => {
@@ -77,38 +88,37 @@ export default function StockPrice() {
       <div className="px-4 flex justify-end w-full">
         <RefreshIcon
           className="cursor-pointer text-[30px] mb-4"
-          onClick={fetchFinancialData}
+          onClick={() => {
+            fetchFinancialData();
+            fetchFxRate();
+          }}
         />
       </div>
 
       <div className="flex flex-wrap w-full">
         {/* Header */}
         <div className="w-full grid grid-cols-[2fr_1fr_1fr] gap-3 px-4 py-2">
-          <div className="text-[12px] flex items-center text-gray-400">
+          <div className="text-[12px] text-gray-400">
             {assets.length} สินทรัพย์
           </div>
-          <div className="text-[12px] flex justify-end items-center text-gray-400">
-            มูลค่า (USD)
+          <div className="text-[12px] text-gray-400 text-right">
+            มูลค่า (THB)
           </div>
-          <div className="text-[12px] flex justify-end items-center text-gray-400">
-            % กำไร
-          </div>
+          <div className="text-[12px] text-gray-400 text-right">% กำไร</div>
         </div>
 
-        {/* Assets */}
         {assets.map((asset) => {
           const currentPrice = prices[asset.symbol];
           const cost = asset.costPerShare * asset.quantity;
-          const marketValue =
-            currentPrice !== null ? currentPrice * asset.quantity : null;
-          const profit = marketValue !== null ? marketValue - cost : 0;
-          const profitPercent = profit !== null ? (profit / cost) * 100 : null;
+          const marketValueUsd =
+            currentPrice !== null ? currentPrice * asset.quantity : 0;
+          const marketValueThb = marketValueUsd * currencyRate;
 
-          // Determine color based on profit/loss/break-even
+          const profit = marketValueUsd - cost;
+          const profitPercent = cost > 0 ? (profit / cost) * 100 : 0;
+
           const profitColor =
-            profit === null
-              ? "text-gray-500"
-              : profit > 0
+            profit > 0
               ? "text-green-500"
               : profit < 0
               ? "text-red-500"
@@ -118,34 +128,37 @@ export default function StockPrice() {
 
           return (
             <div key={asset.symbol} className="w-full shadow-sm">
-              {/* Top section */}
+              {/* Top row */}
               <div
-                className="w-full grid grid-cols-[2fr_1fr_1fr] gap-3 px-4 py-2 cursor-pointer hover:bg-gray-800 transition"
+                className="w-full grid grid-cols-[2fr_1fr_1fr] gap-3 px-4 py-2 cursor-pointer hover:bg-gray-800"
                 onClick={() => toggleExpand(asset.symbol)}
               >
+                {/* Left column */}
                 <div className="flex flex-col gap-1">
                   <div className="font-bold text-[16px]">{asset.symbol}</div>
+
                   <div className="text-[12px] flex items-center gap-1">
                     <ChartIcon />
-
-                    {marketValue && totalPortfolioValue > 0
-                      ? `${((marketValue / totalPortfolioValue) * 100).toFixed(
-                          2
+                    {totalPortfolioValue > 0
+                      ? `${fNumber(
+                          (marketValueUsd / totalPortfolioValue) * 100
                         )}%`
-                      : "-"}
+                      : "0.00%"}
                   </div>
                 </div>
 
-                <div className="flex flex-col gap-1 items-end">
+                {/* Middle column */}
+                <div className="flex flex-col items-end whitespace-nowrap">
                   <div className="font-bold text-[16px]">
-                    {marketValue ? fNumber(marketValue) : "-"}
+                    {fNumber(marketValueThb)} THB
                   </div>
-                  <div className="text-[12px] flex items-center gap-1 text-gray-300">
-                    ≈ {marketValue ? fNumber(marketValue / 50) : "-"} USD
+                  <div className="text-[12px] text-gray-300">
+                    ≈ {fNumber(marketValueUsd)} USD
                   </div>
                 </div>
 
-                <div className="flex flex-col gap-1 items-end">
+                {/* Right column */}
+                <div className="flex flex-col items-end">
                   <div
                     className={`font-bold text-[16px] flex items-center gap-1 ${profitColor}`}
                   >
@@ -154,57 +167,43 @@ export default function StockPrice() {
                     ) : profit < 0 ? (
                       <DownIcon className="text-[12px]" />
                     ) : null}
-                    {profitPercent ? `${profitPercent.toFixed(2)}%` : "0.00 %"}
+                    {fNumber(profitPercent)}%
                   </div>
-                  <div
-                    className={`text-[12px] flex items-center gap-1 ${profitColor}`}
-                  >
-                    {profit
-                      ? `${profit > 0 ? "+" : ""}${profit.toFixed(2)} USD`
-                      : "0.00 USD"}
+
+                  <div className={`text-[12px] ${profitColor}`}>
+                    {profit > 0 ? "+" : ""}
+                    {fNumber(profit)} USD
                   </div>
                 </div>
               </div>
 
-              {/* Bottom section (expandable) */}
+              {/* Expanded bottom section */}
               {isExpanded && (
-                <div className="mt-2 text-[12px] text-gray-300 grid grid-cols-[1fr_1fr] gap-1 bg-black-lighter px-4 py-2">
+                <div className="mt-2 bg-black-lighter text-[12px] grid grid-cols-2 gap-1 px-4 py-2 text-gray-300">
                   <div>
                     จำนวนหุ้น:{" "}
-                    <span className="!text-white">{asset.quantity}</span>
+                    <span className="text-white">{asset.quantity}</span>
                   </div>
                   <div>
                     ราคาปัจจุบัน:{" "}
-                    <span className="!text-white">{currentPrice ?? "-"}</span>
+                    <span className="text-white">
+                      {currentPrice ? fNumber(currentPrice) : "0.00"}
+                    </span>
                   </div>
                   <div>
                     ต้นทุนต่อหุ้น:{" "}
-                    <span className="!text-white">{asset.costPerShare}</span>
-                  </div>
-                  <div>
-                    ต้นทุนรวม: <span className="!text-white">{cost}</span>
-                  </div>
-                  <div>
-                    กำไร/ขาดทุน:{" "}
-                    <span className={profitColor}>
-                      {profit !== null
-                        ? `${profit > 0 ? "+" : ""}${profit.toFixed(2)}`
-                        : "-"}
+                    <span className="text-white">
+                      {fNumber(asset.costPerShare)}
                     </span>
                   </div>
                   <div>
-                    เปอร์เซ็นต์:{" "}
-                    <span className={profitColor}>
-                      {profitPercent !== null
-                        ? `${profit > 0 ? "+" : ""}${profitPercent.toFixed(2)}%`
-                        : "-"}
-                    </span>
+                    ต้นทุนรวม:{" "}
+                    <span className="text-white">{fNumber(cost)}</span>
                   </div>
                 </div>
               )}
 
-              {/* Divider */}
-              <div className="border-b border-white opacity-20 mx-4 my-2"></div>
+              <div className="border-b border-accent-yellow opacity-40 mx-4 my-2"></div>
             </div>
           );
         })}
