@@ -30,6 +30,15 @@ export default function StockPrice() {
   const [userId, setUserId] = useState("");
   const [assets, setAssets] = useState<Asset[] | null>(null);
 
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editText, setEditText] = useState("");
+
+  // Open the edit modal and populate with current assets
+  const openEditModal = () => {
+    setEditText(JSON.stringify(assets, null, 2));
+    setIsEditOpen(true);
+  };
+
   const isMock = true;
 
   // Format date every render
@@ -178,6 +187,28 @@ export default function StockPrice() {
     }
   }
 
+  const saveAssets = () => {
+    try {
+      const parsed: Asset[] = JSON.parse(editText);
+
+      // Optional: basic validation
+      if (!Array.isArray(parsed)) throw new Error("JSON must be an array");
+      for (const a of parsed) {
+        if (!a.symbol || a.quantity == null || a.costPerShare == null) {
+          throw new Error(
+            "Each asset must have symbol, quantity, costPerShare"
+          );
+        }
+      }
+
+      setAssets(parsed);
+      setIsEditOpen(false);
+      loadData(); // refresh prices for updated assets
+    } catch (err: any) {
+      alert("Error parsing JSON: " + err.message);
+    }
+  };
+
   // Render footer
   const renderFooter = () => {
     if (!assets) return null;
@@ -294,8 +325,43 @@ export default function StockPrice() {
   // Render main portfolio
   return (
     <div className="mt-[81px] mb-[172px]">
+      {isEditOpen && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-70 z-50">
+          <div className="bg-black-lighter p-6 rounded-lg w-[400px] flex flex-col gap-4">
+            <h2 className="text-white font-bold text-xl text-center">
+              Edit Assets
+            </h2>
+            <textarea
+              className="p-2 rounded bg-white !text-black h-60"
+              value={editText}
+              onChange={(e) => setEditText(e.target.value)}
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                className="bg-gray-600 text-white p-2 rounded"
+                onClick={() => setIsEditOpen(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="bg-accent-yellow text-black p-2 rounded"
+                onClick={saveAssets}
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Refresh Button */}
-      <div className="px-4 flex justify-end w-full">
+      <div className="px-4 flex justify-between w-full">
+        <button
+          className="bg-accent-yellow text-black p-2 rounded"
+          onClick={openEditModal}
+        >
+          Edit Assets
+        </button>
         <RefreshIcon
           className="cursor-pointer text-[30px] mb-4"
           onClick={loadData}
