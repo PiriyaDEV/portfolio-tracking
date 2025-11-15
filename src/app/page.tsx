@@ -20,6 +20,7 @@ type Asset = {
 
 export default function StockPrice() {
   const [prices, setPrices] = useState<Record<string, number | null>>({});
+  const [logos, setLogos] = useState<Record<string, string | null>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [currencyRate, setCurrencyRate] = useState<number>(0);
@@ -49,7 +50,7 @@ export default function StockPrice() {
 
     const day = now.getDate();
     const month = thaiMonths[now.getMonth()];
-    const year = (now.getFullYear() + 543) % 100; // Thai Buddhist year short form
+    const year = (now.getFullYear() + 543) % 100;
     const hours = now.getHours().toString().padStart(2, "0");
     const minutes = now.getMinutes().toString().padStart(2, "0");
 
@@ -57,7 +58,7 @@ export default function StockPrice() {
   }, []);
 
   let assets: Asset[] = [
-    { symbol: "NVDA", quantity: 13, costPerShare: 181.9361 },
+    { symbol: "AAPL", quantity: 13, costPerShare: 181.9361 },
     { symbol: "TSLA", quantity: 2.4963855, costPerShare: 391.3258 },
     { symbol: "IONQ", quantity: 6, costPerShare: 42.57 },
     {
@@ -66,6 +67,21 @@ export default function StockPrice() {
       costPerShare: 97305.11738593,
     },
   ];
+
+  const defaultStockLogo =
+    "https://png.pngtree.com/png-vector/20190331/ourmid/pngtree-growth-icon-vector--glyph-or-solid-style-icon-stock-png-image_876941.jpg";
+  const defaultCryptoLogo =
+    "https://upload.wikimedia.org/wikipedia/commons/thumb/4/46/Bitcoin.svg/1200px-Bitcoin.svg.png";
+
+  function getLogo(symbol: string): string {
+    if (symbol === "BINANCE:BTCUSDT") {
+      return defaultCryptoLogo;
+    }
+
+    const logo = logos?.[symbol];
+
+    return logo ?? defaultStockLogo;
+  }
 
   async function loadData() {
     setIsLoading(true);
@@ -90,7 +106,7 @@ export default function StockPrice() {
 
   async function fetchFinancialData() {
     try {
-      let data: { prices: Record<string, number | null>; assets: Asset[] };
+      let data: any;
 
       if (!isMock) {
         const res = await fetch("/api/stock", {
@@ -115,7 +131,10 @@ export default function StockPrice() {
         data = { prices: mockPrices, assets: validAssets };
       }
 
+      console.log("logo", data.logos);
+
       setPrices(data.prices);
+      setLogos(data.logos);
       assets = data.assets;
       return data;
     } catch (error) {
@@ -310,8 +329,20 @@ export default function StockPrice() {
               >
                 {/* Left column */}
                 <div className="flex flex-col gap-1">
-                  <div className="font-bold text-[16px]">
-                    {getName(asset.symbol)}
+                  <div className="flex items-center gap-2">
+                    <div
+                      className={`w-[30px] h-[30px] rounded-full bg-cover bg-center border border-gray-600 ${
+                        getLogo(asset.symbol) ? "" : "bg-white"
+                      }`}
+                      style={{
+                        backgroundImage: getLogo(asset.symbol)
+                          ? `url(${getLogo(asset.symbol)})`
+                          : "none",
+                      }}
+                    />
+                    <div className="font-bold text-[16px]">
+                      {getName(asset.symbol)}
+                    </div>
                   </div>
 
                   <div className="text-[12px] flex items-center gap-1">
