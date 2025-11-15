@@ -16,7 +16,7 @@ const sarabun = Sarabun({
 });
 
 export const metadata: Metadata = {
-  title: "Ptracker",
+  title: "P'tracker",
   description: "Portfolio Tracking",
   openGraph: {
     images: `https://ptracker.netlify.app/images/metaImg.png`,
@@ -28,8 +28,8 @@ const BackgroundLayout: FC<BackgroundLayoutProps> = ({ children }) => {
     <html lang="en" className={`${sarabun.variable}`}>
       <body className="antialiased">
         <div className="bg-cover bg-center flex flex-col items-center sm:bg-gray-100 min-h-screen">
-          <div className="fixed w-full sm:max-w-[450px] top-0 bg-[#111111] z-[98] text-center font-bold py-4 mb-2 text-[22px] text-white">
-            Ptracker
+          <div className="w-full sm:max-w-[450px] bg-[#111111] z-[98] text-center font-bold py-4 mb-2 text-[22px] text-white">
+            P'tracker
             <div className="text-xs text-center text-[#c5c6c7]">
               Made by{" "}
               <span
@@ -46,7 +46,7 @@ const BackgroundLayout: FC<BackgroundLayoutProps> = ({ children }) => {
               🤪✨
             </div>
           </div>
-          <div className="container sm:max-w-[450px] mx-auto sm:mx-0 px-4 flex-grow bg-[#111111]">
+          <div className="container sm:max-w-[450px] mx-auto sm:mx-0 px-4 flex-grow bg-[white]">
             {children}
           </div>
         </div>

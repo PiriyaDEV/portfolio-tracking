@@ -4,7 +4,7 @@ import BackgroundLayout from "@/shared/components/BackgroundLayout";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Ptracker",
+  title: "P'tracker",
   description: "Portfolio Tracking",
   openGraph: {
     images: `https://ptracker.netlify.app/images/metaImg.png`,
