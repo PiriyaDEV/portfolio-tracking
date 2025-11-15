@@ -6,7 +6,10 @@ import {
   TiChartPieOutline as ChartIcon,
   TiRefresh as RefreshIcon,
 } from "react-icons/ti";
-import { FaArrowTrendUp as UpIcon } from "react-icons/fa6";
+import {
+  FaArrowTrendUp as UpIcon,
+  FaArrowTrendDown as DownIcon,
+} from "react-icons/fa6";
 import { fNumber } from "./lib/utils";
 
 type Asset = {
@@ -20,12 +23,8 @@ export default function StockPrice() {
   const [isLoading, setIsLoading] = useState(false);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
-  const FINNHUB_API_BASE_URL = "https://finnhub.io/api/v1";
-  const API_KEY = "d4c807hr01qudf6h35i0d4c807hr01qudf6h35ig";
-
-  // Your assets
   const assets: Asset[] = [
-    { symbol: "NVDA", quantity: 5, costPerShare: 400 },
+    { symbol: "NVDA", quantity: 5, costPerShare: 272.41 },
     { symbol: "AAPL", quantity: 10, costPerShare: 150 },
   ];
 
@@ -42,33 +41,18 @@ export default function StockPrice() {
 
   async function fetchFinancialData() {
     setIsLoading(true);
-
     try {
-      const results: Record<string, number> = {};
-
+      const results: Record<string, number | null> = {};
       for (const asset of assets) {
-        // const url = new URL(`${FINNHUB_API_BASE_URL}/quote`);
-        // url.searchParams.append("symbol", asset.symbol);
-        // url.searchParams.append("token", API_KEY);
-
-        // const response = await fetch(url.toString());
-        // if (!response.ok) throw new Error("Fetch error");
-
-        // const data = await response.json();
-
-        // Finnhub returns current price in "c"
         results[asset.symbol] = mockRes.c ?? null;
       }
-
       setPrices(results);
     } catch (error) {
       console.error("Error fetching prices:", error);
     }
-
     setIsLoading(false);
   }
 
-  // Load data on first render
   useEffect(() => {
     fetchFinancialData();
   }, []);
@@ -80,10 +64,16 @@ export default function StockPrice() {
     }));
   };
 
+  const totalPortfolioValue = assets.reduce((sum, a) => {
+    const p = prices[a.symbol];
+    return p ? sum + p * a.quantity : sum;
+  }, 0);
+
   if (isLoading) return <CommonLoading />;
 
   return (
     <div>
+      {/* Refresh Button */}
       <div className="px-4 flex justify-end w-full">
         <RefreshIcon
           className="cursor-pointer text-[30px] mb-4"
@@ -92,29 +82,43 @@ export default function StockPrice() {
       </div>
 
       <div className="flex flex-wrap w-full">
+        {/* Header */}
         <div className="w-full grid grid-cols-[2fr_1fr_1fr] gap-3 px-4 py-2">
-          <div className="text-[12px] flex items-center text-gray-400">4 สินทรัพย์</div>
+          <div className="text-[12px] flex items-center text-gray-400">
+            {assets.length} สินทรัพย์
+          </div>
           <div className="text-[12px] flex justify-end items-center text-gray-400">
-            มูลค่า (บาท)
+            มูลค่า (USD)
           </div>
           <div className="text-[12px] flex justify-end items-center text-gray-400">
             % กำไร
           </div>
         </div>
+
+        {/* Assets */}
         {assets.map((asset) => {
           const currentPrice = prices[asset.symbol];
           const cost = asset.costPerShare * asset.quantity;
           const marketValue =
             currentPrice !== null ? currentPrice * asset.quantity : null;
-          const profit = marketValue !== null ? marketValue - cost : null;
+          const profit = marketValue !== null ? marketValue - cost : 0;
           const profitPercent = profit !== null ? (profit / cost) * 100 : null;
-          const isProfit = profit !== null && profit > 0;
+
+          // Determine color based on profit/loss/break-even
+          const profitColor =
+            profit === null
+              ? "text-gray-500"
+              : profit > 0
+              ? "text-green-500"
+              : profit < 0
+              ? "text-red-500"
+              : "text-gray-500";
 
           const isExpanded = !!expanded[asset.symbol];
 
           return (
             <div key={asset.symbol} className="w-full shadow-sm">
-              {/* Top section (clickable) */}
+              {/* Top section */}
               <div
                 className="w-full grid grid-cols-[2fr_1fr_1fr] gap-3 px-4 py-2 cursor-pointer hover:bg-gray-800 transition"
                 onClick={() => toggleExpand(asset.symbol)}
@@ -123,24 +127,41 @@ export default function StockPrice() {
                   <div className="font-bold text-[16px]">{asset.symbol}</div>
                   <div className="text-[12px] flex items-center gap-1">
                     <ChartIcon />
-                    44.43%
+
+                    {marketValue && totalPortfolioValue > 0
+                      ? `${((marketValue / totalPortfolioValue) * 100).toFixed(
+                          2
+                        )}%`
+                      : "-"}
                   </div>
                 </div>
 
                 <div className="flex flex-col gap-1 items-end">
-                  <div className="font-bold text-[16px]">{fNumber(800000)}</div>
+                  <div className="font-bold text-[16px]">
+                    {marketValue ? fNumber(marketValue) : "-"}
+                  </div>
                   <div className="text-[12px] flex items-center gap-1 text-gray-300">
-                    ≈ {fNumber(20)} USD
+                    ≈ {marketValue ? fNumber(marketValue / 50) : "-"} USD
                   </div>
                 </div>
 
                 <div className="flex flex-col gap-1 items-end">
-                  <div className="font-bold text-[16px] flex items-center gap-1">
-                    <UpIcon className="text-[12px]" />
-                    44.43%
+                  <div
+                    className={`font-bold text-[16px] flex items-center gap-1 ${profitColor}`}
+                  >
+                    {profit > 0 ? (
+                      <UpIcon className="text-[12px]" />
+                    ) : profit < 0 ? (
+                      <DownIcon className="text-[12px]" />
+                    ) : null}
+                    {profitPercent ? `${profitPercent.toFixed(2)}%` : "0.00 %"}
                   </div>
-                  <div className="text-[12px] flex items-center gap-1">
-                    (+{fNumber(200)} THB)
+                  <div
+                    className={`text-[12px] flex items-center gap-1 ${profitColor}`}
+                  >
+                    {profit
+                      ? `${profit > 0 ? "+" : ""}${profit.toFixed(2)} USD`
+                      : "0.00 USD"}
                   </div>
                 </div>
               </div>
@@ -153,41 +174,37 @@ export default function StockPrice() {
                     <span className="!text-white">{asset.quantity}</span>
                   </div>
                   <div>
-                    ราคาปัจจุบัน (USD):{" "}
+                    ราคาปัจจุบัน:{" "}
                     <span className="!text-white">{currentPrice ?? "-"}</span>
                   </div>
                   <div>
-                    ต้นทุนต่อหุ้น (USD):{" "}
+                    ต้นทุนต่อหุ้น:{" "}
                     <span className="!text-white">{asset.costPerShare}</span>
                   </div>
                   <div>
-                    ต้นทุนรวม (USD): <span className="!text-white">{cost}</span>
+                    ต้นทุนรวม: <span className="!text-white">{cost}</span>
                   </div>
                   <div>
                     กำไร/ขาดทุน:{" "}
-                    <span
-                      className={isProfit ? "text-green-500" : "text-red-500"}
-                    >
+                    <span className={profitColor}>
                       {profit !== null
-                        ? `${isProfit ? "+" : ""}${profit.toFixed(2)}`
+                        ? `${profit > 0 ? "+" : ""}${profit.toFixed(2)}`
                         : "-"}
                     </span>
                   </div>
                   <div>
                     เปอร์เซ็นต์:{" "}
-                    <span
-                      className={isProfit ? "text-green-500" : "text-red-500"}
-                    >
+                    <span className={profitColor}>
                       {profitPercent !== null
-                        ? `${isProfit ? "+" : ""}${profitPercent.toFixed(2)}%`
+                        ? `${profit > 0 ? "+" : ""}${profitPercent.toFixed(2)}%`
                         : "-"}
                     </span>
                   </div>
                 </div>
               )}
 
-              {/* Partial divider */}
-              <div className="mx-auto border-b border-white opacity-20 mx-4 my-2"></div>
+              {/* Divider */}
+              <div className="border-b border-white opacity-20 mx-4 my-2"></div>
             </div>
           );
         })}
