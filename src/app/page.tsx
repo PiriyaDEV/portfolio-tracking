@@ -21,7 +21,7 @@ type Asset = {
 export default function StockPrice() {
   const [prices, setPrices] = useState<Record<string, number | null>>({});
   const [logos, setLogos] = useState<Record<string, string | null>>({});
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [currencyRate, setCurrencyRate] = useState<number>(0);
   const [formattedDate, setFormattedDate] = useState("");
@@ -261,6 +261,8 @@ export default function StockPrice() {
 
   // Render login screen
   if (!isLoggedIn) {
+    if (isLoading) return <CommonLoading />; // Show loading while logging in
+
     return (
       <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-70 z-50">
         <div className="bg-black-lighter p-6 rounded-lg w-[300px] flex flex-col gap-4">
@@ -272,13 +274,15 @@ export default function StockPrice() {
             value={userId}
             onChange={(e) => setUserId(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleLogin()}
+            disabled={isLoading} // disable input while logging in
           />
           {loginError && <p className="!text-red-500 text-sm">{loginError}</p>}
           <button
             className="bg-accent-yellow text-white p-2 rounded"
             onClick={handleLogin}
+            disabled={isLoading} // disable button while logging in
           >
-            Login
+            {isLoading ? "Loading..." : "Login"}
           </button>
         </div>
       </div>
