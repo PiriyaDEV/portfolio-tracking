@@ -57,8 +57,8 @@ export default function StockPrice() {
     setFormattedDate(`${day} ${month} ${year} ${hours}:${minutes} น.`);
   }, []);
 
-  const assets: Asset[] = [
-    { symbol: "NVDA1", quantity: 13, costPerShare: 181.9361 },
+  let assets: Asset[] = [
+    { symbol: "NVDA", quantity: 13, costPerShare: 181.9361 },
     { symbol: "TSLA", quantity: 2.4963855, costPerShare: 391.3258 },
     { symbol: "IONQ", quantity: 6, costPerShare: 42.57 },
     {
@@ -78,9 +78,12 @@ export default function StockPrice() {
       const results: Record<string, number | null> = {};
       let res: any = {};
 
+      // We'll create a new array to store valid assets
+      const validAssets: Asset[] = [];
+
       for (const asset of assets) {
         if (isMock) {
-          res = { c: 190.17 };
+          res = { c: 190.17, d: null, dp: null, h: 0, l: 0, o: 0, pc: 0, t: 0 };
         } else {
           const url = new URL(`${FINNHUB_API_BASE_URL}/quote`);
           url.searchParams.append("symbol", asset.symbol);
@@ -91,9 +94,25 @@ export default function StockPrice() {
 
           res = await response.json();
         }
-        results[asset.symbol] = res.c ?? null;
+
+        // Check if response is valid
+        const isInvalid =
+          res.c === 0 &&
+          (res.d === null || res.dp === null) &&
+          res.h === 0 &&
+          res.l === 0 &&
+          res.o === 0 &&
+          res.pc === 0;
+
+        if (!isInvalid) {
+          results[asset.symbol] = res.c ?? null;
+          validAssets.push(asset);
+        }
       }
+
+      // Update state and assets array
       setPrices(results);
+      assets = validAssets; // remove invalid assets
     } catch (error) {
       console.error("Error fetching prices:", error);
     }
@@ -136,23 +155,45 @@ export default function StockPrice() {
     0
   );
 
+  const totalChangePercent =
+    assets.reduce((sum, asset) => {
+      const currentPrice = prices[asset.symbol] ?? 0;
+      if (currentPrice === 0) return sum;
+      const res = isMock ? { pc: asset.costPerShare } : undefined;
+      const previousClose = res?.pc ?? asset.costPerShare;
+      return sum + ((currentPrice - previousClose) / previousClose) * 100;
+    }, 0) / assets.length;
+
+  // คำนวณกำไร/ขาดทุนรวมของพอร์ต
+  const totalCostUsd = assets.reduce(
+    (sum, asset) => sum + asset.quantity * asset.costPerShare,
+    0
+  );
+
+  const totalMarketUsd = assets.reduce((sum, asset) => {
+    const currentPrice = prices[asset.symbol] ?? 0;
+    return sum + currentPrice * asset.quantity;
+  }, 0);
+
+  const totalProfitUsd = totalMarketUsd - totalCostUsd;
+  const totalProfitThb = totalProfitUsd * currencyRate;
+  const totalProfitPercent =
+    totalCostUsd > 0 ? (totalProfitUsd / totalCostUsd) * 100 : 0;
+
+  function getProfitColor(profit: number): string {
+    if (profit > 0) return "!text-green-500";
+    if (profit < 0) return "!text-red-500";
+    return "!text-gray-500";
+  }
+
   const renderFooter = () => (
     <div className="fixed bottom-0 left-1/2 -translate-x-1/2 bg-black-lighter py-5 w-full sm:w-[450px]">
-      <div className="container mx-auto px-4 flex items-center justify-between gap-7">
-        <div>
-          {/* Write this here */}
-          <div className="font-bold text-[12px] text-gray-300">
-            {/* เปลี่ยนจากวันก่อน  */}
-          </div>
-          <div className="font-bold text-[12px] text-gray-300">
-            {/* กำไรของทรัพย์ที่ถืออยู่  : */}
-          </div>
-        </div>
+      <div className="container mx-auto px-4 flex flex-col gap-2 text-center">
         <div>
           <div className="font-bold text-[12px] text-gray-300">
             มูลค่าเงินทั้งหมด ({formattedDate}) :
           </div>
-          <div className="font-bold text-[24px]">
+          <div className="font-bold text-[26px] mt-1">
             {fNumber(totalPortfolioValue * currencyRate)} บาท
             <span className="ml-2">
               {(() => {
@@ -174,6 +215,43 @@ export default function StockPrice() {
             </span>
           </div>
         </div>
+
+        <div className="border-b border-accent-yellow opacity-40 mx-4 my-2"></div>
+
+        <div className="flex flex-col items-center gap-2 justify-center">
+          <div className="font-bold text-[10px] flex items-center gap-1">
+            % เปลี่ยนจากวันก่อน :{" "}
+            <span
+              className={`flex items-center gap-1 ${getProfitColor(
+                totalChangePercent
+              )}`}
+            >
+              {totalChangePercent > 0 ? (
+                <UpIcon className="text-[12px]" />
+              ) : totalChangePercent < 0 ? (
+                <DownIcon className="text-[12px]" />
+              ) : null}
+              {fNumber(totalChangePercent)}%
+            </span>
+          </div>
+
+          <div className="font-bold text-[10px] flex items-center gap-1">
+            % กำไรของทรัพย์ที่ถืออยู่ :{" "}
+            <span
+              className={`flex items-center gap-1 ${getProfitColor(
+                totalChangePercent
+              )}`}
+            >
+              {totalChangePercent > 0 ? (
+                <UpIcon className="text-[12px]" />
+              ) : totalChangePercent < 0 ? (
+                <DownIcon className="text-[12px]" />
+              ) : null}
+              {fNumber(totalProfitPercent)}% (
+              {totalProfitPercent > 0 ? "+" : ""} {fNumber(totalProfitThb)} บาท)
+            </span>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -181,9 +259,9 @@ export default function StockPrice() {
   if (isLoading) return <CommonLoading />;
 
   return (
-    <div>
+    <div className="mt-[81px] mb-[172px]">
       {/* Refresh Button */}
-      <div className="px-4 flex justify-end w-full mt-[81px]">
+      <div className="px-4 flex justify-end w-full ">
         <RefreshIcon
           className="cursor-pointer text-[30px] mb-4"
           onClick={() => {
@@ -215,12 +293,7 @@ export default function StockPrice() {
           const profit = marketValueUsd - cost;
           const profitPercent = cost > 0 ? (profit / cost) * 100 : 0;
 
-          const profitColor =
-            profit > 0
-              ? "text-green-500"
-              : profit < 0
-              ? "text-red-500"
-              : "text-gray-500";
+          const profitColor = getProfitColor(profit);
 
           const isExpanded = !!expanded[asset.symbol];
 
