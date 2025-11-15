@@ -1,0 +1,11 @@
+/* Style the toggle when it's checked */
+.toggle:checked {
+  background-color: white !important;
+  --tglbg: #4366f4 !important;
+}
+
+/* Style the toggle when it's unchecked */
+.toggle {
+  background-color: #4366f4 !important;
+  border-color: #c5c6c7;
+}
