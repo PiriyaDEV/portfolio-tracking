@@ -23,22 +23,43 @@ export default function StockPrice() {
   const [isLoading, setIsLoading] = useState(false);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [currencyRate, setCurrencyRate] = useState<number>(0);
+  const isMock = true;
 
   const assets: Asset[] = [
     { symbol: "NVDA", quantity: 13, costPerShare: 181.9361 },
     { symbol: "TSLA", quantity: 2.4963855, costPerShare: 391.3258 },
     { symbol: "IONQ", quantity: 6, costPerShare: 42.57 },
+    {
+      symbol: "BINANCE:BTCUSDT",
+      quantity: 0.0031655,
+      costPerShare: 97305.11738593,
+    },
   ];
 
-  let mockRes = { c: 190.17 };
+  const FINNHUB_API_BASE_URL = "https://finnhub.io/api/v1";
+  const API_KEY = "d4c807hr01qudf6h35i0d4c807hr01qudf6h35ig";
 
   async function fetchFinancialData() {
     setIsLoading(true);
 
     try {
       const results: Record<string, number | null> = {};
+      let res: any = {};
+
       for (const asset of assets) {
-        results[asset.symbol] = mockRes.c ?? null;
+        if (isMock) {
+          res = { c: 190.17 };
+        } else {
+          const url = new URL(`${FINNHUB_API_BASE_URL}/quote`);
+          url.searchParams.append("symbol", asset.symbol);
+          url.searchParams.append("token", API_KEY);
+
+          const response = await fetch(url.toString());
+          if (!response.ok) throw new Error("Fetch error");
+
+          res = await response.json();
+        }
+        results[asset.symbol] = res.c ?? null;
       }
       setPrices(results);
     } catch (error) {
@@ -49,17 +70,26 @@ export default function StockPrice() {
   }
 
   async function fetchFxRate() {
-    // const res = await fetch("/api/usbToThb", {
-    //   method: "POST",
-    //   headers: { "Content-Type": "application/json" },
-    // });
-    // if (!res.ok) {
-    //   throw new Error(`BOT API Error: ${res.status} ${res.statusText}`);
-    // }
-    // const data = await res.json();
-    // setCurrencyRate(Number(data.rate) ?? 0);
-    // console.log("data", data);
-    setCurrencyRate(Number(32.31) ?? 0);
+    if (isMock) {
+      setCurrencyRate(Number(32.31) ?? 0);
+    } else {
+      const res = await fetch("/api/usbToThb", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (!res.ok) {
+        throw new Error(`BOT API Error: ${res.status} ${res.statusText}`);
+      }
+      const data = await res.json();
+      setCurrencyRate(Number(data.rate) ?? 0);
+    }
+  }
+
+  function getName(name: string) {
+    if (name == "BINANCE:BTCUSDT") {
+      return "BTC";
+    }
+    return name;
   }
 
   useEffect(() => {
@@ -134,7 +164,9 @@ export default function StockPrice() {
               >
                 {/* Left column */}
                 <div className="flex flex-col gap-1">
-                  <div className="font-bold text-[16px]">{asset.symbol}</div>
+                  <div className="font-bold text-[16px]">
+                    {getName(asset.symbol)}
+                  </div>
 
                   <div className="text-[12px] flex items-center gap-1">
                     <ChartIcon />
@@ -170,7 +202,8 @@ export default function StockPrice() {
                   </div>
 
                   <div className={`text-[12px] ${profitColor}`}>
-                    ({profit > 0 ? "+" : ""}{fNumber(profit * currencyRate)} บาท)
+                    ({profit > 0 ? "+" : ""}
+                    {fNumber(profit * currencyRate)} บาท)
                   </div>
                 </div>
               </div>
