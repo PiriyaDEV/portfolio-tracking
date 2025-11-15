@@ -33,6 +33,8 @@ export default function StockPrice() {
   useEffect(() => {
     if (isLoggedIn) {
       loadData();
+    } else {
+      fetchUserData();
     }
 
     const now = new Date();
@@ -59,16 +61,7 @@ export default function StockPrice() {
     setFormattedDate(`${day} ${month} ${year} ${hours}:${minutes} น.`);
   }, [isLoggedIn]);
 
-  let assets: Asset[] = [
-    { symbol: "AAPL", quantity: 13, costPerShare: 181.9361 },
-    { symbol: "TSLA", quantity: 2.4963855, costPerShare: 391.3258 },
-    { symbol: "IONQ", quantity: 6, costPerShare: 42.57 },
-    {
-      symbol: "BINANCE:BTCUSDT",
-      quantity: 0.0031655,
-      costPerShare: 97305.11738593,
-    },
-  ];
+  const [assets, setAssets] = useState<any>(null);
 
   const defaultStockLogo =
     "https://png.pngtree.com/png-vector/20190331/ourmid/pngtree-growth-icon-vector--glyph-or-solid-style-icon-stock-png-image_876941.jpg";
@@ -99,7 +92,6 @@ export default function StockPrice() {
     setIsLoading(true);
 
     try {
-      // Run both promises in parallel
       await Promise.all([fetchFinancialData(), fetchFxRate()]);
 
       // Wait 1 second before turning off loader
@@ -111,10 +103,28 @@ export default function StockPrice() {
     }
   }
 
-  // Call this on initial load or button click
-  useEffect(() => {
-    loadData();
-  }, []);
+  async function fetchUserData() {
+    setIsLoading(true);
+
+    try {
+      console.log("call fetch data");
+      const userId = "0001";
+      const response = await fetch(`/api/user/${userId}`);
+
+      if (!response.ok) {
+        throw new Error(`API Error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const assets = JSON.parse(data.assets);
+
+      setAssets(assets);
+    } catch (err: any) {
+      console.error("Fetch error:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
   async function fetchFinancialData() {
     try {
@@ -147,7 +157,7 @@ export default function StockPrice() {
 
       setPrices(data.prices);
       setLogos(data.logos);
-      assets = data.assets;
+      setAssets(data.assets);
       return data;
     } catch (error) {
       console.error(error);
@@ -185,27 +195,27 @@ export default function StockPrice() {
     }));
   };
 
-  const totalPortfolioValue = assets.reduce(
-    (sum, a) => sum + a.quantity * a.costPerShare,
+  const totalPortfolioValue = assets?.reduce(
+    (sum: any, a: any) => sum + a.quantity * a.costPerShare,
     0
   );
 
   const totalChangePercent =
-    assets.reduce((sum, asset) => {
+    assets?.reduce((sum: any, asset: any) => {
       const currentPrice = prices[asset.symbol] ?? 0;
       if (currentPrice === 0) return sum;
       const res = isMock ? { pc: asset.costPerShare } : undefined;
       const previousClose = res?.pc ?? asset.costPerShare;
       return sum + ((currentPrice - previousClose) / previousClose) * 100;
-    }, 0) / assets.length;
+    }, 0) / assets?.length;
 
   // คำนวณกำไร/ขาดทุนรวมของพอร์ต
-  const totalCostUsd = assets.reduce(
-    (sum, asset) => sum + asset.quantity * asset.costPerShare,
+  const totalCostUsd = assets?.reduce(
+    (sum: any, asset: any) => sum + asset.quantity * asset.costPerShare,
     0
   );
 
-  const totalMarketUsd = assets.reduce((sum, asset) => {
+  const totalMarketUsd = assets?.reduce((sum: any, asset: any) => {
     const currentPrice = prices[asset.symbol] ?? 0;
     return sum + currentPrice * asset.quantity;
   }, 0);
@@ -335,7 +345,7 @@ export default function StockPrice() {
         {/* Header */}
         <div className="w-full grid grid-cols-[2fr_1fr_1fr] gap-3 px-4 py-2">
           <div className="text-[12px] text-gray-400">
-            {assets.length} สินทรัพย์
+            {assets?.length} สินทรัพย์
           </div>
           <div className="text-[12px] text-gray-400 text-right">
             มูลค่า (THB)
@@ -343,7 +353,7 @@ export default function StockPrice() {
           <div className="text-[12px] text-gray-400 text-right">% กำไร</div>
         </div>
 
-        {assets.map((asset) => {
+        {assets?.map((asset: any) => {
           const currentPrice = prices[asset.symbol];
           const cost = asset.costPerShare * asset.quantity;
           const marketValueUsd =
