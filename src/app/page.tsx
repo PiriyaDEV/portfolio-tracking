@@ -24,9 +24,41 @@ export default function StockPrice() {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [currencyRate, setCurrencyRate] = useState<number>(0);
   const isMock = true;
+  const [formattedDate, setFormattedDate] = useState("");
+
+  useEffect(() => {
+    fetchFinancialData();
+    fetchFxRate();
+
+    const now = new Date();
+
+    // Map month to Thai abbreviation
+    const thaiMonths = [
+      "ม.ค",
+      "ก.พ",
+      "มี.ค",
+      "เม.ย",
+      "พ.ค",
+      "มิ.ย",
+      "ก.ค",
+      "ส.ค",
+      "ก.ย",
+      "ต.ค",
+      "พ.ย",
+      "ธ.ค",
+    ];
+
+    const day = now.getDate();
+    const month = thaiMonths[now.getMonth()];
+    const year = (now.getFullYear() + 543) % 100; // Thai Buddhist year short form
+    const hours = now.getHours().toString().padStart(2, "0");
+    const minutes = now.getMinutes().toString().padStart(2, "0");
+
+    setFormattedDate(`${day} ${month} ${year} ${hours}:${minutes} น.`);
+  }, []);
 
   const assets: Asset[] = [
-    { symbol: "NVDA", quantity: 13, costPerShare: 181.9361 },
+    { symbol: "NVDA1", quantity: 13, costPerShare: 181.9361 },
     { symbol: "TSLA", quantity: 2.4963855, costPerShare: 391.3258 },
     { symbol: "IONQ", quantity: 6, costPerShare: 42.57 },
     {
@@ -92,11 +124,6 @@ export default function StockPrice() {
     return name;
   }
 
-  useEffect(() => {
-    fetchFinancialData();
-    fetchFxRate();
-  }, []);
-
   const toggleExpand = (symbol: string) => {
     setExpanded((prev) => ({
       ...prev,
@@ -104,17 +131,59 @@ export default function StockPrice() {
     }));
   };
 
-  const totalPortfolioValue = assets.reduce((sum, a) => {
-    const p = prices[a.symbol];
-    return p ? sum + p * a.quantity : sum;
-  }, 0);
+  const totalPortfolioValue = assets.reduce(
+    (sum, a) => sum + a.quantity * a.costPerShare,
+    0
+  );
+
+  const renderFooter = () => (
+    <div className="fixed bottom-0 left-1/2 -translate-x-1/2 bg-black-lighter py-5 w-full sm:w-[450px]">
+      <div className="container mx-auto px-4 flex items-center justify-between gap-7">
+        <div>
+          {/* Write this here */}
+          <div className="font-bold text-[12px] text-gray-300">
+            {/* เปลี่ยนจากวันก่อน  */}
+          </div>
+          <div className="font-bold text-[12px] text-gray-300">
+            {/* กำไรของทรัพย์ที่ถืออยู่  : */}
+          </div>
+        </div>
+        <div>
+          <div className="font-bold text-[12px] text-gray-300">
+            มูลค่าเงินทั้งหมด ({formattedDate}) :
+          </div>
+          <div className="font-bold text-[24px]">
+            {fNumber(totalPortfolioValue * currencyRate)} บาท
+            <span className="ml-2">
+              {(() => {
+                const total = totalPortfolioValue;
+                if (total < 0) return "💀";
+                if (total < 500) return "😵‍💫";
+                if (total < 1_000) return "😅";
+                if (total < 3_000) return "🫠";
+                if (total < 5_000) return "🥱";
+                if (total < 10_000) return "🤑";
+                if (total < 50_000) return "😎";
+                if (total < 100_000) return "🤩";
+                if (total < 500_000) return "🥳";
+                if (total < 1_000_000) return "🚀";
+                if (total < 5_000_000) return "🌕";
+                if (total < 10_000_000) return "🪐";
+                return "💰";
+              })()}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 
   if (isLoading) return <CommonLoading />;
 
   return (
     <div>
       {/* Refresh Button */}
-      <div className="px-4 flex justify-end w-full">
+      <div className="px-4 flex justify-end w-full mt-[81px]">
         <RefreshIcon
           className="cursor-pointer text-[30px] mb-4"
           onClick={() => {
@@ -241,6 +310,8 @@ export default function StockPrice() {
           );
         })}
       </div>
+
+      {renderFooter()}
     </div>
   );
 }
