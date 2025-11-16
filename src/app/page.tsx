@@ -243,7 +243,7 @@ export default function StockPrice() {
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-70 z-50">
           <div className="bg-black-lighter p-6 rounded-lg w-[400px] flex flex-col gap-4">
             <h2 className="text-white font-bold text-xl text-center">
-              Edit Assets
+              แก้ไขสินทรัพย์
             </h2>
             <textarea
               className="p-2 rounded bg-white !text-black h-60"
@@ -255,7 +255,7 @@ export default function StockPrice() {
                 className="bg-gray-600 text-white p-2 rounded"
                 onClick={() => setIsEditOpen(false)}
               >
-                Cancel
+                ยกเลิก
               </button>
               <button
                 className="bg-accent-yellow text-black p-2 rounded"
@@ -265,7 +265,7 @@ export default function StockPrice() {
                   setIsLoading(false);
                 }}
               >
-                Save
+                บันทึก
               </button>
             </div>
           </div>
@@ -273,12 +273,12 @@ export default function StockPrice() {
       )}
 
       {/* Refresh Button */}
-      <div className="px-4 flex justify-between w-full">
+      <div className="fixed bg-black px-4 flex justify-between w-full z-[99] sm:max-w-[450px]">
         <button
-          className="bg-accent-yellow text-black p-2 rounded"
+          className="bg-accent-yellow text-black p-2 rounded text-[14px]"
           onClick={openEditModal}
         >
-          Edit Assets
+          แก้ไขสินทรัพย์
         </button>
         <RefreshIcon
           className="cursor-pointer text-[30px] mb-4"
@@ -286,7 +286,7 @@ export default function StockPrice() {
         />
       </div>
 
-      <div className="flex flex-wrap w-full">
+      <div className="flex flex-wrap w-full pt-[70px]">
         {/* Header */}
         <div className="w-full grid grid-cols-[2fr_1fr_1fr] gap-3 px-4 py-2">
           <div className="text-[12px] text-gray-400">
@@ -308,7 +308,7 @@ export default function StockPrice() {
           const profitColor = getProfitColor(profit);
           const isExpanded = !!expanded[asset.symbol];
           const portfolioValueUsd = assets.reduce(
-            (sum, a) => sum + a.quantity * a.costPerShare,
+            (sum, a) => sum + (prices[a.symbol] ?? 0) * a.quantity,
             0
           );
 
