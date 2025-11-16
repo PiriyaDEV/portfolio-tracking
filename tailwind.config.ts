@@ -12,10 +12,10 @@ export default {
       colors: {
         background: "var(--background)",
         foreground: "var(--foreground)",
-        "black": "#212020",
-        'black-lighter': '#2c2b2b',
+        "black": "#171616ff",
+        'black-lighter': '#1f1e1eff',
         "text-light": "#c5c6c7",
-        "accent-yellow": "#FFC107",
+        "accent-yellow": "#FFD700",
       },
     },
   },
@@ -24,8 +24,8 @@ export default {
       {
         dark: {
           ...require("daisyui/src/theming/themes")["dark"],
-          "base-content": "#ffffff",
-          "neutral-content": "#ffffff",
+          "base-content": "#fff",
+          "neutral-content": "#fff",
         },
       },
     ],

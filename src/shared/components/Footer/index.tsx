@@ -29,7 +29,7 @@ export default function FooterPortfolio({
   formattedDate,
   getProfitColor,
 }: Props) {
-  const [isOpen, setIsOpen] = useState(true);
+  const [isOpen, setIsOpen] = useState(false);
 
   if (!assets) return null;
 
@@ -73,7 +73,7 @@ export default function FooterPortfolio({
             <HiChevronDown
               onClick={() => setIsOpen(!isOpen)}
               className={`mt-2 !text-[16px] text-gray-300 transition-transform duration-200 ${
-                isOpen ? "rotate-180" : "rotate-0"
+                !isOpen ? "rotate-180" : "rotate-0"
               }`}
             />
           </div>
