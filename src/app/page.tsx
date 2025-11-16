@@ -10,13 +10,33 @@ import {
   FaArrowTrendUp as UpIcon,
   FaArrowTrendDown as DownIcon,
 } from "react-icons/fa6";
-import { fNumber } from "./lib/utils";
+import { fNumber, getLogo, getName, getProfitColor } from "./lib/utils";
+import { Asset } from "./lib/interface";
+import FooterPortfolio from "@/shared/components/Footer";
+import LoginModal from "@/shared/components/LoginModal";
 
-type Asset = {
-  symbol: string;
-  quantity: number;
-  costPerShare: number;
-};
+const now = new Date();
+const thaiMonths = [
+  "ม.ค",
+  "ก.พ",
+  "มี.ค",
+  "เม.ย",
+  "พ.ค",
+  "มิ.ย",
+  "ก.ค",
+  "ส.ค",
+  "ก.ย",
+  "ต.ค",
+  "พ.ย",
+  "ธ.ค",
+];
+const day = now.getDate();
+const month = thaiMonths[now.getMonth()];
+const year = (now.getFullYear() + 543) % 100;
+const hours = now.getHours().toString().padStart(2, "0");
+const minutes = now.getMinutes().toString().padStart(2, "0");
+
+const isMock = true;
 
 export default function StockPrice() {
   const [prices, setPrices] = useState<Record<string, number | null>>({});
@@ -29,6 +49,7 @@ export default function StockPrice() {
   const [loginError, setLoginError] = useState("");
   const [userId, setUserId] = useState("");
   const [assets, setAssets] = useState<Asset[] | null>(null);
+  const [userColId, setUserColId] = useState("");
 
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editText, setEditText] = useState("");
@@ -39,59 +60,14 @@ export default function StockPrice() {
     setIsEditOpen(true);
   };
 
-  const isMock = true;
-
   // Format date every render
   useEffect(() => {
-    const now = new Date();
-    const thaiMonths = [
-      "ม.ค",
-      "ก.พ",
-      "มี.ค",
-      "เม.ย",
-      "พ.ค",
-      "มิ.ย",
-      "ก.ค",
-      "ส.ค",
-      "ก.ย",
-      "ต.ค",
-      "พ.ย",
-      "ธ.ค",
-    ];
-    const day = now.getDate();
-    const month = thaiMonths[now.getMonth()];
-    const year = (now.getFullYear() + 543) % 100;
-    const hours = now.getHours().toString().padStart(2, "0");
-    const minutes = now.getMinutes().toString().padStart(2, "0");
     setFormattedDate(`${day} ${month} ${year} ${hours}:${minutes} น.`);
-  }, []);
 
-  useEffect(() => {
     if (isLoggedIn) {
       loadData();
     }
   }, [isLoggedIn]);
-
-  const defaultStockLogo =
-    "https://png.pngtree.com/png-vector/20190331/ourmid/pngtree-growth-icon-vector--glyph-or-solid-style-icon-stock-png-image_876941.jpg";
-  const defaultCryptoLogo =
-    "https://upload.wikimedia.org/wikipedia/commons/thumb/4/46/Bitcoin.svg/1200px-Bitcoin.svg.png";
-
-  function getLogo(symbol: string): string {
-    if (symbol === "BINANCE:BTCUSDT") return defaultCryptoLogo;
-    return logos?.[symbol] ?? defaultStockLogo;
-  }
-
-  function getName(symbol: string) {
-    if (symbol === "BINANCE:BTCUSDT") return "BTC";
-    return symbol;
-  }
-
-  function getProfitColor(profit: number): string {
-    if (profit > 0) return "!text-green-500";
-    if (profit < 0) return "!text-red-500";
-    return "!text-gray-500";
-  }
 
   const toggleExpand = (symbol: string) => {
     setExpanded((prev) => ({ ...prev, [symbol]: !prev[symbol] }));
@@ -124,15 +100,18 @@ export default function StockPrice() {
 
     const dataText = await response.text();
     let parsedAssets: Asset[];
+    let parsedUserId: string;
 
     try {
       const data = JSON.parse(dataText);
       parsedAssets = JSON.parse(data.assets);
+      parsedUserId = JSON.parse(data.userId);
     } catch {
       throw new Error("ไม่สามารถอ่านข้อมูลผู้ใช้งาน");
     }
 
     setAssets(parsedAssets);
+    setUserColId(parsedUserId);
     setIsLoggedIn(true);
   }
 
@@ -187,11 +166,12 @@ export default function StockPrice() {
     }
   }
 
-  const saveAssets = () => {
+  const saveAssets = async () => {
+    // setIsLoading(true);
     try {
       const parsed: Asset[] = JSON.parse(editText);
 
-      // Optional: basic validation
+      // Basic validation
       if (!Array.isArray(parsed)) throw new Error("JSON must be an array");
       for (const a of parsed) {
         if (!a.symbol || a.quantity == null || a.costPerShare == null) {
@@ -201,127 +181,50 @@ export default function StockPrice() {
         }
       }
 
-      setAssets(parsed);
-      setIsEditOpen(false);
-      loadData(); // refresh prices for updated assets
+      const res = await fetch(`/api/user/${userColId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ assets: parsed, isMock }), // send your parsed assets
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        alert("Error saving assets: " + JSON.stringify(data));
+        return;
+      } else {
+        setIsEditOpen(false);
+        fetchUserData();
+      }
+
+      console.log("Assets saved successfully:", data);
     } catch (err: any) {
-      alert("Error parsing JSON: " + err.message);
+      alert("Error: " + err.message);
     }
   };
 
-  // Render footer
-  const renderFooter = () => {
-    if (!assets) return null;
+  // Loading state (covers login + data loading)
+  if (isLoading) {
+    return <CommonLoading />;
+  }
 
-    const totalPortfolioValue = assets.reduce(
-      (sum, a) => sum + a.quantity * a.costPerShare,
-      0
-    );
-    const totalMarketUsd = assets.reduce((sum, asset) => {
-      const currentPrice = prices[asset.symbol] ?? 0;
-      return sum + currentPrice * asset.quantity;
-    }, 0);
-    const totalProfitUsd = totalMarketUsd - totalPortfolioValue;
-    const totalProfitThb = totalProfitUsd * currencyRate;
-    const totalProfitPercent =
-      totalPortfolioValue > 0
-        ? (totalProfitUsd / totalPortfolioValue) * 100
-        : 0;
-
-    const totalChangePercent =
-      assets.reduce((sum, asset) => {
-        const currentPrice = prices[asset.symbol] ?? 0;
-        if (currentPrice === 0) return sum;
-        const previousClose = asset.costPerShare;
-        return sum + ((currentPrice - previousClose) / previousClose) * 100;
-      }, 0) / assets.length;
-
-    return (
-      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 bg-black-lighter py-5 w-full sm:w-[450px]">
-        <div className="container mx-auto px-4 flex flex-col gap-2 text-center">
-          <div>
-            <div className="font-bold text-[12px] text-gray-300">
-              มูลค่าเงินทั้งหมด ({formattedDate}) :
-            </div>
-            <div className="font-bold text-[26px] mt-1">
-              {fNumber(totalPortfolioValue * currencyRate)} บาท
-            </div>
-          </div>
-
-          <div className="border-b border-accent-yellow opacity-40 mx-4 my-2"></div>
-
-          <div className="flex flex-col items-center gap-2 justify-center">
-            <div className="font-bold text-[10px] flex items-center gap-1">
-              % เปลี่ยนจากวันก่อน :{" "}
-              <span
-                className={`flex items-center gap-1 ${getProfitColor(
-                  totalChangePercent
-                )}`}
-              >
-                {totalChangePercent > 0 ? (
-                  <UpIcon className="text-[12px]" />
-                ) : totalChangePercent < 0 ? (
-                  <DownIcon className="text-[12px]" />
-                ) : null}
-                {fNumber(totalChangePercent)}%
-              </span>
-            </div>
-
-            <div className="font-bold text-[10px] flex items-center gap-1">
-              % กำไรของทรัพย์ที่ถืออยู่ :{" "}
-              <span
-                className={`flex items-center gap-1 ${getProfitColor(
-                  totalProfitUsd
-                )}`}
-              >
-                {totalProfitPercent > 0 ? (
-                  <UpIcon className="text-[12px]" />
-                ) : totalProfitPercent < 0 ? (
-                  <DownIcon className="text-[12px]" />
-                ) : null}
-                {fNumber(totalProfitPercent)}% (
-                {totalProfitPercent > 0 ? "+" : ""}
-                {fNumber(totalProfitThb)} บาท)
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  // Render login screen
+  // Not logged in → show login modal
   if (!isLoggedIn) {
-    if (isLoading) return <CommonLoading />; // Show loading while logging in
-
     return (
-      <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-70 z-50">
-        <div className="bg-black-lighter p-6 rounded-lg w-[300px] flex flex-col gap-4">
-          <h2 className="text-white text-xl font-bold text-center">Login</h2>
-          <input
-            type="password"
-            placeholder="Enter password"
-            className="p-2 rounded bg-white !text-black border border-accent-yellow"
-            value={userId}
-            onChange={(e) => setUserId(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleLogin()}
-            disabled={isLoading} // disable input while logging in
-          />
-          {loginError && <p className="!text-red-500 text-sm">{loginError}</p>}
-          <button
-            className="bg-accent-yellow text-white p-2 rounded"
-            onClick={handleLogin}
-            disabled={isLoading} // disable button while logging in
-          >
-            {isLoading ? "Loading..." : "Login"}
-          </button>
-        </div>
-      </div>
+      <LoginModal
+        isLoggedIn={isLoggedIn}
+        isLoading={isLoading}
+        userId={userId}
+        loginError={loginError}
+        setUserId={setUserId}
+        handleLogin={handleLogin}
+      />
     );
   }
 
-  if (isLoading || !assets) return <CommonLoading />;
-
+  // After logged in → wait for assets
+  if (!assets) {
+    return <CommonLoading />;
+  }
   // Render main portfolio
   return (
     <div className="mt-[81px] mb-[172px]">
@@ -404,10 +307,10 @@ export default function StockPrice() {
                   <div className="flex items-center gap-2">
                     <div
                       className={`w-[30px] h-[30px] rounded-full bg-cover bg-center border border-gray-600 ${
-                        getLogo(asset.symbol) ? "" : "bg-white"
+                        getLogo(asset.symbol, logos) ? "" : "bg-white"
                       }`}
                       style={{
-                        backgroundImage: `url(${getLogo(asset.symbol)})`,
+                        backgroundImage: `url(${getLogo(asset.symbol, logos)})`,
                       }}
                     />
                     <div className="font-bold text-[16px]">
@@ -483,7 +386,13 @@ export default function StockPrice() {
         })}
       </div>
 
-      {renderFooter()}
+      <FooterPortfolio
+        assets={assets}
+        prices={prices}
+        currencyRate={currencyRate}
+        formattedDate={formattedDate}
+        getProfitColor={getProfitColor}
+      />
     </div>
   );
 }

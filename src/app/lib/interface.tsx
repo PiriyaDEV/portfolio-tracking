@@ -13,3 +13,9 @@ export interface ItemObj {
   selectedMembers: MemberObj[];
   isEqualSplit?: boolean;
 }
+
+export type Asset = {
+  symbol: string;
+  quantity: number;
+  costPerShare: number;
+};

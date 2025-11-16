@@ -169,3 +169,26 @@ export function fTon(number: string | number) {
     Number.isInteger(n) ? "0,0" : "$0,0.00".replace("$", "")
   );
 }
+
+//Assets
+
+const defaultStockLogo =
+  "https://png.pngtree.com/png-vector/20190331/ourmid/pngtree-growth-icon-vector--glyph-or-solid-style-icon-stock-png-image_876941.jpg";
+const defaultCryptoLogo =
+  "https://upload.wikimedia.org/wikipedia/commons/thumb/4/46/Bitcoin.svg/1200px-Bitcoin.svg.png";
+
+export function getLogo(symbol: string, logos: any): string {
+  if (symbol === "BINANCE:BTCUSDT") return defaultCryptoLogo;
+  return logos?.[symbol] ?? defaultStockLogo;
+}
+
+export function getName(symbol: string) {
+  if (symbol === "BINANCE:BTCUSDT") return "BTC";
+  return symbol;
+}
+
+export function getProfitColor(profit: number): string {
+  if (profit > 0) return "!text-green-500";
+  if (profit < 0) return "!text-red-500";
+  return "!text-gray-500";
+}
