@@ -396,13 +396,13 @@ export default function StockPrice() {
                         type="number"
                         step="any"
                         className="w-full p-2 rounded bg-white !text-black border-accent-yellow border"
-                        value={asset.quantity === 0 ? "" : asset.quantity}
+                        value={asset.quantity || ""}
                         onChange={(e) => {
                           const val = e.target.value;
                           updateAsset(
                             index,
                             "quantity",
-                            val === "" ? 0 : parseFloat(val)
+                            val === "" ? "" : parseFloat(val) || ""
                           );
                         }}
                         placeholder="0"
@@ -417,15 +417,13 @@ export default function StockPrice() {
                         type="number"
                         step="any"
                         className="w-full p-2 rounded bg-white !text-black border-accent-yellow border"
-                        value={
-                          asset.costPerShare === 0 ? "" : asset.costPerShare
-                        }
+                        value={asset.costPerShare || ""}
                         onChange={(e) => {
                           const val = e.target.value;
                           updateAsset(
                             index,
                             "costPerShare",
-                            val === "" ? 0 : parseFloat(val)
+                            val === "" ? "" : parseFloat(val) || ""
                           );
                         }}
                         placeholder="0.00"
@@ -538,13 +536,13 @@ export default function StockPrice() {
                       type="number"
                       step="any"
                       className="w-full p-2 rounded bg-white !text-black border-accent-yellow border"
-                      value={asset.quantity === 0 ? "" : asset.quantity}
+                      value={asset.quantity || ""}
                       onChange={(e) => {
                         const val = e.target.value;
                         updateAsset(
                           index,
                           "quantity",
-                          val === "" ? 0 : parseFloat(val)
+                          val === "" ? "" : parseFloat(val) || ""
                         );
                       }}
                       placeholder="0"
@@ -559,13 +557,13 @@ export default function StockPrice() {
                       type="number"
                       step="any"
                       className="w-full p-2 rounded bg-white !text-black border-accent-yellow border"
-                      value={asset.costPerShare === 0 ? "" : asset.costPerShare}
+                      value={asset.costPerShare || ""}
                       onChange={(e) => {
                         const val = e.target.value;
                         updateAsset(
                           index,
                           "costPerShare",
-                          val === "" ? 0 : parseFloat(val)
+                          val === "" ? "" : parseFloat(val) || ""
                         );
                       }}
                       placeholder="0.00"
