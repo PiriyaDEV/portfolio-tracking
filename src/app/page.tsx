@@ -9,7 +9,6 @@ import {
 import {
   FaArrowTrendUp as UpIcon,
   FaArrowTrendDown as DownIcon,
-  FaChartLine,
 } from "react-icons/fa6";
 import { fNumber, getLogo, getName, getProfitColor } from "./lib/utils";
 import { Asset } from "./lib/interface";
@@ -18,6 +17,8 @@ import LoginModal from "@/shared/components/LoginModal";
 import EditModal from "@/shared/components/EditModal";
 import { NoItem } from "@/shared/components/NoItem";
 import BottomNavbar from "@/shared/components/Navbar";
+import MarketScreen from "@/shared/components/MarketScreen";
+import CalculateScreen from "@/shared/components/CalculateScreen";
 
 const now = new Date();
 const thaiMonths = [
@@ -352,150 +353,167 @@ export default function StockPrice() {
       )}
 
       {/* Refresh Button */}
-      <div className="fixed bg-black px-4 flex justify-between items-center w-full z-[99] sm:max-w-[450px] pb-5">
-        <button
-          className="bg-accent-yellow text-black p-2 rounded text-[14px] flex items-center justify-center h-[40px]"
-          onClick={openEditModal}
-        >
-          แก้ไขสินทรัพย์
-        </button>
-        <RefreshIcon
-          className="cursor-pointer text-[30px]"
-          onClick={loadData}
-        />
-      </div>
+      {currentPage === "portfolio" && (
+        <div className="fixed bg-black px-4 flex justify-between items-center w-full z-[99] sm:max-w-[450px] pb-5">
+          <button
+            className="bg-accent-yellow text-black p-2 rounded text-[14px] flex items-center justify-center h-[40px]"
+            onClick={openEditModal}
+          >
+            แก้ไขสินทรัพย์
+          </button>
+          <RefreshIcon
+            className="cursor-pointer text-[30px]"
+            onClick={loadData}
+          />
+        </div>
+      )}
 
       {/* Portfolio Header */}
       <div className="flex flex-wrap w-full">
-        <div className="w-full grid grid-cols-[2fr_1fr_1fr] gap-3 px-4 py-2 cursor-pointer fixed top-[140px] z-[99] sm:max-w-[450px] bg-black">
-          <div
-            className="text-[12px] text-gray-400 flex items-center gap-1"
-            onClick={() => toggleSort("asset")}
-          >
-            สินทรัพย์ {sortBy === "asset" && (sortOrder === "asc" ? "▲" : "▼")}
-          </div>
-          <div
-            className="text-[12px] text-gray-400 text-right flex items-center justify-end gap-1"
-            onClick={() => toggleSort("value")}
-          >
-            มูลค่า (THB){" "}
-            {sortBy === "value" && (sortOrder === "asc" ? "▲" : "▼")}
-          </div>
-          <div
-            className="text-[12px] text-gray-400 text-right flex items-center justify-end gap-1"
-            onClick={() => toggleSort("profit")}
-          >
-            % กำไร {sortBy === "profit" && (sortOrder === "asc" ? "▲" : "▼")}
-          </div>
-        </div>
+        {currentPage === "market" && <MarketScreen />}
+        {currentPage === "calculator" && (
+          <CalculateScreen
+            assets={assets}
+            prices={prices}
+            currencyRate={currencyRate}
+            logos={logos}
+          />
+        )}
+        {currentPage === "portfolio" && (
+          <>
+            <div className="w-full grid grid-cols-[2fr_1fr_1fr] gap-3 px-4 py-2 cursor-pointer fixed top-[140px] z-[99] sm:max-w-[450px] bg-black">
+              <div
+                className="text-[12px] text-gray-400 flex items-center gap-1"
+                onClick={() => toggleSort("asset")}
+              >
+                สินทรัพย์{" "}
+                {sortBy === "asset" && (sortOrder === "asc" ? "▲" : "▼")}
+              </div>
+              <div
+                className="text-[12px] text-gray-400 text-right flex items-center justify-end gap-1"
+                onClick={() => toggleSort("value")}
+              >
+                มูลค่า (THB){" "}
+                {sortBy === "value" && (sortOrder === "asc" ? "▲" : "▼")}
+              </div>
+              <div
+                className="text-[12px] text-gray-400 text-right flex items-center justify-end gap-1"
+                onClick={() => toggleSort("profit")}
+              >
+                % กำไร{" "}
+                {sortBy === "profit" && (sortOrder === "asc" ? "▲" : "▼")}
+              </div>
+            </div>
 
-        <div className="mt-[100px] mb-[50px]">
-          {/* Portfolio Rows */}
-          {sortedAssets.map((asset) => {
-            const currentPrice = prices[asset.symbol] ?? 0;
-            const cost = asset.costPerShare * asset.quantity;
-            const marketValueUsd = currentPrice * asset.quantity;
-            const marketValueThb = marketValueUsd * currencyRate;
-            const profit = currentPrice > 0 ? marketValueUsd - cost : 0;
-            const profitPercent =
-              currentPrice > 0 && cost > 0 ? (profit / cost) * 100 : 0;
-            const profitColor = getProfitColor(profit);
-            const isExpanded = !!expanded[asset.symbol];
-            const portfolioValueUsd = assets.reduce(
-              (sum, a) => sum + (prices[a.symbol] ?? 0) * a.quantity,
-              0
-            );
+            <div className="mt-[100px] mb-[50px]">
+              {/* Portfolio Rows */}
+              {sortedAssets.map((asset) => {
+                const currentPrice = prices[asset.symbol] ?? 0;
+                const cost = asset.costPerShare * asset.quantity;
+                const marketValueUsd = currentPrice * asset.quantity;
+                const marketValueThb = marketValueUsd * currencyRate;
+                const profit = currentPrice > 0 ? marketValueUsd - cost : 0;
+                const profitPercent =
+                  currentPrice > 0 && cost > 0 ? (profit / cost) * 100 : 0;
+                const profitColor = getProfitColor(profit);
+                const isExpanded = !!expanded[asset.symbol];
+                const portfolioValueUsd = assets.reduce(
+                  (sum, a) => sum + (prices[a.symbol] ?? 0) * a.quantity,
+                  0
+                );
 
-            return (
-              <div key={asset.symbol} className="w-full shadow-sm">
-                <div
-                  className="w-full grid grid-cols-[2fr_1fr_1fr] gap-3 px-4 py-2 cursor-pointer hover:bg-gray-800"
-                  onClick={() => toggleExpand(asset.symbol)}
-                >
-                  <div className="flex flex-col gap-1">
-                    <div className="flex items-center gap-2">
-                      <div
-                        className={`w-[30px] h-[30px] rounded-full bg-cover bg-center border border-gray-600 ${
-                          getLogo(asset.symbol, logos) ? "" : "bg-white"
-                        }`}
-                        style={{
-                          backgroundImage: `url(${getLogo(
-                            asset.symbol,
-                            logos
-                          )})`,
-                        }}
-                      />
-                      <div className="font-bold text-[16px]">
-                        {getName(asset.symbol)}
+                return (
+                  <div key={asset.symbol} className="w-full shadow-sm">
+                    <div
+                      className="w-full grid grid-cols-[2fr_1fr_1fr] gap-3 px-4 py-2 cursor-pointer hover:bg-gray-800"
+                      onClick={() => toggleExpand(asset.symbol)}
+                    >
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2">
+                          <div
+                            className={`w-[30px] h-[30px] rounded-full bg-cover bg-center border border-gray-600 ${
+                              getLogo(asset.symbol, logos) ? "" : "bg-white"
+                            }`}
+                            style={{
+                              backgroundImage: `url(${getLogo(
+                                asset.symbol,
+                                logos
+                              )})`,
+                            }}
+                          />
+                          <div className="font-bold text-[16px]">
+                            {getName(asset.symbol)}
+                          </div>
+                        </div>
+                        <div className="text-[12px] flex items-center gap-1">
+                          <ChartIcon />
+                          {portfolioValueUsd > 0
+                            ? `${fNumber(
+                                (marketValueUsd / portfolioValueUsd) * 100
+                              )}%`
+                            : "0.00%"}
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end whitespace-nowrap">
+                        <div className="font-bold text-[16px]">
+                          {fNumber(marketValueThb)} THB
+                        </div>
+                        <div className="text-[12px] text-gray-300">
+                          ≈ {fNumber(marketValueUsd)} USD
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end">
+                        <div
+                          className={`font-bold text-[16px] flex items-center gap-1 ${profitColor}`}
+                        >
+                          {profit > 0 ? (
+                            <UpIcon className="text-[12px]" />
+                          ) : profit < 0 ? (
+                            <DownIcon className="text-[12px]" />
+                          ) : null}
+                          {fNumber(profitPercent)}%
+                        </div>
+                        <div className={`text-[12px] ${profitColor}`}>
+                          ({profit > 0 ? "+" : ""}
+                          {fNumber(profit * currencyRate)} บาท)
+                        </div>
                       </div>
                     </div>
-                    <div className="text-[12px] flex items-center gap-1">
-                      <ChartIcon />
-                      {portfolioValueUsd > 0
-                        ? `${fNumber(
-                            (marketValueUsd / portfolioValueUsd) * 100
-                          )}%`
-                        : "0.00%"}
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-end whitespace-nowrap">
-                    <div className="font-bold text-[16px]">
-                      {fNumber(marketValueThb)} THB
-                    </div>
-                    <div className="text-[12px] text-gray-300">
-                      ≈ {fNumber(marketValueUsd)} USD
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-end">
-                    <div
-                      className={`font-bold text-[16px] flex items-center gap-1 ${profitColor}`}
-                    >
-                      {profit > 0 ? (
-                        <UpIcon className="text-[12px]" />
-                      ) : profit < 0 ? (
-                        <DownIcon className="text-[12px]" />
-                      ) : null}
-                      {fNumber(profitPercent)}%
-                    </div>
-                    <div className={`text-[12px] ${profitColor}`}>
-                      ({profit > 0 ? "+" : ""}
-                      {fNumber(profit * currencyRate)} บาท)
-                    </div>
-                  </div>
-                </div>
 
-                {isExpanded && (
-                  <div className="mt-2 bg-black-lighter text-[12px] grid grid-cols-2 gap-1 px-4 py-2 text-gray-300">
-                    <div>
-                      จำนวนหุ้น:{" "}
-                      <span className="text-white">
-                        {fNumber(asset.quantity, { decimalNumber: 7 })}
-                      </span>
-                    </div>
-                    <div>
-                      ราคาปัจจุบัน:{" "}
-                      <span className="text-white">
-                        {fNumber(currentPrice)}
-                      </span>
-                    </div>
-                    <div>
-                      ต้นทุนต่อหุ้น:{" "}
-                      <span className="text-white">
-                        {fNumber(asset.costPerShare)}
-                      </span>
-                    </div>
-                    <div>
-                      ต้นทุนรวม:{" "}
-                      <span className="text-white">{fNumber(cost)}</span>
-                    </div>
-                  </div>
-                )}
+                    {isExpanded && (
+                      <div className="mt-2 bg-black-lighter text-[12px] grid grid-cols-2 gap-1 px-4 py-2 text-gray-300">
+                        <div>
+                          จำนวนหุ้น:{" "}
+                          <span className="text-white">
+                            {fNumber(asset.quantity, { decimalNumber: 7 })}
+                          </span>
+                        </div>
+                        <div>
+                          ราคาปัจจุบัน:{" "}
+                          <span className="text-white">
+                            {fNumber(currentPrice)} USD
+                          </span>
+                        </div>
+                        <div>
+                          ต้นทุนต่อหุ้น:{" "}
+                          <span className="text-white">
+                            {fNumber(asset.costPerShare)} USD
+                          </span>
+                        </div>
+                        <div>
+                          ต้นทุนรวม:{" "}
+                          <span className="text-white">{fNumber(cost)}</span> USD
+                        </div>
+                      </div>
+                    )}
 
-                <div className="border-b border-white opacity-10 mx-4 my-2"></div>
-              </div>
-            );
-          })}
-        </div>
+                    <div className="border-b border-white opacity-10 mx-4 my-2"></div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
       </div>
 
       <FooterPortfolio
