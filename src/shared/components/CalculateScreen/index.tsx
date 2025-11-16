@@ -34,6 +34,16 @@ export default function CalculatorScreen({
   const [newPrice, setNewPrice] = useState<string>("");
   const [newCostPerShare, setNewCostPerShare] = useState<number | null>(null);
 
+  const [afterData, setAfterData] = useState<{
+    quantity: number;
+    costPerShare: number;
+    totalCost: number;
+    marketValueUsd: number;
+    marketValueThb: number;
+    profit: number;
+    profitPercent: number;
+  } | null>(null);
+
   const calculateNewCost = () => {
     const asset = assets.find((a) => a.symbol === selectedSymbol);
     if (!asset) return;
@@ -43,21 +53,38 @@ export default function CalculatorScreen({
 
     if (isNaN(investment) || isNaN(price) || price <= 0) return;
 
-    const newQuantity = investment / price;
-    const newTotalQuantity = asset.quantity + newQuantity;
-    const newTotalCost =
-      asset.quantity * asset.costPerShare + investment / currencyRate; // THB -> USD
+    const investmentUSD = investment / currencyRate;
+    const newQty = investmentUSD / price;
+    const totalQty = asset.quantity + newQty;
+    const totalCostUSD = asset.quantity * asset.costPerShare + investmentUSD;
+    const averageCostUSD = totalCostUSD / totalQty;
 
-    const averageCost = newTotalCost / newTotalQuantity;
-    setNewCostPerShare(averageCost * currencyRate); // show in THB
+    setNewCostPerShare(averageCostUSD);
+
+    // Update after card data
+    const currentPrice = prices[asset.symbol] ?? 0;
+    const marketValueUsd = currentPrice * totalQty;
+    const marketValueThb = marketValueUsd * currencyRate;
+    const profit = marketValueUsd - totalCostUSD;
+    const profitPercent = totalCostUSD > 0 ? (profit / totalCostUSD) * 100 : 0;
+
+    setAfterData({
+      quantity: totalQty,
+      costPerShare: averageCostUSD,
+      totalCost: totalCostUSD,
+      marketValueUsd,
+      marketValueThb,
+      profit,
+      profitPercent,
+    });
   };
 
   const asset = assets.find((a) => a.symbol === selectedSymbol);
   if (!asset) return null;
 
-  // Calculations for before
+  // --- Before calculations ---
   const currentPrice = prices[asset.symbol] ?? 0;
-  const cost = asset.quantity * asset.costPerShare;
+  const cost = asset.quantity * asset.costPerShare; // USD
   const marketValueUsd = currentPrice * asset.quantity;
   const marketValueThb = marketValueUsd * currencyRate;
   const profit = marketValueUsd - cost;
@@ -65,30 +92,8 @@ export default function CalculatorScreen({
   const profitColor =
     profit > 0 ? "text-green-500" : profit < 0 ? "text-red-500" : "text-white";
 
-  // Calculations for after
-  let afterQuantity = asset.quantity;
-  let afterCostPerShare = asset.costPerShare;
-  let afterCost = cost;
-  let afterMarketValueUsd = marketValueUsd;
-  let afterMarketValueThb = marketValueThb;
-  let afterProfit = profit;
-  let afterProfitPercent = profitPercent;
-
-  if (newCostPerShare !== null) {
-    const investment = parseFloat(newInvestment);
-    const price = parseFloat(newPrice);
-    const newQty = investment / price;
-    afterQuantity += newQty;
-    afterCostPerShare = newCostPerShare;
-    afterCost = afterQuantity * (afterCostPerShare / currencyRate);
-    afterMarketValueUsd = currentPrice * afterQuantity;
-    afterMarketValueThb = afterMarketValueUsd * currencyRate;
-    afterProfit = afterMarketValueUsd - afterCost;
-    afterProfitPercent = afterCost > 0 ? (afterProfit / afterCost) * 100 : 0;
-  }
-
   return (
-    <div className="p-4 max-w-4xl mx-auto">
+    <div className="p-4 w-full">
       <h2 className="text-xl font-bold mb-4">เครื่องคิดต้นทุนและกำไรหุ้น</h2>
 
       {/* Asset selector */}
@@ -98,6 +103,7 @@ export default function CalculatorScreen({
           onChange={(e) => {
             setSelectedSymbol(e.target.value);
             setNewCostPerShare(null);
+            setAfterData(null);
           }}
           className="p-2 rounded bg-gray-800 text-white w-full"
         >
@@ -111,6 +117,7 @@ export default function CalculatorScreen({
 
       {/* Inputs column */}
       <div className="mb-4 flex flex-col gap-2">
+        <label className="text-white text-sm">จำนวนเงินลงทุนใหม่ (บาท)</label>
         <input
           type="number"
           step="any"
@@ -120,6 +127,8 @@ export default function CalculatorScreen({
           onChange={(e) => setNewInvestment(e.target.value)}
           className="p-2 rounded bg-gray-800 text-white"
         />
+
+        <label className="text-white text-sm">ราคาหุ้นใหม่ (USD)</label>
         <input
           type="number"
           step="any"
@@ -129,6 +138,7 @@ export default function CalculatorScreen({
           onChange={(e) => setNewPrice(e.target.value)}
           className="p-2 rounded bg-gray-800 text-white"
         />
+
         <button
           onClick={calculateNewCost}
           className="bg-yellow-500 text-black p-2 rounded font-bold"
@@ -141,6 +151,7 @@ export default function CalculatorScreen({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Before card */}
         <div className="w-full shadow-sm">
+          <div className="text-white font-bold px-4 py-1 bg-gray-700">ก่อน</div>
           <div className="w-full grid grid-cols-[2fr_1fr_1fr] gap-3 px-4 py-2 bg-gray-900">
             <div className="flex flex-col gap-1">
               <div className="flex items-center gap-2">
@@ -208,8 +219,11 @@ export default function CalculatorScreen({
         </div>
 
         {/* After card */}
-        {newCostPerShare !== null && (
+        {afterData && (
           <div className="w-full shadow-sm">
+            <div className="text-white font-bold px-4 py-1 bg-gray-700">
+              หลัง (ต้นทุนใหม่: {fNumber(afterData.costPerShare)} USD)
+            </div>
             <div className="w-full grid grid-cols-[2fr_1fr_1fr] gap-3 px-4 py-2 bg-gray-900">
               <div className="flex flex-col gap-1">
                 <div className="flex items-center gap-2">
@@ -229,44 +243,44 @@ export default function CalculatorScreen({
 
               <div className="flex flex-col items-end whitespace-nowrap">
                 <div className="font-bold text-[16px]">
-                  {fNumber(afterMarketValueThb)} THB
+                  {fNumber(afterData.marketValueThb)} THB
                 </div>
                 <div className="text-[12px] text-gray-300">
-                  ≈ {fNumber(afterMarketValueUsd)} USD
+                  ≈ {fNumber(afterData.marketValueUsd)} USD
                 </div>
               </div>
 
               <div className="flex flex-col items-end">
                 <div
                   className={`font-bold text-[16px] flex items-center gap-1 ${
-                    afterProfit > 0
+                    afterData.profit > 0
                       ? "text-green-500"
-                      : afterProfit < 0
+                      : afterData.profit < 0
                       ? "text-red-500"
                       : "text-white"
                   }`}
                 >
-                  {afterProfit > 0 ? (
+                  {afterData.profit > 0 ? (
                     <UpIcon className="text-[12px]" />
-                  ) : afterProfit < 0 ? (
+                  ) : afterData.profit < 0 ? (
                     <DownIcon className="text-[12px]" />
                   ) : null}
-                  {fNumber(afterProfitPercent)}%
+                  {fNumber(afterData.profitPercent)}%
                 </div>
                 <div
                   className={`text-[12px] ${
-                    afterProfit > 0
+                    afterData.profit > 0
                       ? "text-green-500"
-                      : afterProfit < 0
+                      : afterData.profit < 0
                       ? "text-red-500"
                       : "text-white"
                   }`}
                 >
-                  ({afterProfit > 0 ? "+" : ""}
-                  {fNumber(afterProfit * currencyRate)} บาท)
+                  ({afterData.profit > 0 ? "+" : ""}
+                  {fNumber(afterData.profit * currencyRate)} บาท)
                 </div>
                 <div className="text-[12px] mt-1">
-                  ต้นทุนต่อหุ้นใหม่: {fNumber(afterCostPerShare)}
+                  ต้นทุนต่อหุ้นใหม่: {fNumber(afterData.costPerShare)} USD
                 </div>
               </div>
             </div>
@@ -275,7 +289,7 @@ export default function CalculatorScreen({
               <div>
                 จำนวนหุ้น:{" "}
                 <span className="text-white">
-                  {fNumber(asset.quantity, { decimalNumber: 7 })}
+                  {fNumber(afterData.quantity, { decimalNumber: 7 })}
                 </span>
               </div>
               <div>
@@ -283,13 +297,17 @@ export default function CalculatorScreen({
                 <span className="text-white">{fNumber(currentPrice)} USD</span>
               </div>
               <div>
-                ต้นทุนต่อหุ้น:{" "}
+                ต้นทุนต่อหุ้นใหม่:{" "}
                 <span className="text-white">
-                  {fNumber(asset.costPerShare)} USD
-                </span>
+                  {fNumber(afterData.costPerShare)}
+                </span>{" "}
+                USD
               </div>
               <div>
-                ต้นทุนรวม: <span className="text-white">{fNumber(cost)}</span>{" "}
+                ต้นทุนรวม:{" "}
+                <span className="text-white">
+                  {fNumber(afterData.totalCost)}
+                </span>{" "}
                 USD
               </div>
             </div>
