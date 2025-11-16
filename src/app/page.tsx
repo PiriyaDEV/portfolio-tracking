@@ -52,12 +52,33 @@ export default function StockPrice() {
   const [userColId, setUserColId] = useState("");
 
   const [isEditOpen, setIsEditOpen] = useState(false);
-  const [editText, setEditText] = useState("");
+  const [editAssets, setEditAssets] = useState<Asset[]>([]);
 
   // Open the edit modal and populate with current assets
   const openEditModal = () => {
-    setEditText(JSON.stringify(assets, null, 2));
+    setEditAssets(JSON.parse(JSON.stringify(assets))); // Deep copy
     setIsEditOpen(true);
+  };
+
+  const addNewAsset = () => {
+    setEditAssets([
+      ...editAssets,
+      { symbol: "", quantity: 0, costPerShare: 0 },
+    ]);
+  };
+
+  const removeAsset = (index: number) => {
+    setEditAssets(editAssets.filter((_, i) => i !== index));
+  };
+
+  const updateAsset = (
+    index: number,
+    field: keyof Asset,
+    value: string | number
+  ) => {
+    const updated = [...editAssets];
+    updated[index] = { ...updated[index], [field]: value };
+    setEditAssets(updated);
   };
 
   // Format date every render
@@ -179,22 +200,26 @@ export default function StockPrice() {
 
   const saveAssets = async () => {
     try {
-      const parsed: Asset[] = JSON.parse(editText);
-
       // Basic validation
-      if (!Array.isArray(parsed)) throw new Error("JSON must be an array");
-      for (const a of parsed) {
-        if (!a.symbol || a.quantity == null || a.costPerShare == null) {
-          throw new Error(
-            "Each asset must have symbol, quantity, costPerShare"
-          );
+      for (const a of editAssets) {
+        if (!a.symbol || !a.symbol.trim()) {
+          alert("กรุณากรอก Symbol");
+          return;
+        }
+        if (a.quantity == null || a.quantity <= 0) {
+          alert("กรุณากรอกจำนวนหุ้นที่มากกว่า 0");
+          return;
+        }
+        if (a.costPerShare == null || a.costPerShare <= 0) {
+          alert("กรุณากรอกต้นทุนต่อหุ้นที่มากกว่า 0");
+          return;
         }
       }
 
       const res = await fetch(`/api/user/${userColId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ assets: parsed, isMock }),
+        body: JSON.stringify({ assets: editAssets, isMock }),
       });
 
       const data = await res.json();
@@ -240,25 +265,129 @@ export default function StockPrice() {
   return (
     <div className="mt-[81px] mb-[172px]">
       {isEditOpen && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-70 z-50">
-          <div className="bg-black-lighter p-6 rounded-lg w-[400px] flex flex-col gap-4">
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-70 !z-[100] p-4">
+          <div className="bg-black-lighter p-6 rounded-lg w-full max-w-[500px] max-h-[80vh] flex flex-col gap-4">
             <h2 className="text-white font-bold text-xl text-center">
               แก้ไขสินทรัพย์
             </h2>
-            <textarea
-              className="p-2 rounded bg-white !text-black h-60"
-              value={editText}
-              onChange={(e) => setEditText(e.target.value)}
-            />
+
+            <div className="overflow-y-auto flex-1 space-y-3">
+              {editAssets.map((asset, index) => (
+                <div
+                  key={index}
+                  className="bg-black p-4 rounded-lg space-y-2"
+                >
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-white font-semibold">
+                      สินทรัพย์ #{index + 1}
+                    </span>
+                    <button
+                      onClick={() => removeAsset(index)}
+                      className="text-red-500 hover:text-red-400"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-5 w-5"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+
+                  <div>
+                    <label className="text-gray-400 text-sm">Symbol</label>
+                    <input
+                      type="text"
+                      className="w-full p-2 rounded bg-white !text-black uppercase border-accent-yellow border"
+                      value={asset.symbol}
+                      onChange={(e) =>
+                        updateAsset(
+                          index,
+                          "symbol",
+                          e.target.value.toUpperCase()
+                        )
+                      }
+                      placeholder="เช่น AAPL"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-gray-400 text-sm">จำนวนหุ้น</label>
+                    <input
+                      type="number"
+                      step="any"
+                      className="w-full p-2 rounded bg-white !text-black border-accent-yellow border"
+                      value={asset.quantity === 0 ? "" : asset.quantity}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        updateAsset(
+                          index,
+                          "quantity",
+                          val === "" ? 0 : parseFloat(val)
+                        );
+                      }}
+                      placeholder="0"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-gray-400 text-sm">
+                      ต้นทุนต่อหุ้น (USD)
+                    </label>
+                    <input
+                      type="number"
+                      step="any"
+                      className="w-full p-2 rounded bg-white !text-black border-accent-yellow border"
+                      value={asset.costPerShare === 0 ? "" : asset.costPerShare}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        updateAsset(
+                          index,
+                          "costPerShare",
+                          val === "" ? 0 : parseFloat(val)
+                        );
+                      }}
+                      placeholder="0.00"
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <button
+              onClick={addNewAsset}
+              className="bg-green-600 hover:bg-green-700 text-white p-3 rounded flex items-center justify-center gap-2"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              เพิ่มสินทรัพย์
+            </button>
+
             <div className="flex justify-end gap-2">
               <button
-                className="bg-gray-600 text-white p-2 rounded"
+                className="bg-gray-600 text-white p-2 rounded px-4"
                 onClick={() => setIsEditOpen(false)}
               >
                 ยกเลิก
               </button>
               <button
-                className="bg-accent-yellow text-black p-2 rounded"
+                className="bg-accent-yellow text-black p-2 rounded px-4"
                 onClick={async () => {
                   setIsLoading(true);
                   await saveAssets();
