@@ -41,7 +41,7 @@ const year = (now.getFullYear() + 543) % 100;
 const hours = now.getHours().toString().padStart(2, "0");
 const minutes = now.getMinutes().toString().padStart(2, "0");
 
-const isMock = true;
+const isMock = false;
 
 export default function StockPrice() {
   const [prices, setPrices] = useState<Record<string, number | null>>({});
@@ -370,7 +370,7 @@ export default function StockPrice() {
 
       {/* Portfolio Header */}
       <div className="flex flex-wrap w-full">
-        {currentPage === "market" && <MarketScreen />}
+        {currentPage === "market" && <MarketScreen assets={assets} />}
         {currentPage === "calculator" && (
           <CalculateScreen
             assets={assets}
@@ -502,7 +502,8 @@ export default function StockPrice() {
                         </div>
                         <div>
                           ต้นทุนรวม:{" "}
-                          <span className="text-white">{fNumber(cost)}</span> USD
+                          <span className="text-white">{fNumber(cost)}</span>{" "}
+                          USD
                         </div>
                       </div>
                     )}

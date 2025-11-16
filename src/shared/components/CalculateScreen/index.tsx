@@ -93,7 +93,7 @@ export default function CalculatorScreen({
     profit > 0 ? "text-green-500" : profit < 0 ? "text-red-500" : "text-white";
 
   return (
-    <div className="p-4 w-full">
+    <div className="p-4 w-full ">
       <h2 className="text-xl font-bold mb-4">เครื่องคิดต้นทุนและกำไรหุ้น</h2>
 
       {/* Asset selector */}
