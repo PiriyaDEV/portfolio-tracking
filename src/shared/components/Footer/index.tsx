@@ -1,10 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import { fNumber } from "@/app/lib/utils";
 import {
   FaArrowTrendUp as UpIcon,
   FaArrowTrendDown as DownIcon,
 } from "react-icons/fa6";
+import { HiChevronDown } from "react-icons/hi2";
 
 type Asset = {
   symbol: string;
@@ -27,6 +29,8 @@ export default function FooterPortfolio({
   formattedDate,
   getProfitColor,
 }: Props) {
+  const [isOpen, setIsOpen] = useState(true);
+
   if (!assets) return null;
 
   // Total cost (what you paid)
@@ -57,58 +61,64 @@ export default function FooterPortfolio({
     }, 0) / assets.length;
 
   return (
-    <div className="fixed bottom-0 left-1/2 -translate-x-1/2 bg-black-lighter py-5 w-full sm:w-[450px]">
-      <div className="container mx-auto px-4 flex flex-col gap-2 text-center">
-        {/* Total Value */}
+    <div className="fixed bottom-[52px] left-1/2 -translate-x-1/2 w-full sm:w-[450px] bg-black-lighter">
+      <div className="container mx-auto px-4 py-4 text-center">
+        {/* Total Value - always visible */}
         <div>
-          <div className="font-bold text-[12px] text-gray-300">
-            มูลค่าเงินทั้งหมด ({formattedDate}) :
+          <div className="font-bold text-[10px] text-gray-300">
+            มูลค่าเงินทั้งหมด ({formattedDate})
           </div>
-          <div className="font-bold text-[26px] mt-1">
-            {fNumber(totalMarketUsd * currencyRate)} บาท
-          </div>
-        </div>
-
-        <div className="border-b border-accent-yellow opacity-40 mx-4 my-2"></div>
-
-        {/* Change & Profit */}
-        <div className="flex flex-col items-center gap-2 justify-center">
-          {/* Daily Change */}
-          <div className="font-bold text-[10px] flex items-center gap-1">
-            % เปลี่ยนจากวันก่อน :{" "}
-            <span
-              className={`flex items-center gap-1 ${getProfitColor(
-                totalChangePercent
-              )}`}
-            >
-              {totalChangePercent > 0 ? (
-                <UpIcon className="text-[12px]" />
-              ) : totalChangePercent < 0 ? (
-                <DownIcon className="text-[12px]" />
-              ) : null}
-              {fNumber(totalChangePercent)}%
-            </span>
-          </div>
-
-          {/* Holding Profit */}
-          <div className="font-bold text-[10px] flex items-center gap-1">
-            % กำไรของทรัพย์ที่ถืออยู่ :{" "}
-            <span
-              className={`flex items-center gap-1 ${getProfitColor(
-                totalProfitUsd
-              )}`}
-            >
-              {totalProfitPercent > 0 ? (
-                <UpIcon className="text-[12px]" />
-              ) : totalProfitPercent < 0 ? (
-                <DownIcon className="text-[12px]" />
-              ) : null}
-              {fNumber(totalProfitPercent)}% (
-              {totalProfitPercent > 0 ? "+" : ""}
-              {fNumber(totalProfitThb)} บาท)
-            </span>
+          <div className="font-bold text-[26px] mt-1 flex items-center justify-center gap-2">
+            {fNumber(totalMarketUsd * currencyRate)} บาท{" "}
+            <HiChevronDown
+              onClick={() => setIsOpen(!isOpen)}
+              className={`mt-2 !text-[16px] text-gray-300 transition-transform duration-200 ${
+                isOpen ? "rotate-180" : "rotate-0"
+              }`}
+            />
           </div>
         </div>
+
+        {/* Collapsible Change & Profit */}
+        {isOpen && (
+          <div className="mt-3 border-t border-accent-yellow pt-2 flex flex-col items-center gap-2 justify-center">
+            {/* Daily Change */}
+            <div className="font-bold text-[10px] flex items-center gap-1">
+              % เปลี่ยนจากวันก่อน :{" "}
+              <span
+                className={`flex items-center gap-1 ${getProfitColor(
+                  totalChangePercent
+                )}`}
+              >
+                {totalChangePercent > 0 ? (
+                  <UpIcon className="text-[12px]" />
+                ) : totalChangePercent < 0 ? (
+                  <DownIcon className="text-[12px]" />
+                ) : null}
+                {fNumber(totalChangePercent)}%
+              </span>
+            </div>
+
+            {/* Holding Profit */}
+            <div className="font-bold text-[10px] flex items-center gap-1">
+              % กำไรของทรัพย์ที่ถืออยู่ :{" "}
+              <span
+                className={`flex items-center gap-1 ${getProfitColor(
+                  totalProfitUsd
+                )}`}
+              >
+                {totalProfitPercent > 0 ? (
+                  <UpIcon className="text-[12px]" />
+                ) : totalProfitPercent < 0 ? (
+                  <DownIcon className="text-[12px]" />
+                ) : null}
+                {fNumber(totalProfitPercent)}% (
+                {totalProfitPercent > 0 ? "+" : ""}
+                {fNumber(totalProfitThb)} บาท)
+              </span>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

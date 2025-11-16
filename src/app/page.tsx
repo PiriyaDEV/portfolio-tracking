@@ -9,6 +9,7 @@ import {
 import {
   FaArrowTrendUp as UpIcon,
   FaArrowTrendDown as DownIcon,
+  FaChartLine,
 } from "react-icons/fa6";
 import { fNumber, getLogo, getName, getProfitColor } from "./lib/utils";
 import { Asset } from "./lib/interface";
@@ -16,6 +17,7 @@ import FooterPortfolio from "@/shared/components/Footer";
 import LoginModal from "@/shared/components/LoginModal";
 import EditModal from "@/shared/components/EditModal";
 import { NoItem } from "@/shared/components/NoItem";
+import BottomNavbar from "@/shared/components/Navbar";
 
 const now = new Date();
 const thaiMonths = [
@@ -59,6 +61,10 @@ export default function StockPrice() {
   // Sorting state
   const [sortBy, setSortBy] = useState<"asset" | "value" | "profit">("value");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  // Page state for bottom navbar
+  const [currentPage, setCurrentPage] = useState<
+    "portfolio" | "market" | "calculator"
+  >("portfolio");
 
   // Open the edit modal and populate with current assets
   const openEditModal = () => {
@@ -492,6 +498,9 @@ export default function StockPrice() {
         formattedDate={formattedDate}
         getProfitColor={getProfitColor}
       />
+
+      {/* Bottom Navbar */}
+      <BottomNavbar currentPage={currentPage} setCurrentPage={setCurrentPage} />
     </div>
   );
 }
