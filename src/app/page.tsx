@@ -303,8 +303,9 @@ export default function StockPrice() {
           const cost = asset.costPerShare * asset.quantity;
           const marketValueUsd = currentPrice * asset.quantity;
           const marketValueThb = marketValueUsd * currencyRate;
-          const profit = marketValueUsd - cost;
-          const profitPercent = cost > 0 ? (profit / cost) * 100 : 0;
+          const profit = currentPrice > 0 ? marketValueUsd - cost : 0;
+          const profitPercent =
+            currentPrice > 0 && cost > 0 ? (profit / cost) * 100 : 0;
           const profitColor = getProfitColor(profit);
           const isExpanded = !!expanded[asset.symbol];
           const portfolioValueUsd = assets.reduce(
