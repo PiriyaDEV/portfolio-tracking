@@ -29,21 +29,24 @@ export default function FooterPortfolio({
 }: Props) {
   if (!assets) return null;
 
-  const totalPortfolioValue = assets.reduce(
+  // Total cost (what you paid)
+  const totalCostUsd = assets.reduce(
     (sum, a) => sum + a.quantity * a.costPerShare,
     0
   );
 
+  // Total current market value (what it's worth now)
   const totalMarketUsd = assets.reduce((sum, asset) => {
     const currentPrice = prices[asset.symbol] ?? 0;
     return sum + currentPrice * asset.quantity;
   }, 0);
 
-  const totalProfitUsd = totalMarketUsd - totalPortfolioValue;
+  // Profit/Loss
+  const totalProfitUsd = totalMarketUsd - totalCostUsd;
   const totalProfitThb = totalProfitUsd * currencyRate;
 
   const totalProfitPercent =
-    totalPortfolioValue > 0 ? (totalProfitUsd / totalPortfolioValue) * 100 : 0;
+    totalCostUsd > 0 ? (totalProfitUsd / totalCostUsd) * 100 : 0;
 
   const totalChangePercent =
     assets.reduce((sum, asset) => {
@@ -62,7 +65,7 @@ export default function FooterPortfolio({
             มูลค่าเงินทั้งหมด ({formattedDate}) :
           </div>
           <div className="font-bold text-[26px] mt-1">
-            {fNumber(totalPortfolioValue * currencyRate)} บาท
+            {fNumber(totalMarketUsd * currencyRate)} บาท
           </div>
         </div>
 
