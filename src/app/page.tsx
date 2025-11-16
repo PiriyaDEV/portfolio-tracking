@@ -63,11 +63,14 @@ export default function StockPrice() {
   // Format date every render
   useEffect(() => {
     setFormattedDate(`${day} ${month} ${year} ${hours}:${minutes} น.`);
+  }, [isLoggedIn]);
 
-    if (isLoggedIn) {
+  // Load data when assets are available
+  useEffect(() => {
+    if (assets && assets.length > 0 && isLoggedIn) {
       loadData();
     }
-  }, [isLoggedIn]);
+  }, [assets, isLoggedIn]);
 
   const toggleExpand = (symbol: string) => {
     setExpanded((prev) => ({ ...prev, [symbol]: !prev[symbol] }));
@@ -110,23 +113,31 @@ export default function StockPrice() {
       throw new Error("ไม่สามารถอ่านข้อมูลผู้ใช้งาน");
     }
 
+    // Set states synchronously - useEffect will trigger loadData
     setAssets(parsedAssets);
     setUserColId(parsedUserId);
     setIsLoggedIn(true);
   }
 
   async function loadData() {
+    if (!assets || assets.length === 0) return;
+
+    console.log("load data");
     setIsLoading(true);
     try {
+      console.log("enter load data");
       await Promise.all([fetchFinancialData(), fetchFxRate()]);
     } catch (err) {
       console.error(err);
     } finally {
+      console.log("finish load data");
       setIsLoading(false);
     }
   }
 
   async function fetchFinancialData() {
+    if (!assets || assets.length === 0) return;
+
     try {
       let data: any;
 
@@ -141,7 +152,7 @@ export default function StockPrice() {
       } else {
         const mockPrices: Record<string, number> = {};
         const validAssets: Asset[] = [];
-        for (const asset of assets || []) {
+        for (const asset of assets) {
           mockPrices[asset.symbol] = 190.17;
           validAssets.push(asset);
         }
@@ -167,7 +178,6 @@ export default function StockPrice() {
   }
 
   const saveAssets = async () => {
-    // setIsLoading(true);
     try {
       const parsed: Asset[] = JSON.parse(editText);
 
@@ -184,7 +194,7 @@ export default function StockPrice() {
       const res = await fetch(`/api/user/${userColId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ assets: parsed, isMock }), // send your parsed assets
+        body: JSON.stringify({ assets: parsed, isMock }),
       });
 
       const data = await res.json();
@@ -193,7 +203,7 @@ export default function StockPrice() {
         return;
       } else {
         setIsEditOpen(false);
-        fetchUserData();
+        await fetchUserData();
       }
 
       console.log("Assets saved successfully:", data);
@@ -225,6 +235,7 @@ export default function StockPrice() {
   if (!assets) {
     return <CommonLoading />;
   }
+
   // Render main portfolio
   return (
     <div className="mt-[81px] mb-[172px]">
@@ -248,7 +259,11 @@ export default function StockPrice() {
               </button>
               <button
                 className="bg-accent-yellow text-black p-2 rounded"
-                onClick={saveAssets}
+                onClick={async () => {
+                  setIsLoading(true);
+                  await saveAssets();
+                  setIsLoading(false);
+                }}
               >
                 Save
               </button>
