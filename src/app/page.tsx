@@ -36,7 +36,7 @@ const year = (now.getFullYear() + 543) % 100;
 const hours = now.getHours().toString().padStart(2, "0");
 const minutes = now.getMinutes().toString().padStart(2, "0");
 
-const isMock = false;
+const isMock = true;
 
 export default function StockPrice() {
   const [prices, setPrices] = useState<Record<string, number | null>>({});
@@ -53,6 +53,10 @@ export default function StockPrice() {
 
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editAssets, setEditAssets] = useState<Asset[]>([]);
+
+  // Sorting state
+  const [sortBy, setSortBy] = useState<"asset" | "value" | "profit">("value");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
   // Open the edit modal and populate with current assets
   const openEditModal = () => {
@@ -126,17 +130,12 @@ export default function StockPrice() {
     let parsedUserId: string;
 
     try {
-      // Get response as text first to check if it's empty
       const responseText = await response.text();
-      console.log("Response text:", responseText);
-
-      // Handle empty response or empty string from Monday
       if (
         !responseText ||
         responseText.trim() === "" ||
         responseText.trim() === '""'
       ) {
-        console.log("Empty data from Monday - initializing with empty assets");
         setAssets([]);
         setUserColId(userId);
         setIsLoggedIn(true);
@@ -144,36 +143,26 @@ export default function StockPrice() {
       }
 
       const data = JSON.parse(responseText);
-      console.log("Parsed data:", data);
-
-      // Check if data.assets exists and is not empty
       if (!data.assets || data.assets === "" || data.assets === '""') {
-        console.log("No assets in data - initializing with empty assets");
         setAssets([]);
         setUserColId(data.userId || userId);
         setIsLoggedIn(true);
         return;
       }
 
-      // Check if data.assets is a string (needs parsing) or already an object
-      if (typeof data.assets === "string") {
-        parsedAssets = JSON.parse(data.assets);
-      } else {
-        parsedAssets = data.assets || [];
-      }
-
-      // Check if data.userId is a string (needs parsing) or already a string
-      if (typeof data.userId === "string" && data.userId.startsWith('"')) {
-        parsedUserId = JSON.parse(data.userId);
-      } else {
-        parsedUserId = data.userId || userId;
-      }
+      parsedAssets =
+        typeof data.assets === "string"
+          ? JSON.parse(data.assets)
+          : data.assets || [];
+      parsedUserId =
+        typeof data.userId === "string" && data.userId.startsWith('"')
+          ? JSON.parse(data.userId)
+          : data.userId || userId;
     } catch (err) {
       console.error("Parse error:", err);
       throw new Error("ไม่สามารถอ่านข้อมูลผู้ใช้งาน");
     }
 
-    // FIX #2: Handle null/empty assets
     if (!parsedAssets || parsedAssets.length === 0) {
       setAssets([]);
       setUserColId(parsedUserId);
@@ -181,7 +170,6 @@ export default function StockPrice() {
       return;
     }
 
-    // Set states synchronously - useEffect will trigger loadData
     setAssets(parsedAssets);
     setUserColId(parsedUserId);
     setIsLoggedIn(true);
@@ -190,12 +178,9 @@ export default function StockPrice() {
   async function loadData() {
     if (!assets || assets.length === 0) return;
 
-    console.log("load data");
     setIsLoading(true);
     try {
-      console.log("enter load data");
       await Promise.all([fetchFinancialData(), fetchFxRate()]);
-      // FIX #1: Update formatted date after refresh
       const now = new Date();
       const day = now.getDate();
       const month = thaiMonths[now.getMonth()];
@@ -206,7 +191,6 @@ export default function StockPrice() {
     } catch (err) {
       console.error(err);
     } finally {
-      console.log("finish load data");
       setIsLoading(false);
     }
   }
@@ -255,14 +239,13 @@ export default function StockPrice() {
 
   const saveAssets = async () => {
     try {
-      // Basic validation
       for (const a of editAssets) {
         if (!a.symbol || !a.symbol.trim()) {
           alert("กรุณากรอก Symbol");
           return;
         }
-        if (a.quantity == null || a.quantity <= 0) {
-          alert("กรุณากรอกจำนวนหุ้นที่มากกว่า 0");
+        if (a.quantity == null || a.quantity < 0) {
+          alert("กรุณากรอกจำนวนหุ้นที่มากกว่าหรือเท่ากับ 0");
           return;
         }
         if (a.costPerShare == null || a.costPerShare <= 0) {
@@ -285,19 +268,14 @@ export default function StockPrice() {
         setIsEditOpen(false);
         await fetchUserData();
       }
-
-      console.log("Assets saved successfully:", data);
     } catch (err: any) {
       alert("Error: " + err.message);
     }
   };
 
-  // Loading state (covers login + data loading)
-  if (isLoading) {
-    return <CommonLoading />;
-  }
+  // Loading state
+  if (isLoading) return <CommonLoading />;
 
-  // Not logged in → show login modal
   if (!isLoggedIn) {
     return (
       <LoginModal
@@ -311,12 +289,8 @@ export default function StockPrice() {
     );
   }
 
-  // After logged in → wait for assets
-  if (assets === null) {
-    return <CommonLoading />;
-  }
+  if (assets === null) return <CommonLoading />;
 
-  // FIX #2: Show empty state when no assets
   if (assets.length === 0) {
     return (
       <div className="mt-[81px] mb-[172px]">
@@ -399,11 +373,7 @@ export default function StockPrice() {
                         value={asset.quantity || ""}
                         onChange={(e) => {
                           const val = e.target.value;
-                          updateAsset(
-                            index,
-                            "quantity",
-                            val === "" ? "" : parseFloat(val) || ""
-                          );
+                          updateAsset(index, "quantity", val);
                         }}
                         placeholder="0"
                       />
@@ -420,11 +390,7 @@ export default function StockPrice() {
                         value={asset.costPerShare || ""}
                         onChange={(e) => {
                           const val = e.target.value;
-                          updateAsset(
-                            index,
-                            "costPerShare",
-                            val === "" ? "" : parseFloat(val) || ""
-                          );
+                          updateAsset(index, "costPerShare", val);
                         }}
                         placeholder="0.00"
                       />
@@ -477,7 +443,31 @@ export default function StockPrice() {
     );
   }
 
-  // Render main portfolio
+  // Sorting function
+  const sortedAssets = [...assets].sort((a, b) => {
+    const priceA = prices[a.symbol] ?? 0;
+    const priceB = prices[b.symbol] ?? 0;
+    const valueA = priceA * a.quantity;
+    const valueB = priceB * b.quantity;
+    const profitA = valueA - a.costPerShare * a.quantity;
+    const profitB = valueB - b.costPerShare * b.quantity;
+
+    let compare = 0;
+    if (sortBy === "asset") compare = a.symbol.localeCompare(b.symbol);
+    else if (sortBy === "value") compare = valueA - valueB;
+    else if (sortBy === "profit") compare = profitA - profitB;
+
+    return sortOrder === "asc" ? compare : -compare;
+  });
+
+  const toggleSort = (column: "asset" | "value" | "profit") => {
+    if (sortBy === column) setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    else {
+      setSortBy(column);
+      setSortOrder("asc");
+    }
+  };
+
   return (
     <div className="mt-[81px] mb-[172px]">
       {isEditOpen && (
@@ -539,11 +529,7 @@ export default function StockPrice() {
                       value={asset.quantity || ""}
                       onChange={(e) => {
                         const val = e.target.value;
-                        updateAsset(
-                          index,
-                          "quantity",
-                          val === "" ? "" : parseFloat(val) || ""
-                        );
+                        updateAsset(index, "quantity", val);
                       }}
                       placeholder="0"
                     />
@@ -560,11 +546,7 @@ export default function StockPrice() {
                       value={asset.costPerShare || ""}
                       onChange={(e) => {
                         const val = e.target.value;
-                        updateAsset(
-                          index,
-                          "costPerShare",
-                          val === "" ? "" : parseFloat(val) || ""
-                        );
+                        updateAsset(index, "costPerShare", val);
                       }}
                       placeholder="0.00"
                     />
@@ -628,19 +610,32 @@ export default function StockPrice() {
         />
       </div>
 
+      {/* Portfolio Header */}
       <div className="flex flex-wrap w-full pt-[70px]">
-        {/* Header */}
-        <div className="w-full grid grid-cols-[2fr_1fr_1fr] gap-3 px-4 py-2">
-          <div className="text-[12px] text-gray-400">
-            {assets.length} สินทรัพย์
+        <div className="w-full grid grid-cols-[2fr_1fr_1fr] gap-3 px-4 py-2 cursor-pointer">
+          <div
+            className="text-[12px] text-gray-400 flex items-center gap-1"
+            onClick={() => toggleSort("asset")}
+          >
+            สินทรัพย์ {sortBy === "asset" && (sortOrder === "asc" ? "▲" : "▼")}
           </div>
-          <div className="text-[12px] text-gray-400 text-right">
-            มูลค่า (THB)
+          <div
+            className="text-[12px] text-gray-400 text-right flex items-center justify-end gap-1"
+            onClick={() => toggleSort("value")}
+          >
+            มูลค่า (THB){" "}
+            {sortBy === "value" && (sortOrder === "asc" ? "▲" : "▼")}
           </div>
-          <div className="text-[12px] text-gray-400 text-right">% กำไร</div>
+          <div
+            className="text-[12px] text-gray-400 text-right flex items-center justify-end gap-1"
+            onClick={() => toggleSort("profit")}
+          >
+            % กำไร {sortBy === "profit" && (sortOrder === "asc" ? "▲" : "▼")}
+          </div>
         </div>
 
-        {assets.map((asset) => {
+        {/* Portfolio Rows */}
+        {sortedAssets.map((asset) => {
           const currentPrice = prices[asset.symbol] ?? 0;
           const cost = asset.costPerShare * asset.quantity;
           const marketValueUsd = currentPrice * asset.quantity;
@@ -675,7 +670,6 @@ export default function StockPrice() {
                       {getName(asset.symbol)}
                     </div>
                   </div>
-
                   <div className="text-[12px] flex items-center gap-1">
                     <ChartIcon />
                     {portfolioValueUsd > 0
@@ -685,7 +679,6 @@ export default function StockPrice() {
                       : "0.00%"}
                   </div>
                 </div>
-
                 <div className="flex flex-col items-end whitespace-nowrap">
                   <div className="font-bold text-[16px]">
                     {fNumber(marketValueThb)} THB
@@ -694,7 +687,6 @@ export default function StockPrice() {
                     ≈ {fNumber(marketValueUsd)} USD
                   </div>
                 </div>
-
                 <div className="flex flex-col items-end">
                   <div
                     className={`font-bold text-[16px] flex items-center gap-1 ${profitColor}`}
