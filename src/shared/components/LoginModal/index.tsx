@@ -28,11 +28,13 @@ export default function LoginModal({
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-70 z-50">
       <div className="bg-black-lighter p-6 rounded-lg w-[300px] flex flex-col gap-4">
-        <h2 className="text-white text-xl font-bold text-center">Login</h2>
+        <h2 className="text-white text-xl font-bold text-center">
+          เข้าสู่ระบบ
+        </h2>
 
         <input
           type="password"
-          placeholder="Enter password"
+          placeholder="ใส่รหัสสมาชิก"
           className="p-2 rounded bg-white !text-black border border-accent-yellow"
           value={userId}
           onChange={(e) => setUserId(e.target.value)}
@@ -47,7 +49,7 @@ export default function LoginModal({
           onClick={handleLogin}
           disabled={isLoading}
         >
-          {isLoading ? "Loading..." : "Login"}
+          {isLoading ? "กำลังโหลด..." : "ยืนยัน"}
         </button>
       </div>
     </div>
