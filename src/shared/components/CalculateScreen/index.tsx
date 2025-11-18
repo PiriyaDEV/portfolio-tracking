@@ -47,6 +47,7 @@ export default function CalculatorScreen({
     marketValueThb: number;
     profit: number;
     profitPercent: number;
+    estimateCost?: number;
   } | null>(null);
 
   const calculateNewCost = () => {
@@ -112,6 +113,7 @@ export default function CalculatorScreen({
       marketValueThb,
       profit,
       profitPercent,
+      estimateCost: currentPrice,
     });
   };
 
@@ -134,7 +136,7 @@ export default function CalculatorScreen({
       <div className="flex mb-4 gap-2">
         {[
           { key: "calculator", label: "เครื่องคิดต้นทุนและกำไร" },
-          { key: "estimate", label: "Estimate กำไร" },
+          { key: "estimate", label: "คำนวณเป้าหมาย" },
         ].map((tab) => (
           <button
             key={tab.key}
@@ -145,22 +147,32 @@ export default function CalculatorScreen({
             }`}
             onClick={() => {
               setActiveTab(tab.key as "calculator" | "estimate");
+              // Clear all data on tab change
               setAfterData(null);
+              setNewInvestment("");
+              setNewPrice("");
+              setEstimatePrice("");
+              setNewCostPerShare(null);
             }}
           >
             {tab.label}
           </button>
         ))}
       </div>
-      <h2 className="text-xl font-bold mb-4">เครื่องคิดต้นทุนและกำไรหุ้น</h2>
+
       {/* Asset selector */}
-      <div className="mb-4">
+      <div className="mb-4 flex flex-col gap-2">
+        <label className="text-white text-sm">เลือกหุ้น</label>
         <select
           value={selectedSymbol}
           onChange={(e) => {
             setSelectedSymbol(e.target.value);
-            setNewCostPerShare(null);
+            // Clear all input and output data when changing asset
             setAfterData(null);
+            setNewInvestment("");
+            setNewPrice("");
+            setEstimatePrice("");
+            setNewCostPerShare(null);
           }}
           className="p-2 rounded bg-gray-800 text-white w-full"
         >
@@ -171,6 +183,7 @@ export default function CalculatorScreen({
           ))}
         </select>
       </div>
+
       {/* Inputs column */}
 
       {activeTab == "calculator" && (
@@ -223,7 +236,7 @@ export default function CalculatorScreen({
             onClick={calculateEstimateCost}
             className="bg-yellow-500 text-black p-2 rounded font-bold"
           >
-            คำนวณต้นทุนเฉลี่ย
+            คำนวณเป้าหมาย
           </button>
         </div>
       )}
@@ -305,8 +318,8 @@ export default function CalculatorScreen({
               หลัง{" "}
               {activeTab === "calculator" && afterData
                 ? `(ต้นทุนใหม่: ${fNumber(afterData.costPerShare)} USD)`
-                : activeTab === "estimate" && estimatePrice
-                ? `(ราคาประมาณ: ${estimatePrice} USD)`
+                : activeTab === "estimate" && afterData.estimateCost
+                ? `(ราคาประมาณ: ${afterData.estimateCost} USD)`
                 : ""}
             </div>
             <div className="w-full grid grid-cols-[2fr_1fr_1fr] gap-3 px-4 py-2 bg-gray-900">
@@ -377,8 +390,8 @@ export default function CalculatorScreen({
               <div>
                 ราคาปัจจุบัน:{" "}
                 <span className="text-white">
-                  {activeTab === "estimate" && estimatePrice
-                    ? `${fNumber(parseFloat(estimatePrice))} USD (ประมาณ)`
+                  {activeTab === "estimate" && afterData.estimateCost
+                    ? `${fNumber(afterData.estimateCost)} USD (ประมาณ)`
                     : `${fNumber(currentPrice)} USD`}
                 </span>
               </div>
