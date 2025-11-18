@@ -113,7 +113,7 @@ export default function LoginModal({
   }, [loginError]);
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-70 z-50">
+    <div className="fixed inset-0 flex items-center justify-center z-50">
       <div className="p-8 rounded-xl w-[320px] flex flex-col gap-6 items-center">
         <h2 className="text-white text-xl font-bold text-center">
           กรอกรหัสผู้ใช้

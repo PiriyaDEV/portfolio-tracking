@@ -27,7 +27,7 @@ const BackgroundLayout: FC<BackgroundLayoutProps> = ({ children }) => {
   return (
     <html lang="en" className={`${sarabun.variable}`}>
       <body className="antialiased font-sarabun">
-        <div className="bg-cover bg-center flex flex-col items-center sm:bg-gray-100 min-h-screen">
+        <div className="bg-cover bg-center flex flex-col items-center bg-black bg-opacity-70 min-h-screen">
           <div className="fixed top-0 w-full sm:max-w-[450px] bg-black z-[98] text-center font-bold py-4 text-[22px] text-white">
             P'tracker
             <div className="text-xs text-center text-text-light">

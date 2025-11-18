@@ -460,7 +460,7 @@ export default function StockPrice() {
                           ≈ {fNumber(marketValueUsd)} USD
                         </div>
                       </div>
-                      <div className="flex flex-col items-end">
+                      <div className="flex flex-col items-end text-right">
                         <div
                           className={`font-bold text-[16px] flex items-center gap-1 ${profitColor}`}
                         >
