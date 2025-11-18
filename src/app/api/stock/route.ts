@@ -16,6 +16,7 @@ export async function POST(req: NextRequest) {
 
     const results: Record<string, number | null> = {};
     const logos: Record<string, string | null> = {};
+    const previousPrice: Record<string, number | null> = {};
     const validAssets: Asset[] = [];
 
     for (const asset of assets) {
@@ -58,12 +59,18 @@ export async function POST(req: NextRequest) {
 
       if (!isInvalid) {
         results[asset.symbol] = res.c ?? null;
+        previousPrice[asset.symbol] = res.pc ?? null;
         validAssets.push(asset);
         logos[asset.symbol] = logo;
       }
     }
 
-    return NextResponse.json({ prices: results, assets: validAssets, logos });
+    return NextResponse.json({
+      prices: results,
+      assets: validAssets,
+      logos,
+      previousPrice,
+    });
   } catch (error: any) {
     console.error("Error fetching prices:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });

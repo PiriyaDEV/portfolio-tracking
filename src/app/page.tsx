@@ -45,6 +45,9 @@ const isMock = true;
 
 export default function StockPrice() {
   const [prices, setPrices] = useState<Record<string, number | null>>({});
+  const [previousPrice, setPreviousPrice] = useState<
+    Record<string, number | null>
+  >({});
   const [logos, setLogos] = useState<Record<string, string | null>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
@@ -228,6 +231,7 @@ export default function StockPrice() {
 
       setPrices(data.prices || {});
       setLogos(data.logos || {});
+      setPreviousPrice(data.previousPrice || {});
     } catch (err) {
       console.error(err);
     }
@@ -420,6 +424,12 @@ export default function StockPrice() {
                   0
                 );
 
+                const previousClose = previousPrice[asset.symbol] ?? 0;
+                const percentChange =
+                  previousClose > 0
+                    ? ((currentPrice - previousClose) / previousClose) * 100
+                    : 0;
+
                 return (
                   <div key={asset.symbol} className="w-full shadow-sm">
                     <div
@@ -479,18 +489,35 @@ export default function StockPrice() {
                     </div>
 
                     {isExpanded && (
-                      <div className="mt-2 bg-black-lighter text-[12px] grid grid-cols-2 gap-1 px-4 py-2 text-gray-300">
+                      <div className="mt-2 bg-black-lighter text-[12px] grid grid-cols-2 gap-2 px-4 py-2 text-gray-300">
                         <div>
                           จำนวนหุ้น:{" "}
                           <span className="text-white">
                             {fNumber(asset.quantity, { decimalNumber: 7 })}
                           </span>
                         </div>
-                        <div>
-                          ราคาปัจจุบัน:{" "}
-                          <span className="text-white">
-                            {fNumber(currentPrice)} USD
-                          </span>
+                        <div className="flex flex-col items-start gap-1">
+                          <div className="flex items-center gap-1">
+                            ราคาปัจจุบัน:{" "}
+                            <span className="text-white">
+                              {fNumber(currentPrice)} USD
+                            </span>
+                          </div>
+                          <div className="flex flex-col items-end text-right">
+                            <div
+                              className={`font-bold flex items-center gap-1 ${getProfitColor(
+                                percentChange
+                              )}`}
+                            >
+                              {percentChange > 0 ? (
+                                <UpIcon className="text-[12px]" />
+                              ) : percentChange < 0 ? (
+                                <DownIcon className="text-[12px]" />
+                              ) : null}
+                              {percentChange > 0 ? "+" : ""}{" "}
+                              {fNumber(percentChange)}%
+                            </div>
+                          </div>
                         </div>
                         <div>
                           ต้นทุนต่อหุ้น:{" "}
