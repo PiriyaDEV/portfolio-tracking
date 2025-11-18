@@ -161,7 +161,7 @@ export default function CalculatorScreen({
       </div>
 
       {/* Asset selector */}
-      <div className="mb-4 flex flex-col gap-2">
+      <div className="mb-6 flex flex-col gap-2">
         <label className="text-white text-sm">เลือกหุ้น</label>
         <select
           value={selectedSymbol}
@@ -182,6 +182,12 @@ export default function CalculatorScreen({
             </option>
           ))}
         </select>
+
+        <div>
+          <label className="text-white text-sm">
+            ราคาตอนนี้: <span className="font-bold">({currentPrice} USD)</span>
+          </label>
+        </div>
       </div>
 
       {/* Inputs column */}
@@ -319,7 +325,7 @@ export default function CalculatorScreen({
               {activeTab === "calculator" && afterData
                 ? `(ต้นทุนใหม่: ${fNumber(afterData.costPerShare)} USD)`
                 : activeTab === "estimate" && afterData.estimateCost
-                ? `(ราคาประมาณ: ${afterData.estimateCost} USD)`
+                ? `(ที่ราคา: ${afterData.estimateCost} USD)`
                 : ""}
             </div>
             <div className="w-full grid grid-cols-[2fr_1fr_1fr] gap-3 px-4 py-2 bg-gray-900">
@@ -391,7 +397,7 @@ export default function CalculatorScreen({
                 ราคาปัจจุบัน:{" "}
                 <span className="text-white">
                   {activeTab === "estimate" && afterData.estimateCost
-                    ? `${fNumber(afterData.estimateCost)} USD (ประมาณ)`
+                    ? `${fNumber(afterData.estimateCost)} USD`
                     : `${fNumber(currentPrice)} USD`}
                 </span>
               </div>
