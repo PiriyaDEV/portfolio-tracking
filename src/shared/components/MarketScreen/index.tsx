@@ -66,7 +66,6 @@ export default function MarketScreen({ assets }: { assets: Asset[] }) {
         const resData = await res.json();
         const data = resData.results;
 
-        // Map news with ALL fields including thumbnail
         const mappedNews: NewsItem[] =
           data.news?.map((item: any) => ({
             uuid: item.uuid,
@@ -79,7 +78,18 @@ export default function MarketScreen({ assets }: { assets: Asset[] }) {
             relatedTickers: item.relatedTickers,
           })) || [];
 
-        setNews(mappedNews);
+        // Sort news by date descending
+        const sortedNews = mappedNews.sort((a, b) => {
+          const dateA = a.providerPublishTime
+            ? new Date(a.providerPublishTime).getTime()
+            : 0;
+          const dateB = b.providerPublishTime
+            ? new Date(b.providerPublishTime).getTime()
+            : 0;
+          return dateB - dateA; // most recent first
+        });
+
+        setNews(sortedNews);
       } catch (err) {
         console.error(err);
         setNews([]);
@@ -129,14 +139,12 @@ export default function MarketScreen({ assets }: { assets: Asset[] }) {
                 >
                   <div className="flex flex-col md:flex-row gap-4">
                     {/* Thumbnail */}
-                    <div
-                      className="w-full md:w-48 h-32 rounded-lg bg-gray-700 bg-center bg-cover flex-shrink-0"
-                      style={{
-                        backgroundImage: `url('${
-                          item.image_url || "https://i.sstatic.net/y9DpT.jpg"
-                        }')`,
-                      }}
-                    ></div>
+                    {item.image_url && (
+                      <div
+                        className="w-full md:w-48 h-32 rounded-lg bg-center bg-cover flex-shrink-0"
+                        style={{ backgroundImage: `url('${item.image_url}')` }}
+                      ></div>
+                    )}
 
                     {/* Content */}
                     <div className="flex-1">
