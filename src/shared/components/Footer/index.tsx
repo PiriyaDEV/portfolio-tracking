@@ -29,7 +29,7 @@ export default function FooterPortfolio({
   formattedDate,
   getProfitColor,
 }: Props) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(true);
 
   if (!assets) return null;
 
