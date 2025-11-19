@@ -61,8 +61,10 @@ export default function CalculatorScreen({
 
     const investmentUSD = investment / currencyRate;
     const newQty = investmentUSD / price;
-    const totalQty = asset.quantity + newQty;
-    const totalCostUSD = asset.quantity * asset.costPerShare + investmentUSD;
+    const existingQty = parseFloat(asset.quantity.toString());
+    const existingCost = parseFloat(asset.costPerShare.toString());
+    const totalQty = existingQty + newQty;
+    const totalCostUSD = existingQty * existingCost + investmentUSD;
     const averageCostUSD = totalCostUSD / totalQty;
 
     setNewCostPerShare(averageCostUSD);

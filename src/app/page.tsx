@@ -41,7 +41,7 @@ const year = (now.getFullYear() + 543) % 100;
 const hours = now.getHours().toString().padStart(2, "0");
 const minutes = now.getMinutes().toString().padStart(2, "0");
 
-const isMock = false;
+const isMock = true;
 
 export default function StockPrice() {
   const [prices, setPrices] = useState<Record<string, number | null>>({});
