@@ -18,6 +18,7 @@ const sarabun = Sarabun({
 export const metadata: Metadata = {
   title: "P'tracker",
   description: "Portfolio Tracking",
+  themeColor: '#171616ff',
   openGraph: {
     images: `https://ptracker.netlify.app/images/metaImg.png`,
   },
