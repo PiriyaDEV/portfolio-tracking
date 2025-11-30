@@ -525,7 +525,7 @@ export default function StockPrice() {
                         <div>
                           ต้นทุนต่อหุ้น:{" "}
                           <span className="text-white">
-                            {fNumber(asset.costPerShare)} USD
+                            {fNumber(asset.costPerShare, { decimalNumber: 4 })} USD
                           </span>
                         </div>
                         <div>

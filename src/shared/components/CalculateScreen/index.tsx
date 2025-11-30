@@ -310,7 +310,7 @@ export default function CalculatorScreen({
             </div>
             <div>
               ต้นทุนต่อหุ้น:{" "}
-              <span className="text-white">{fNumber(asset.costPerShare)}</span>{" "}
+              <span className="text-white">{fNumber(asset.costPerShare, { decimalNumber: 4 })}</span>{" "}
               USD
             </div>
             <div>
@@ -325,7 +325,7 @@ export default function CalculatorScreen({
             <div className="text-white font-bold px-4 py-1 bg-gray-700">
               หลัง{" "}
               {activeTab === "calculator" && afterData
-                ? `(ต้นทุนใหม่: ${fNumber(afterData.costPerShare)} USD)`
+                ? `(ต้นทุนใหม่: ${fNumber(afterData.costPerShare, { decimalNumber: 4 })} USD)`
                 : activeTab === "estimate" && afterData.estimateCost
                 ? `(ที่ราคา: ${afterData.estimateCost} USD)`
                 : ""}
