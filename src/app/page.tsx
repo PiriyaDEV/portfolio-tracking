@@ -10,6 +10,7 @@ import {
   FaArrowTrendUp as UpIcon,
   FaArrowTrendDown as DownIcon,
 } from "react-icons/fa6";
+import { FaEye as EyeIcon, FaEyeSlash as EyeSlashIcon } from "react-icons/fa";
 import { fNumber, getLogo, getName, getProfitColor } from "./lib/utils";
 import { Asset } from "./lib/interface";
 import FooterPortfolio from "@/shared/components/Footer";
@@ -69,6 +70,9 @@ export default function StockPrice() {
   const [currentPage, setCurrentPage] = useState<
     "portfolio" | "market" | "calculator"
   >("portfolio");
+
+  // Hide/show numbers state
+  const [isNumbersHidden, setIsNumbersHidden] = useState(false);
 
   // Open the edit modal and populate with current assets
   const openEditModal = () => {
@@ -285,6 +289,12 @@ export default function StockPrice() {
     }
   };
 
+  // Helper function to mask numbers
+  const maskNumber = (value: string | number) => {
+    if (!isNumbersHidden) return value;
+    return "*****";
+  };
+
   // Loading state
   if (isLoading) return <CommonLoading />;
 
@@ -360,12 +370,22 @@ export default function StockPrice() {
       {/* Refresh Button */}
       {currentPage === "portfolio" && (
         <div className="fixed bg-black px-4 flex justify-between items-center w-full z-[99] sm:max-w-[450px] pb-5">
-          <button
-            className="bg-accent-yellow text-black p-2 rounded text-[14px] flex items-center justify-center h-[40px]"
-            onClick={openEditModal}
-          >
-            แก้ไขสินทรัพย์
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              className="bg-accent-yellow text-black p-2 rounded text-[14px] flex items-center justify-center h-[40px]"
+              onClick={openEditModal}
+            >
+              แก้ไขสินทรัพย์
+            </button>
+            <button
+              onClick={() => setIsNumbersHidden(!isNumbersHidden)}
+              className="text-[24px] cursor-pointer"
+              aria-label={isNumbersHidden ? "Show numbers" : "Hide numbers"}
+            >
+              {isNumbersHidden ? <EyeSlashIcon /> : <EyeIcon />}
+            </button>
+          </div>
+
           <RefreshIcon
             className="cursor-pointer text-[30px]"
             onClick={loadData}
@@ -467,10 +487,10 @@ export default function StockPrice() {
                       </div>
                       <div className="flex flex-col items-end whitespace-nowrap">
                         <div className="font-bold text-[16px]">
-                          {fNumber(marketValueThb)} THB
+                          {maskNumber(fNumber(marketValueThb))} THB
                         </div>
                         <div className="text-[12px] text-gray-300">
-                          ≈ {fNumber(marketValueUsd)} USD
+                          ≈ {maskNumber(fNumber(marketValueUsd))} USD
                         </div>
                       </div>
                       <div className="flex flex-col items-end text-right">
@@ -486,7 +506,7 @@ export default function StockPrice() {
                         </div>
                         <div className={`text-[12px] ${profitColor}`}>
                           ({profit > 0 ? "+" : ""}
-                          {fNumber(profit * currencyRate)} บาท)
+                          {maskNumber(fNumber(profit * currencyRate))} บาท)
                         </div>
                       </div>
                     </div>
@@ -496,14 +516,16 @@ export default function StockPrice() {
                         <div>
                           จำนวนหุ้น:{" "}
                           <span className="text-white">
-                            {fNumber(asset.quantity, { decimalNumber: 7 })}
+                            {maskNumber(
+                              fNumber(asset.quantity, { decimalNumber: 7 })
+                            )}
                           </span>
                         </div>
                         <div className="flex flex-col items-start gap-1">
                           <div className="flex items-center gap-1">
                             ราคาปัจจุบัน:{" "}
                             <span className="text-white">
-                              {fNumber(currentPrice)} USD
+                              {maskNumber(fNumber(currentPrice))} USD
                             </span>
                           </div>
                           <div className="flex flex-col items-end text-right">
@@ -525,12 +547,17 @@ export default function StockPrice() {
                         <div>
                           ต้นทุนต่อหุ้น:{" "}
                           <span className="text-white">
-                            {fNumber(asset.costPerShare, { decimalNumber: 4 })} USD
+                            {maskNumber(
+                              fNumber(asset.costPerShare, { decimalNumber: 4 })
+                            )}{" "}
+                            USD
                           </span>
                         </div>
                         <div>
                           ต้นทุนรวม:{" "}
-                          <span className="text-white">{fNumber(cost)}</span>{" "}
+                          <span className="text-white">
+                            {maskNumber(fNumber(cost))}
+                          </span>{" "}
                           USD
                         </div>
                       </div>
@@ -552,6 +579,7 @@ export default function StockPrice() {
         currencyRate={currencyRate}
         formattedDate={formattedDate}
         getProfitColor={getProfitColor}
+        isNumbersHidden={isNumbersHidden}
       />
 
       {/* Bottom Navbar */}

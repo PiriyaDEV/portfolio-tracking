@@ -21,6 +21,7 @@ type Props = {
   currencyRate: number;
   formattedDate: string;
   getProfitColor: (value: number) => string;
+  isNumbersHidden?: boolean;
 };
 
 export default function FooterPortfolio({
@@ -30,6 +31,7 @@ export default function FooterPortfolio({
   currencyRate,
   formattedDate,
   getProfitColor,
+  isNumbersHidden = false,
 }: Props) {
   const [isOpen, setIsOpen] = useState(true);
 
@@ -88,7 +90,8 @@ export default function FooterPortfolio({
             มูลค่าเงินทั้งหมด ({formattedDate})
           </div>
           <div className="font-bold text-[26px] mt-1 flex items-center justify-center gap-2">
-            {fNumber(totalMarketUsd * currencyRate)} บาท{" "}
+            {isNumbersHidden ? "*****" : fNumber(totalMarketUsd * currencyRate)}{" "}
+            บาท{" "}
             <HiChevronDown
               onClick={() => setIsOpen(!isOpen)}
               className={`mt-2 !text-[16px] text-gray-300 transition-transform duration-200 ${
@@ -133,7 +136,7 @@ export default function FooterPortfolio({
                 ) : null}
                 {fNumber(totalProfitPercent)}% (
                 {totalProfitPercent > 0 ? "+" : ""}
-                {fNumber(totalProfitThb)} บาท)
+                {isNumbersHidden ? "*****" : fNumber(totalProfitThb)} บาท)
               </span>
             </div>
           </div>

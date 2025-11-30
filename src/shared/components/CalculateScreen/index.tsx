@@ -249,7 +249,7 @@ export default function CalculatorScreen({
         </div>
       )}
       {/* Show before/after cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4">
         {/* Before card */}
         <div className="w-full shadow-sm">
           <div className="text-white font-bold px-4 py-1 bg-gray-700">ก่อน</div>
