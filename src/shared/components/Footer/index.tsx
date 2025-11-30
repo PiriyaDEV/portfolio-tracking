@@ -17,6 +17,7 @@ type Asset = {
 type Props = {
   assets: Asset[];
   prices: any;
+  previousPrice: any;
   currencyRate: number;
   formattedDate: string;
   getProfitColor: (value: number) => string;
@@ -25,6 +26,7 @@ type Props = {
 export default function FooterPortfolio({
   assets,
   prices,
+  previousPrice,
   currencyRate,
   formattedDate,
   getProfitColor,
@@ -52,13 +54,30 @@ export default function FooterPortfolio({
   const totalProfitPercent =
     totalCostUsd > 0 ? (totalProfitUsd / totalCostUsd) * 100 : 0;
 
-  const totalChangePercent =
-    assets.reduce((sum, asset) => {
-      const currentPrice = prices[asset.symbol] ?? 0;
-      if (currentPrice === 0) return sum;
-      const previousClose = asset.costPerShare;
-      return sum + ((currentPrice - previousClose) / previousClose) * 100;
-    }, 0) / assets.length;
+  const totalPercentChange = (): number => {
+    if (!assets || assets.length === 0) return 0;
+
+    let totalPreviousValue = 0;
+    let totalCurrentValue = 0;
+
+    for (const asset of assets) {
+      const symbol = asset.symbol;
+      const quantity = asset.quantity;
+
+      const prevPrice = previousPrice[symbol] ?? 0;
+      const currPrice = prices[symbol] ?? 0;
+
+      totalPreviousValue += prevPrice * quantity;
+      totalCurrentValue += currPrice * quantity;
+    }
+
+    const percentChange =
+      totalPreviousValue > 0
+        ? ((totalCurrentValue - totalPreviousValue) / totalPreviousValue) * 100
+        : 0;
+
+    return percentChange;
+  };
 
   return (
     <div className="fixed bottom-[52px] left-1/2 -translate-x-1/2 w-full sm:w-[450px] bg-black-lighter">
@@ -87,15 +106,15 @@ export default function FooterPortfolio({
               % เปลี่ยนจากวันก่อน :{" "}
               <span
                 className={`flex items-center gap-1 ${getProfitColor(
-                  totalChangePercent
+                  totalPercentChange()
                 )}`}
               >
-                {totalChangePercent > 0 ? (
+                {totalPercentChange() > 0 ? (
                   <UpIcon className="text-[12px]" />
-                ) : totalChangePercent < 0 ? (
+                ) : totalPercentChange() < 0 ? (
                   <DownIcon className="text-[12px]" />
                 ) : null}
-                {fNumber(totalChangePercent)}%
+                {fNumber(totalPercentChange())}%
               </span>
             </div>
 
