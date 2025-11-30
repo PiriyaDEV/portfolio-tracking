@@ -338,7 +338,9 @@ export default function StockPrice() {
     if (sortBy === column) setSortOrder(sortOrder === "asc" ? "desc" : "asc");
     else {
       setSortBy(column);
-      setSortOrder("asc");
+      // Default order based on column
+      if (column === "asset") setSortOrder("asc"); // asset default asc
+      else setSortOrder("desc"); // value and profit default desc
     }
   };
 
