@@ -1,74 +1,41 @@
 // app/user/[id]/route.ts
+import { createClient } from "@supabase/supabase-js";
+
 export async function GET(req: Request, context: any) {
   try {
     const { id } = await context.params;
-    const apiToken = process.env.DB_TOKEN;
 
-    if (!apiToken) {
-      return new Response(JSON.stringify({ error: "API Token is missing" }), {
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!supabaseUrl || !supabaseKey) {
+      return new Response(JSON.stringify({ error: "Supabase env missing" }), {
         status: 400,
         headers: { "Content-Type": "application/json" },
       });
     }
 
-    const query = `
-      query {
-        boards(ids: 5024696835) {
-          items_page(limit: 5) {
-            items {
-              id
-              name
-              column_values {
-                id
-                text
-                value
-              }
-            }
-          }
-        }
-      }
-    `;
+    const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const mondayRes = await fetch("https://api.monday.com/v2", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: apiToken,
-      },
-      body: JSON.stringify({ query }),
-    });
+    // Fetch the row from Supabase
+    const { data, error } = await supabase
+      .from("User")
+      .select("id, data")
+      .eq("id", id)
+      .single();
 
-    if (!mondayRes.ok) {
-      const text = await mondayRes.text();
-      console.error("Monday API error:", text);
-      return new Response(
-        JSON.stringify({ error: "Failed to fetch data from Monday API" }),
-        {
-          status: mondayRes.status,
-          headers: { "Content-Type": "application/json" },
-        }
-      );
-    }
-
-    const json = await mondayRes.json();
-
-    const board = json.data.boards[0];
-
-    // Assuming the items you want are inside board.items_page.items
-    const user = board.items_page.items.find(
-      (item: any) => item.name === String(id)
-    );
-
-    let textValue = "";
-
-    if (user) {
-      textValue = user.column_values[0].text;
-    } else {
-      console.log("User not found");
+    if (error || !data) {
+      return new Response(JSON.stringify({ error: "User not found" }), {
+        status: 404,
+        headers: { "Content-Type": "application/json" },
+      });
     }
 
     return new Response(
-      JSON.stringify({ assets: textValue, userId: user.id }),
+      JSON.stringify({
+        userId: data.id,
+        assets: data.data,
+      }),
       {
         status: 200,
         headers: { "Content-Type": "application/json" },
@@ -86,16 +53,22 @@ export async function GET(req: Request, context: any) {
 export async function POST(req: Request, context: any) {
   try {
     const { id } = await context.params;
-    const apiToken = process.env.DB_TOKEN;
-    if (!apiToken) {
-      return new Response(JSON.stringify({ error: "API Token is missing" }), {
+
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!supabaseUrl || !supabaseKey) {
+      return new Response(JSON.stringify({ error: "Supabase env missing" }), {
         status: 400,
         headers: { "Content-Type": "application/json" },
       });
     }
 
-    // Get the assets from the request body
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Parse request body
     const { assets } = await req.json();
+
     if (!assets || !Array.isArray(assets)) {
       return new Response(JSON.stringify({ error: "Invalid assets data" }), {
         status: 400,
@@ -103,43 +76,23 @@ export async function POST(req: Request, context: any) {
       });
     }
 
-    // Convert assets array to JSON string and escape quotes for GraphQL
-    const value = JSON.stringify(assets).replace(/"/g, '\\"');
+    // Update Supabase row
+    const { data, error } = await supabase
+      .from("User")
+      .update({ data: assets }) // your column is named "data"
+      .eq("id", id)
+      .select()
+      .single();
 
-    const query = `
-      mutation {
-        change_simple_column_value(
-          item_id: ${id},  # ID of item "0002"
-          board_id: 5024696835,   # your board ID
-          column_id: "text_mkxq500d",  # actual column ID
-          value: "${value}"         # use user assets here
-        ) {
-          id
-        }
-      }
-    `;
-
-    const response = await fetch("https://api.monday.com/v2", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: apiToken,
-      },
-      body: JSON.stringify({ query }),
-    });
-
-    if (!response.ok) {
-      return new Response(
-        JSON.stringify({ error: "Failed to send data to the API" }),
-        {
-          status: response.status,
-          headers: { "Content-Type": "application/json" },
-        }
-      );
+    if (error) {
+      console.error("Supabase update error:", error);
+      return new Response(JSON.stringify({ error: "Failed to update user" }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      });
     }
 
-    const data = await response.json();
-    return new Response(JSON.stringify(data), {
+    return new Response(JSON.stringify({ message: "Updated", user: data }), {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
