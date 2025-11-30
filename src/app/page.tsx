@@ -238,15 +238,15 @@ export default function StockPrice() {
   }
 
   async function fetchFxRate() {
-    // if (isMock) {
-    //   setCurrencyRate(32.31);
-    // } else {
-    //   const res = await fetch("/api/rate", { method: "POST" });
-    //   if (!res.ok) throw new Error(`BOT API Error: ${res.status}`);
-    //   const data = await res.json();
-    //   setCurrencyRate(Number(data.rate) ?? 0);
-    // }
-    setCurrencyRate(32.01);
+    if (isMock) {
+      setCurrencyRate(32.31);
+    } else {
+      const res = await fetch("/api/rate", { method: "POST" });
+      if (!res.ok) throw new Error(`BOT API Error: ${res.status}`);
+      const data = await res.json();
+      setCurrencyRate(Number(data.rate) ?? 0);
+    }
+    // setCurrencyRate(32.01);
   }
 
   const saveAssets = async () => {
