@@ -13,11 +13,11 @@ const navItems: {
   icon: JSX.Element;
   page: BottomNavbarProps["currentPage"];
 }[] = [
-  {
-    label: "ข้อมูล",
-    icon: <FaChartLine className="text-lg" />,
-    page: "market",
-  },
+  // {
+  //   label: "ข้อมูล",
+  //   icon: <FaChartLine className="text-lg" />,
+  //   page: "market",
+  // },
   {
     label: "พอร์ต",
     icon: <FaHome className="text-lg" />,
