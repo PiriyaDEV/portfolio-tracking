@@ -43,6 +43,14 @@ const hours = now.getHours().toString().padStart(2, "0");
 const minutes = now.getMinutes().toString().padStart(2, "0");
 
 const isMock = false;
+const SESSION_KEY = "portfolio_session";
+const SESSION_DURATION = 60 * 60 * 1000; // 1 hour in milliseconds
+
+interface SessionData {
+  userId: string;
+  userColId: string;
+  expiresAt: number;
+}
 
 export default function StockPrice() {
   const [prices, setPrices] = useState<Record<string, number | null>>({});
@@ -75,7 +83,63 @@ export default function StockPrice() {
   // Hide/show numbers state
   const [isNumbersHidden, setIsNumbersHidden] = useState(false);
 
-  // Open the edit modal and populate with current assets
+  // Session Storage Functions
+  const saveSession = (userId: string, userColId: string) => {
+    const sessionData: SessionData = {
+      userId,
+      userColId,
+      expiresAt: Date.now() + SESSION_DURATION,
+    };
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify(sessionData));
+  };
+
+  const getSession = (): SessionData | null => {
+    try {
+      const data = sessionStorage.getItem(SESSION_KEY);
+      if (!data) return null;
+
+      const session: SessionData = JSON.parse(data);
+
+      // Check if session expired
+      if (Date.now() > session.expiresAt) {
+        sessionStorage.removeItem(SESSION_KEY);
+        return null;
+      }
+
+      return session;
+    } catch (error) {
+      console.error("Error reading session:", error);
+      return null;
+    }
+  };
+
+  const clearSession = () => {
+    sessionStorage.removeItem(SESSION_KEY);
+  };
+
+  // Check for existing session on mount
+  useEffect(() => {
+    const checkSession = async () => {
+      const session = getSession();
+      if (session) {
+        setUserId(session.userId);
+        setUserColId(session.userColId);
+        setIsLoading(true);
+        try {
+          await fetchUserData(session.userId);
+        } catch (error) {
+          console.error("Session restore failed:", error);
+          clearSession();
+          setIsLoggedIn(false);
+        } finally {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    checkSession();
+  }, []);
+
   const openEditModal = () => {
     setEditAssets(JSON.parse(JSON.stringify(assets))); // Deep copy
     setIsEditOpen(true);
@@ -127,18 +191,21 @@ export default function StockPrice() {
     setLoginError("");
 
     try {
-      await fetchUserData();
+      await fetchUserData(userId);
     } catch (err: any) {
       console.error(err);
       setLoginError(err.message || "ไม่เจอผู้ใช้งาน");
       setIsLoggedIn(false);
+    } finally {
+      setIsLoading(false);
     }
   }
 
-  async function fetchUserData() {
-    if (!userId) throw new Error("กรุณากรอกรหัสผ่าน");
+  async function fetchUserData(userIdParam?: string) {
+    const targetUserId = userIdParam || userId;
+    if (!targetUserId) throw new Error("กรุณากรอกรหัสผ่าน");
 
-    const response = await fetch(`/api/user/${userId}`);
+    const response = await fetch(`/api/user/${targetUserId}`);
     if (!response.ok) throw new Error("ไม่เจอผู้ใช้งาน");
 
     let parsedAssets: Asset[];
@@ -152,16 +219,18 @@ export default function StockPrice() {
         responseText.trim() === '""'
       ) {
         setAssets([]);
-        setUserColId(userId);
+        setUserColId(targetUserId);
         setIsLoggedIn(true);
+        saveSession(targetUserId, targetUserId);
         return;
       }
 
       const data = JSON.parse(responseText);
       if (!data.assets || data.assets === "" || data.assets === '""') {
         setAssets([]);
-        setUserColId(data.userId || userId);
+        setUserColId(data.userId || targetUserId);
         setIsLoggedIn(true);
+        saveSession(targetUserId, data.userId || targetUserId);
         return;
       }
 
@@ -172,7 +241,7 @@ export default function StockPrice() {
       parsedUserId =
         typeof data.userId === "string" && data.userId.startsWith('"')
           ? JSON.parse(data.userId)
-          : data.userId || userId;
+          : data.userId || targetUserId;
     } catch (err) {
       console.error("Parse error:", err);
       throw new Error("ไม่สามารถอ่านข้อมูลผู้ใช้งาน");
@@ -182,12 +251,14 @@ export default function StockPrice() {
       setAssets([]);
       setUserColId(parsedUserId);
       setIsLoggedIn(true);
+      saveSession(targetUserId, parsedUserId);
       return;
     }
 
     setAssets(parsedAssets);
     setUserColId(parsedUserId);
     setIsLoggedIn(true);
+    saveSession(targetUserId, parsedUserId);
   }
 
   async function loadData() {
@@ -236,7 +307,7 @@ export default function StockPrice() {
 
       setPrices(data.prices || {});
       setLogos(data.logos || {});
-      setTechnicalLevels(data.technicalLevels || {})
+      setTechnicalLevels(data.technicalLevels || {});
       setPreviousPrice(data.previousPrice || {});
     } catch (err) {
       console.error(err);
@@ -252,7 +323,6 @@ export default function StockPrice() {
       const data = await res.json();
       setCurrencyRate(Number(data.rate) ?? 0);
     }
-    // setCurrencyRate(32.01);
   }
 
   const saveAssets = async () => {
@@ -315,19 +385,21 @@ export default function StockPrice() {
 
   if (assets === null) return <CommonLoading />;
 
-  assets?.length === 0 && (
-    <NoItem
-      onAddClick={openEditModal}
-      isEditOpen={isEditOpen}
-      editAssets={editAssets}
-      setEditAssets={setEditAssets}
-      addNewAsset={addNewAsset}
-      removeAsset={removeAsset}
-      saveAssets={saveAssets}
-      setIsEditOpen={setIsEditOpen}
-      EditModal={EditModal}
-    />
-  );
+  if (assets?.length === 0) {
+    return (
+      <NoItem
+        onAddClick={openEditModal}
+        isEditOpen={isEditOpen}
+        editAssets={editAssets}
+        setEditAssets={setEditAssets}
+        addNewAsset={addNewAsset}
+        removeAsset={removeAsset}
+        saveAssets={saveAssets}
+        setIsEditOpen={setIsEditOpen}
+        EditModal={EditModal}
+      />
+    );
+  }
 
   // Sorting function
   const sortedAssets = [...assets].sort((a, b) => {
@@ -398,7 +470,11 @@ export default function StockPrice() {
       {/* Portfolio Header */}
       <div className="flex flex-wrap w-full">
         {currentPage === "market" && (
-          <MarketScreen prices={prices} technicalLevels={technicalLevels} logos={logos} />
+          <MarketScreen
+            prices={prices}
+            technicalLevels={technicalLevels}
+            logos={logos}
+          />
         )}
         {currentPage === "calculator" && (
           <CalculateScreen
