@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
         }
 
         // Fetch technical levels from Yahoo Finance
-        levels = (await getSupportResistance(asset.symbol, '5d')) ?? {
+        levels = (await getSupportResistance(asset.symbol, '7d')) ?? {
           support1: 0,
           support2: 0,
           resistance1: 0,

@@ -133,7 +133,7 @@ export default function CalculatorScreen({
     profit > 0 ? "text-green-500" : profit < 0 ? "text-red-500" : "text-white";
 
   return (
-    <div className="p-4 w-full ">
+    <div className="p-4 w-full pb-[50px]">
       {/* Tabs mapping */}
       <div className="flex mb-4 gap-2">
         {[

@@ -1,210 +1,158 @@
-import { useEffect, useState } from "react";
-import CommonLoading from "../CommonLoading";
+"use client";
 
-type Asset = {
-  symbol: string;
-  quantity: number;
-  costPerShare: number;
+import { getLogo, getName, fNumber } from "@/app/lib/utils";
+
+/* -------------------- Types -------------------- */
+
+export interface TechnicalLevels {
+  resistance1: number | null;
+  resistance2: number | null;
+  support1: number | null;
+  support2: number | null;
+}
+
+interface Props {
+  technicalLevels: Record<string, TechnicalLevels>;
+  prices: Record<string, number | null>;
+  logos: any;
+}
+
+/* -------------------- Helpers -------------------- */
+
+/**
+ * Returns true if price is within 3% of support
+ */
+const isNearSupport = (
+  price?: number | null,
+  support?: number | null
+): boolean => {
+  if (price == null || support == null) return false;
+  return Math.abs(price - support) / support <= 0.03;
 };
 
-type QuoteItem = {
-  exchange: string;
-  shortname: string;
-  quoteType: string;
-  symbol: string;
-  index: string;
-  score: number;
-  typeDisp: string;
-  longname: string;
-  exchDisp: string;
-  sector?: string;
-  sectorDisp?: string;
-  industry?: string;
-  industryDisp?: string;
-  dispSecIndFlag?: boolean;
-  isYahooFinance: boolean;
-  prevName?: string;
-  nameChangeDate?: string;
+/**
+ * Returns true if price is within 3% of resistance
+ */
+const isNearResistance = (
+  price?: number | null,
+  resistance?: number | null
+): boolean => {
+  if (price == null || resistance == null) return false;
+  return Math.abs(price - resistance) / resistance <= 0.03;
 };
 
-type NewsItem = {
-  uuid?: string;
-  title?: string;
-  publisher?: string;
-  url?: string;
-  image_url?: string;
-  providerPublishTime?: string;
-  type?: string;
-  relatedTickers?: string[];
-};
+/* -------------------- Component -------------------- */
 
-export default function MarketScreen({ assets }: { assets: Asset[] }) {
-  const [selectedSymbol, setSelectedSymbol] = useState<string>(
-    assets?.[0]?.symbol || ""
-  );
+export default function MarketScreen({
+  technicalLevels,
+  prices,
+  logos,
+}: Props) {
+  const sortedSymbols = Object.keys(technicalLevels).sort((a, b) => {
+    const pa = prices[a];
+    const pb = prices[b];
 
-  const [news, setNews] = useState<NewsItem[]>([]);
-  const [loading, setLoading] = useState(true);
+    const la = technicalLevels[a];
+    const lb = technicalLevels[b];
 
-  useEffect(() => {
-    const fetchData = async () => {
-      if (!selectedSymbol) {
-        setNews([]);
-        setLoading(false);
-        return;
-      }
+    const aNearSupport = isNearSupport(pa, la?.support1);
+    const bNearSupport = isNearSupport(pb, lb?.support1);
 
-      setLoading(true);
+    const aNearResistance = isNearResistance(pa, la?.resistance1);
+    const bNearResistance = isNearResistance(pb, lb?.resistance1);
 
-      try {
-        const res = await fetch("/api/news-ai", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ symbol: selectedSymbol }),
-        });
+    if (aNearSupport && !bNearSupport) return -1;
+    if (!aNearSupport && bNearSupport) return 1;
 
-        const resData = await res.json();
-        const data = resData.results;
+    if (aNearResistance && !bNearResistance) return -1;
+    if (!aNearResistance && bNearResistance) return 1;
 
-        const mappedNews: NewsItem[] =
-          data.news?.map((item: any) => ({
-            uuid: item.uuid,
-            title: item.title,
-            publisher: item.publisher,
-            url: item.link,
-            image_url: item.thumbnail?.resolutions?.[0]?.url || "",
-            providerPublishTime: item.providerPublishTime,
-            type: item.type,
-            relatedTickers: item.relatedTickers,
-          })) || [];
-
-        // Sort news by date descending
-        const sortedNews = mappedNews.sort((a, b) => {
-          const dateA = a.providerPublishTime
-            ? new Date(a.providerPublishTime).getTime()
-            : 0;
-          const dateB = b.providerPublishTime
-            ? new Date(b.providerPublishTime).getTime()
-            : 0;
-          return dateB - dateA; // most recent first
-        });
-
-        setNews(sortedNews);
-      } catch (err) {
-        console.error(err);
-        setNews([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [selectedSymbol]);
-
-  if (loading) return <CommonLoading />;
+    return 0;
+  });
 
   return (
-    <div className="w-full min-h-screen bg-black text-white">
-      {/* Header & Asset Selector */}
-      <div className="px-4 py-4 fixed w-full z-50 sm:w-[450px] bg-black border-b border-gray-800">
-        <h2 className="text-xl font-bold mb-4">ข่าวสารตลาด</h2>
+    <div className="w-full px-4 mt-4 space-y-3 pb-[70px]">
+      {sortedSymbols.map((symbol) => {
+        const levels = technicalLevels[symbol];
+        const price = prices[symbol];
 
-        <div className="mb-2 w-full">
-          <select
-            value={selectedSymbol}
-            onChange={(e) => setSelectedSymbol(e.target.value)}
-            className="p-2 rounded bg-gray-800 text-white w-full border border-gray-700"
+        const nearSupport = isNearSupport(price, levels?.support1);
+        const nearResistance = isNearResistance(price, levels?.resistance1);
+
+        return (
+          <div
+            key={symbol}
+            className={`
+              rounded-lg p-4 grid grid-cols-[auto_1fr] gap-4 border
+              ${
+                nearSupport
+                  ? "bg-green-900/30 border-green-400 shadow-lg"
+                  : nearResistance
+                  ? "bg-red-900/30 border-red-400 shadow-lg"
+                  : "bg-black-lighter border-transparent"
+              }
+            `}
           >
-            {assets?.map((a) => (
-              <option key={a.symbol} value={a.symbol}>
-                {a.symbol}
-              </option>
-            )) || <option>ไม่มีข้อมูล</option>}
-          </select>
-        </div>
-      </div>
+            {/* Logo */}
+            <div
+              className="w-[40px] h-[40px] rounded-full bg-cover bg-center bg-white"
+              style={{
+                backgroundImage: `url(${getLogo(symbol, logos)})`,
+              }}
+            />
 
-      <div className="p-4 mt-[120px] space-y-6">
-        {/* News Cards */}
-        <div>
-          <h3 className="text-lg font-bold mb-3">ข่าวสาร ({news.length})</h3>
-          {news.length === 0 ? (
-            <p className="text-gray-400">ไม่พบข่าวสำหรับ {selectedSymbol}</p>
-          ) : (
-            <div className="space-y-4">
-              {news.map((item) => (
-                <div
-                  key={item.uuid || Math.random()}
-                  className="border border-gray-700 rounded-lg p-4 bg-black-lighter hover:bg-gray-800 transition-colors duration-300"
-                >
-                  <div className="flex flex-col md:flex-row gap-4">
-                    {/* Thumbnail */}
-                    {item.image_url && (
-                      <div
-                        className="w-full md:w-48 h-32 rounded-lg bg-center bg-cover flex-shrink-0"
-                        style={{ backgroundImage: `url('${item.image_url}')` }}
-                      ></div>
-                    )}
+            {/* Data */}
+            <div className="flex flex-col gap-2">
+              {/* Name + Price */}
+              <div className="flex justify-between items-center">
+                <div className="font-bold text-[16px]">{getName(symbol)}</div>
+                <div className="text-[14px] font-semibold">
+                  ราคาปัจจุบัน:{" "}
+                  <span className="text-white">{fNumber(price ?? 0)} USD</span>
+                </div>
+              </div>
 
-                    {/* Content */}
-                    <div className="flex-1">
-                      <a
-                        href={item.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-lg font-semibold hover:text-blue-400 transition-colors"
-                      >
-                        {item.title}
-                      </a>
+              {/* Badges */}
+              {nearSupport && (
+                <div className="text-green-400 text-[12px] font-semibold">
+                  📉 เข้าใกล้แนวรับ
+                </div>
+              )}
 
-                      <div className="flex items-center gap-2 mt-2 text-xs text-gray-400">
-                        <span className="px-2 py-1 bg-gray-700 rounded">
-                          {item.publisher || "Unknown"}
-                        </span>
-                        {item.type && (
-                          <span className="px-2 py-1 bg-gray-700 rounded">
-                            {item.type}
-                          </span>
-                        )}
-                      </div>
+              {nearResistance && (
+                <div className="text-red-400 text-[12px] font-semibold">
+                  📈 เข้าใกล้แนวต้าน
+                </div>
+              )}
 
-                      <p className="text-gray-400 text-sm mt-2">
-                        {item.providerPublishTime
-                          ? new Date(item.providerPublishTime).toLocaleString(
-                              "th-TH",
-                              {
-                                year: "numeric",
-                                month: "short",
-                                day: "numeric",
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              }
-                            )
-                          : "วันที่ไม่ระบุ"}
-                      </p>
-
-                      {/* Related Tickers */}
-                      {item.relatedTickers &&
-                        item.relatedTickers.length > 0 && (
-                          <div className="mt-2 flex flex-wrap gap-1">
-                            {item.relatedTickers.map((ticker) => (
-                              <span
-                                key={ticker}
-                                className="px-2 py-1 bg-blue-900 text-blue-200 text-xs rounded"
-                              >
-                                {ticker}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                    </div>
+              {/* Levels */}
+              <div className="grid grid-cols-1 gap-3 text-[13px]">
+                {/* แนวรับ */}
+                <div className="bg-green-900/40 rounded p-2 flex items-center gap-3">
+                  <div className="text-green-400 font-semibold">แนวรับ</div>
+                  <div>
+                    S1: {levels.support1 ? fNumber(levels.support1) : "-"}
+                  </div>
+                  <div>
+                    S2: {levels.support2 ? fNumber(levels.support2) : "-"}
                   </div>
                 </div>
-              ))}
+
+                {/* แนวต้าน */}
+                <div className="bg-red-900/40 rounded p-2 flex items-center gap-3">
+                  <div className="text-red-400 font-semibold">แนวต้าน</div>
+                  <div>
+                    R1: {levels.resistance1 ? fNumber(levels.resistance1) : "-"}
+                  </div>
+                  <div>
+                    R2: {levels.resistance2 ? fNumber(levels.resistance2) : "-"}
+                  </div>
+                </div>
+              </div>
             </div>
-          )}
-        </div>
-      </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

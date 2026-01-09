@@ -50,6 +50,7 @@ export default function StockPrice() {
     Record<string, number | null>
   >({});
   const [logos, setLogos] = useState<Record<string, string | null>>({});
+  const [technicalLevels, setTechnicalLevels] = useState<any>({});
   const [isLoading, setIsLoading] = useState(false);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [currencyRate, setCurrencyRate] = useState<number>(0);
@@ -235,6 +236,7 @@ export default function StockPrice() {
 
       setPrices(data.prices || {});
       setLogos(data.logos || {});
+      setTechnicalLevels(data.technicalLevels || {})
       setPreviousPrice(data.previousPrice || {});
     } catch (err) {
       console.error(err);
@@ -395,7 +397,9 @@ export default function StockPrice() {
 
       {/* Portfolio Header */}
       <div className="flex flex-wrap w-full">
-        {currentPage === "market" && <MarketScreen assets={assets} />}
+        {currentPage === "market" && (
+          <MarketScreen prices={prices} technicalLevels={technicalLevels} logos={logos} />
+        )}
         {currentPage === "calculator" && (
           <CalculateScreen
             assets={assets}
