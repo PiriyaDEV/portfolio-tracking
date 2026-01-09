@@ -12,62 +12,68 @@ const ZERO_LEVELS: PivotLevels = {
   resistance2: 0,
 };
 
+type Timeframe = "1d" | "3d" | "4d" | "5d" | "6d" | "7d" | "8d" | "1wk" | "1mo";
+
 export async function getSupportResistance(
-  symbol: string = "NVDA"
+  symbol: string = "NVDA",
+  timeframe: Timeframe = "1d"
 ): Promise<PivotLevels> {
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=5d`;
+  let interval = "1d";
+  let range = "2d";
+  let daysToUse = 1;
+
+  // ---------- CONFIG ----------
+  if (timeframe.endsWith("d") && timeframe !== "1d") {
+    daysToUse = Number(timeframe.replace("d", ""));
+    range = `${daysToUse + 1}d`; // เผื่อวันปัจจุบัน
+  } else if (timeframe === "1d") {
+    daysToUse = 1;
+    range = "2d";
+  } else if (timeframe === "1wk") {
+    interval = "1wk";
+    range = "3wk";
+  } else if (timeframe === "1mo") {
+    interval = "1mo";
+    range = "3mo";
+  }
+
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=${interval}&range=${range}`;
 
   try {
-    const response = await fetch(url);
-    if (!response.ok) return ZERO_LEVELS;
-
-    const data = await response.json();
-
-    const result = data?.chart?.result?.[0];
-    const quote = result?.indicators?.quote?.[0];
-
+    const res = await fetch(url);
+    const json = await res.json();
+    const quote = json?.chart?.result?.[0]?.indicators?.quote?.[0];
     if (!quote) return ZERO_LEVELS;
 
-    // Filter out null / undefined / non-number values
-    const highs = (quote.high ?? []).filter(
-      (v: unknown): v is number => typeof v === "number"
-    );
-    const lows = (quote.low ?? []).filter(
-      (v: unknown): v is number => typeof v === "number"
-    );
-    const closes = (quote.close ?? []).filter(
-      (v: unknown): v is number => typeof v === "number"
-    );
+    let high: number;
+    let low: number;
+    let close: number;
 
-    // Ensure we have usable data
-    if (!highs.length || !lows.length || !closes.length) {
-      return ZERO_LEVELS;
+    if (interval === "1d" && daysToUse > 1) {
+      // 🔥 Multi-day pivot (3–8 days)
+      const highs = quote.high.slice(0, daysToUse);
+      const lows = quote.low.slice(0, daysToUse);
+      const closes = quote.close.slice(0, daysToUse);
+
+      high = Math.max(...highs);
+      low = Math.min(...lows);
+      close = closes[closes.length - 1];
+    } else {
+      // 1d / 1wk / 1mo
+      high = quote.high[0];
+      low = quote.low[0];
+      close = quote.close[0];
     }
 
-    const periodHigh = Math.max(...highs);
-    const periodLow = Math.min(...lows);
-    const lastClose = closes[closes.length - 1];
-
-    if (
-      !Number.isFinite(periodHigh) ||
-      !Number.isFinite(periodLow) ||
-      !Number.isFinite(lastClose)
-    ) {
-      return ZERO_LEVELS;
-    }
-
-    const pivot = (periodHigh + periodLow + lastClose) / 3;
-
-    if (!Number.isFinite(pivot)) return ZERO_LEVELS;
+    const pivot = (high + low + close) / 3;
 
     return {
-      resistance1: Number((2 * pivot - periodLow).toFixed(2)),
-      support1: Number((2 * pivot - periodHigh).toFixed(2)),
-      resistance2: Number((pivot + (periodHigh - periodLow)).toFixed(2)),
-      support2: Number((pivot - (periodHigh - periodLow)).toFixed(2)),
+      resistance1: Number((2 * pivot - low).toFixed(2)),
+      support1: Number((2 * pivot - high).toFixed(2)),
+      resistance2: Number((pivot + (high - low)).toFixed(2)),
+      support2: Number((pivot - (high - low)).toFixed(2)),
     };
-  } catch (error) {
-    console.error("Error fetching support/resistance:", error);
+  } catch {
     return ZERO_LEVELS;
   }
 }
