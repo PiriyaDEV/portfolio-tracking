@@ -21,7 +21,7 @@ type Signal = "BUY" | "SELL" | "NORMAL";
 const isBelowEntry = (
   price?: number | null,
   entry?: number | null,
-  percent: number = 0.03
+  percent: number = 0.015
 ): boolean => {
   if (price == null || entry == null) return false;
   return price <= entry || price <= entry * (1 + percent);
@@ -35,7 +35,7 @@ const isNearResistance = (
   resistance?: number | null
 ): boolean => {
   if (price == null || resistance == null) return false;
-  return (price - resistance) / resistance >= -0.02;
+  return (price - resistance) / resistance >= -0.025;
 };
 
 /**
