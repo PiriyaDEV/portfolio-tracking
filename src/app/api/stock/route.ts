@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSupportResistance, PivotLevels } from "./support.function";
+import { AdvancedLevels, getAdvancedLevels } from "./support.function";
 
 const FINNHUB_API_BASE_URL = "https://finnhub.io/api/v1";
-const API_KEY = process.env.FINNHUB_API_KEY || ""; // Move key to .env
+const API_KEY = process.env.FINNHUB_API_KEY || "";
 
 type Asset = {
   symbol: string;
@@ -15,42 +15,48 @@ export async function POST(req: NextRequest) {
     const { assets, isMock }: { assets: Asset[]; isMock?: boolean } =
       await req.json();
 
-    const results: Record<string, number | null> = {};
-    const logos: Record<string, string | null> = {};
+    const prices: Record<string, number | null> = {};
     const previousPrice: Record<string, number | null> = {};
-    const technicalLevels: Record<string, PivotLevels> = {};
+    const logos: Record<string, string | null> = {};
+    const advancedLevels: Record<string, AdvancedLevels | null> = {};
+
     const validAssets: Asset[] = [];
 
     for (const asset of assets) {
-      let res: any = {};
+      let quote: any = {};
       let logo: string | null = null;
-      let levels: PivotLevels = {
-        support1: 0,
-        support2: 0,
-        resistance1: 0,
-        resistance2: 0,
-      };
 
       if (isMock) {
-        res = { c: 190.17, d: null, dp: null, h: 0, l: 0, o: 0, pc: 0, t: 0 };
+        quote = {
+          c: 190.17,
+          pc: 185.5,
+        };
+
         logo = "https://via.placeholder.com/30?text=Logo";
-        levels = {
-          support1: 185,
-          support2: 180,
-          resistance1: 195,
-          resistance2: 192,
+
+        advancedLevels[asset.symbol] = {
+          symbol: asset.symbol,
+          currentPrice: 190.17,
+          ema20: 188,
+          ema50: 182,
+          entry1: 186,
+          entry2: 183,
+          stopLoss: 178,
+          resistance: 195,
+          trend: "UP",
         };
       } else {
-        // Fetch quote
+        // ===== Fetch quote =====
         const quoteUrl = new URL(`${FINNHUB_API_BASE_URL}/quote`);
         quoteUrl.searchParams.append("symbol", asset.symbol);
         quoteUrl.searchParams.append("token", API_KEY);
 
         const quoteRes = await fetch(quoteUrl.toString());
-        if (!quoteRes.ok) throw new Error(`Fetch error for ${asset.symbol}`);
-        res = await quoteRes.json();
+        if (!quoteRes.ok)
+          throw new Error(`Quote fetch failed: ${asset.symbol}`);
+        quote = await quoteRes.json();
 
-        // Fetch company profile for logo
+        // ===== Fetch company profile =====
         const profileUrl = new URL(`${FINNHUB_API_BASE_URL}/stock/profile2`);
         profileUrl.searchParams.append("symbol", asset.symbol);
         profileUrl.searchParams.append("token", API_KEY);
@@ -61,39 +67,27 @@ export async function POST(req: NextRequest) {
           logo = profileData.logo || null;
         }
 
-        // Fetch technical levels from Yahoo Finance
-        levels = (await getSupportResistance(asset.symbol, '7d')) ?? {
-          support1: 0,
-          support2: 0,
-          resistance1: 0,
-          resistance2: 0,
-        };
+        // ===== Fetch advanced technical levels =====
+        advancedLevels[asset.symbol] = await getAdvancedLevels(asset.symbol);
       }
 
-      // Check if response is valid
-      const isInvalid =
-        res.c === 0 &&
-        (res.d === null || res.dp === null) &&
-        res.h === 0 &&
-        res.l === 0 &&
-        res.o === 0 &&
-        res.pc === 0;
+      // ===== Validate quote =====
+      const isInvalid = quote.c === 0 && quote.pc === 0;
 
       if (!isInvalid) {
-        results[asset.symbol] = res.c ?? null;
-        previousPrice[asset.symbol] = res.pc ?? null;
-        technicalLevels[asset.symbol] = levels;
-        validAssets.push(asset);
+        prices[asset.symbol] = quote.c ?? null;
+        previousPrice[asset.symbol] = quote.pc ?? null;
         logos[asset.symbol] = logo;
+        validAssets.push(asset);
       }
     }
 
     return NextResponse.json({
-      prices: results,
-      assets: validAssets,
-      logos,
+      prices,
       previousPrice,
-      technicalLevels,
+      logos,
+      assets: validAssets,
+      advancedLevels, // 🔥 ส่ง AdvancedLevels กลับไปตรง ๆ
     });
   } catch (error: any) {
     console.error("Error fetching prices:", error);
