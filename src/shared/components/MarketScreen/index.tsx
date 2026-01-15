@@ -11,41 +11,62 @@ interface Props {
   logos: any;
 }
 
-type Signal = "BUY" | "SELL" | "NORMAL";
+type Signal = "STRONG_BUY" | "BUY" | "SELL" | "NORMAL";
 
 /* -------------------- Helpers -------------------- */
 
 /**
- * ราคา <= entry → เข้าโซนซื้อ
+ * STRONG BUY:
+ * price < entry2 (support 2 broken)
  */
-const isBelowEntry = (
+const isStrongBuy = (
   price?: number | null,
-  entry?: number | null,
-  percent: number = 0.015
+  entry2?: number | null
 ): boolean => {
-  if (price == null || entry == null) return false;
-  return price <= entry || price <= entry * (1 + percent);
+  if (price == null || entry2 == null) return false;
+  return price < entry2;
 };
 
 /**
- * ราคาเข้าใกล้แนวต้าน (ภายใน ~2%)
+ * NORMAL BUY:
+ * - price near entry1 (±1%)
+ * - AND price >= entry2
+ */
+const isNormalBuy = (
+  price?: number | null,
+  entry1?: number | null,
+  entry2?: number | null,
+  percent: number = 0.01
+): boolean => {
+  if (price == null || entry1 == null || entry2 == null) return false;
+
+  const nearEntry1 =
+    price >= entry1 * (1 - percent) && price <= entry1 * (1 + percent);
+
+  const aboveEntry2 = price >= entry2;
+
+  return nearEntry1 && aboveEntry2;
+};
+
+/**
+ * ราคาเข้าใกล้แนวต้าน (~2.5%)
  */
 const isNearResistance = (
   price?: number | null,
   resistance?: number | null
 ): boolean => {
   if (price == null || resistance == null) return false;
-  return (price - resistance) / resistance >= -0.025;
+  return (price - resistance) / resistance >= -0.015;
 };
 
 /**
  * หา signal ของหุ้น
  */
 const getSignal = (price?: number | null, levels?: AdvancedLevels): Signal => {
-  if (!price || !levels) return "NORMAL";
+  if (price == null || !levels) return "NORMAL";
 
-  if (isBelowEntry(price, levels.entry2)) return "BUY";
-  if (isBelowEntry(price, levels.entry1)) return "BUY";
+  if (isStrongBuy(price, levels.entry2)) return "STRONG_BUY";
+  if (isNormalBuy(price, levels.entry1, levels.entry2)) return "BUY";
   if (isNearResistance(price, levels.resistance)) return "SELL";
 
   return "NORMAL";
@@ -56,12 +77,14 @@ const getSignal = (price?: number | null, levels?: AdvancedLevels): Signal => {
  */
 const getSignalRank = (signal: Signal): number => {
   switch (signal) {
-    case "BUY":
+    case "STRONG_BUY":
       return 0;
-    case "SELL":
+    case "BUY":
       return 1;
-    default:
+    case "SELL":
       return 2;
+    default:
+      return 3;
   }
 };
 
@@ -83,8 +106,8 @@ export default function MarketScreen({ advancedLevels, prices, logos }: Props) {
         const levels = advancedLevels[symbol];
         const price = prices[symbol];
 
-        const strongBuy = isBelowEntry(price, levels.entry2);
-        const buyZone = !strongBuy && isBelowEntry(price, levels.entry1);
+        const strongBuy = isStrongBuy(price, levels.entry2);
+        const buyZone = isNormalBuy(price, levels.entry1, levels.entry2);
         const takeProfit = isNearResistance(price, levels.resistance);
 
         return (
@@ -141,6 +164,7 @@ export default function MarketScreen({ advancedLevels, prices, logos }: Props) {
                 </div>
               )}
 
+              {/* Trend */}
               <div className="font-semibold text-[12px]">
                 แนวโน้ม:{" "}
                 <span
@@ -160,39 +184,15 @@ export default function MarketScreen({ advancedLevels, prices, logos }: Props) {
 
               {/* Levels */}
               <div className="grid grid-cols-1 gap-3 text-[13px]">
-                {/* Entry */}
                 <div className="bg-green-900/40 rounded p-2 grid grid-cols-2 gap-2">
                   <div>จุดซื้อ 1: {fNumber(levels.entry1)}</div>
                   <div>จุดซื้อ 2: {fNumber(levels.entry2)}</div>
                 </div>
 
-                {/* Risk */}
                 <div className="bg-red-900/40 rounded p-2 grid grid-cols-2 gap-2">
                   <div>จุดตัดขาดทุน: {fNumber(levels.stopLoss)}</div>
                   <div>แนวต้าน: {fNumber(levels.resistance)}</div>
                 </div>
-
-                {/* EMA + Trend */}
-                {/* <div className="bg-blue-900/30 rounded p-2 grid grid-cols-3 gap-2">
-                  <div>EMA20: {fNumber(levels.ema20)}</div>
-                  <div>EMA50: {fNumber(levels.ema50)}</div>
-                  <div className="font-semibold">
-                    แนวโน้ม:{" "}
-                    <span
-                      className={
-                        levels.trend === "UP"
-                          ? "text-green-400"
-                          : levels.trend === "DOWN"
-                          ? "text-red-400"
-                          : "text-gray-300"
-                      }
-                    >
-                      {levels.trend === "UP" && "📈 ขาขึ้น"}
-                      {levels.trend === "DOWN" && "📉 ขาลง"}
-                      {levels.trend === "SIDEWAYS" && "➖ แกว่งตัว"}
-                    </span>
-                  </div>
-                </div> */}
               </div>
             </div>
           </div>
