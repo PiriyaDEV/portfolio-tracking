@@ -12,6 +12,8 @@ export interface AdvancedLevels {
   resistance: number;
 
   trend: "UP" | "DOWN" | "SIDEWAYS";
+
+  recommendation?: any
 }
 
 /** ---------- SAFE INITIAL FALLBACK ---------- */
@@ -34,6 +36,9 @@ const INITIAL_LEVELS = (symbol: string): AdvancedLevels => ({
 export async function getAdvancedLevels(
   symbol: string = "TSLA"
 ): Promise<AdvancedLevels> {
+  if (symbol === "BINANCE:BTCUSDT") {
+    symbol = "BTC-USD";
+  }
   try {
     const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1mo`;
     const response = await fetch(url);

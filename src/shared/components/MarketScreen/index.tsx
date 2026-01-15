@@ -5,6 +5,16 @@ import { getLogo, getName, fNumber } from "@/app/lib/utils";
 
 /* -------------------- Types -------------------- */
 
+type AnalystView =
+  | "STRONG_BUY"
+  | "BUY"
+  | "HOLD"
+  | "SELL"
+  | "STRONG_SELL"
+  | "BUY_OR_HOLD" // 🟢🟡 แนวนำซื้อหรือถือต่อ
+  | "SELL_OR_HOLD" // 🔴🟡 แนวนำขายหรือถือ
+  | "NEUTRAL";
+
 interface Props {
   advancedLevels: Record<string, AdvancedLevels>;
   prices: Record<string, number | null>;
@@ -14,6 +24,66 @@ interface Props {
 type Signal = "STRONG_BUY" | "BUY" | "SELL" | "NORMAL";
 
 /* -------------------- Helpers -------------------- */
+
+const CLOSE_GAP_THRESHOLD = 3;
+
+const getAnalystView = (r?: AdvancedLevels["recommendation"]): AnalystView => {
+  if (!r) return "NEUTRAL";
+
+  const entries = [
+    { key: "STRONG_BUY", value: r.strongBuy },
+    { key: "BUY", value: r.buy },
+    { key: "HOLD", value: r.hold },
+    { key: "SELL", value: r.sell },
+    { key: "STRONG_SELL", value: r.strongSell },
+  ].sort((a, b) => b.value - a.value);
+
+  const top = entries[0];
+  const second = entries[1];
+
+  const gap = top.value - second.value;
+
+  // 🟢 กรณีคะแนนใกล้กัน
+  if (gap <= CLOSE_GAP_THRESHOLD) {
+    if (
+      (top.key === "BUY" && second.key === "HOLD") ||
+      (top.key === "HOLD" && second.key === "BUY")
+    ) {
+      return "BUY_OR_HOLD";
+    }
+
+    if (
+      (top.key === "SELL" && second.key === "HOLD") ||
+      (top.key === "HOLD" && second.key === "SELL")
+    ) {
+      return "SELL_OR_HOLD";
+    }
+  }
+
+  // 🔥 กรณีชัดเจน
+  return top.key as AnalystView;
+};
+
+const getAnalystLabel = (view: AnalystView) => {
+  switch (view) {
+    case "STRONG_BUY":
+      return "🟢🔥 แนะนำซื้ออย่างมาก";
+    case "BUY":
+      return "🟢 แนะนำซื้อ";
+    case "BUY_OR_HOLD":
+      return "🟢🟡 แนวนำซื้อหรือถือต่อ";
+    case "HOLD":
+      return "🟡 แนะนำถือ";
+    case "SELL_OR_HOLD":
+      return "🔴🟡 แนวนำขายหรือถือ";
+    case "SELL":
+      return "🔴 แนะนำขาย";
+    case "STRONG_SELL":
+      return "🔴❌ แนะนำขายอย่างมาก";
+    default:
+      return "➖ ไม่มีมุมมองชัดเจน";
+  }
+};
 
 /**
  * STRONG BUY:
@@ -165,21 +235,33 @@ export default function MarketScreen({ advancedLevels, prices, logos }: Props) {
               )}
 
               {/* Trend */}
-              <div className="font-semibold text-[12px]">
-                แนวโน้ม:{" "}
-                <span
-                  className={
-                    levels.trend === "UP"
-                      ? "text-green-400"
-                      : levels.trend === "DOWN"
-                      ? "text-red-400"
-                      : "text-gray-300"
-                  }
-                >
-                  {levels.trend === "UP" && "📈 ขาขึ้น"}
-                  {levels.trend === "DOWN" && "📉 ขาลง"}
-                  {levels.trend === "SIDEWAYS" && "➖ แกว่งตัว"}
-                </span>
+              <div className="flex items-center gap-2">
+                {/* Analyst Recommendation */}
+                {levels.recommendation && (
+                  <div className="text-[12px] font-semibold text-gray-200">
+                    นักวิเคราะห์:{" "}
+                    <span className="ml-1">
+                      {getAnalystLabel(getAnalystView(levels.recommendation))}
+                    </span>
+                  </div>
+                )}
+
+                <div className="font-semibold text-[12px]">
+                  แนวโน้ม:{" "}
+                  <span
+                    className={
+                      levels.trend === "UP"
+                        ? "text-green-400"
+                        : levels.trend === "DOWN"
+                        ? "text-red-400"
+                        : "text-gray-300"
+                    }
+                  >
+                    {levels.trend === "UP" && "📈 ขาขึ้น"}
+                    {levels.trend === "DOWN" && "📉 ขาลง"}
+                    {levels.trend === "SIDEWAYS" && "➖ แกว่งตัว"}
+                  </span>
+                </div>
               </div>
 
               {/* Levels */}

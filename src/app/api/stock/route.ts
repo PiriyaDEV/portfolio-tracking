@@ -27,13 +27,6 @@ export async function POST(req: NextRequest) {
       let logo: string | null = null;
 
       if (isMock) {
-        quote = {
-          c: 190.17,
-          pc: 185.5,
-        };
-
-        logo = "https://via.placeholder.com/30?text=Logo";
-
         advancedLevels[asset.symbol] = {
           symbol: asset.symbol,
           currentPrice: 190.17,
@@ -44,37 +37,66 @@ export async function POST(req: NextRequest) {
           stopLoss: 178,
           resistance: 195,
           trend: "UP",
+          recommendation: {
+            strongBuy: 10,
+            buy: 6,
+            hold: 2,
+            sell: 0,
+            strongSell: 0,
+            signal: "STRONG_BUY",
+          },
         };
-      } else {
-        // ===== Fetch quote =====
-        const quoteUrl = new URL(`${FINNHUB_API_BASE_URL}/quote`);
-        quoteUrl.searchParams.append("symbol", asset.symbol);
-        quoteUrl.searchParams.append("token", API_KEY);
 
-        const quoteRes = await fetch(quoteUrl.toString());
-        if (!quoteRes.ok)
-          throw new Error(`Quote fetch failed: ${asset.symbol}`);
+        quote = { c: 190.17, pc: 185.5 };
+        logo = "https://via.placeholder.com/30?text=Logo";
+      } else {
+        // ===== Quote =====
+        const quoteRes = await fetch(
+          `${FINNHUB_API_BASE_URL}/quote?symbol=${asset.symbol}&token=${API_KEY}`
+        );
+        if (!quoteRes.ok) continue;
         quote = await quoteRes.json();
 
-        // ===== Fetch company profile =====
-        const profileUrl = new URL(`${FINNHUB_API_BASE_URL}/stock/profile2`);
-        profileUrl.searchParams.append("symbol", asset.symbol);
-        profileUrl.searchParams.append("token", API_KEY);
-
-        const profileRes = await fetch(profileUrl.toString());
+        // ===== Profile =====
+        const profileRes = await fetch(
+          `${FINNHUB_API_BASE_URL}/stock/profile2?symbol=${asset.symbol}&token=${API_KEY}`
+        );
         if (profileRes.ok) {
-          const profileData = await profileRes.json();
-          logo = profileData.logo || null;
+          const p = await profileRes.json();
+          logo = p.logo || null;
         }
 
-        // ===== Fetch advanced technical levels =====
-        advancedLevels[asset.symbol] = await getAdvancedLevels(asset.symbol);
+        // ===== Recommendation =====
+        const recRes = await fetch(
+          `${FINNHUB_API_BASE_URL}/stock/recommendation?symbol=${asset.symbol}&token=${API_KEY}`
+        );
+
+        let recommendation;
+        if (recRes.ok) {
+          const recData = await recRes.json();
+          const latest = recData?.[0];
+
+          if (latest) {
+            recommendation = {
+              strongBuy: latest.strongBuy,
+              buy: latest.buy,
+              hold: latest.hold,
+              sell: latest.sell,
+              strongSell: latest.strongSell,
+            };
+          }
+        }
+
+        // ===== Advanced Levels =====
+        const levels = await getAdvancedLevels(asset.symbol);
+        advancedLevels[asset.symbol] = {
+          ...levels,
+          recommendation,
+        };
       }
 
-      // ===== Validate quote =====
-      const isInvalid = quote.c === 0 && quote.pc === 0;
-
-      if (!isInvalid) {
+      // ===== Validate =====
+      if (quote.c !== 0 || quote.pc !== 0) {
         prices[asset.symbol] = quote.c ?? null;
         previousPrice[asset.symbol] = quote.pc ?? null;
         logos[asset.symbol] = logo;
@@ -87,10 +109,10 @@ export async function POST(req: NextRequest) {
       previousPrice,
       logos,
       assets: validAssets,
-      advancedLevels, // 🔥 ส่ง AdvancedLevels กลับไปตรง ๆ
+      advancedLevels,
     });
   } catch (error: any) {
-    console.error("Error fetching prices:", error);
+    console.error(error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
