@@ -100,7 +100,7 @@ const isStrongBuy = (
 /**
  * NORMAL BUY:
  * - price near entry1 (±1%)
- * - AND price >= entry2
+ * - OR price >= entry2 AND price < entry1
  */
 const isNormalBuy = (
   price?: number | null,
@@ -113,9 +113,9 @@ const isNormalBuy = (
   const nearEntry1 =
     price >= entry1 * (1 - percent) && price <= entry1 * (1 + percent);
 
-  const aboveEntry2 = price >= entry2;
+  const aboveEntry2ButBelowEntry1 = price >= entry2 && price < entry1;
 
-  return nearEntry1 && aboveEntry2;
+  return nearEntry1 || aboveEntry2ButBelowEntry1;
 };
 
 /**
@@ -214,20 +214,17 @@ export default function MarketScreen({ advancedLevels, prices, logos }: Props) {
                   <span className="text-white">{fNumber(price ?? 0)} USD</span>
                 </div>
               </div>
-
               {/* Signal */}
               {strongBuy && (
                 <div className="text-green-400 text-[12px] font-semibold">
                   🟢🔥 จุดที่ต้องซื้อ (STRONG BUY)
                 </div>
               )}
-
               {buyZone && (
                 <div className="text-green-300 text-[12px] font-semibold">
                   🟢👀 โซนที่น่าสนใจในการซื้อ
                 </div>
               )}
-
               {takeProfit && (
                 <div className="text-red-400 text-[12px] font-semibold">
                   🔴⚠️ เข้าใกล้แนวต้าน (TAKE PROFIT)
@@ -246,6 +243,8 @@ export default function MarketScreen({ advancedLevels, prices, logos }: Props) {
                   </div>
                 )}
 
+                /
+
                 <div className="font-semibold text-[12px]">
                   แนวโน้ม:{" "}
                   <span
@@ -263,7 +262,6 @@ export default function MarketScreen({ advancedLevels, prices, logos }: Props) {
                   </span>
                 </div>
               </div>
-
               {/* Levels */}
               <div className="grid grid-cols-1 gap-3 text-[13px]">
                 <div className="bg-green-900/40 rounded p-2 grid grid-cols-2 gap-2">

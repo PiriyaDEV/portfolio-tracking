@@ -7,8 +7,8 @@ export interface AdvancedLevels {
   ema20: number;
   ema50: number;
 
-  entry1: number;
-  entry2: number;
+  entry1: number; // shallow pullback
+  entry2: number; // deep pullback
 
   stopLoss: number;
   resistance: number;
@@ -41,6 +41,7 @@ export async function getAdvancedLevels(
   if (symbol === "BINANCE:BTCUSDT") {
     symbol = "BTC-USD";
   }
+
   try {
     const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1mo`;
     const response = await fetch(url);
@@ -53,7 +54,6 @@ export async function getAdvancedLevels(
     const data = await response.json();
     const result = data?.chart?.result?.[0];
 
-    // ❌ Symbol not found / Yahoo error
     if (!result?.indicators?.quote?.[0]) {
       console.warn(`[getAdvancedLevels] Invalid symbol: ${symbol}`);
       return INITIAL_LEVELS(symbol);
@@ -65,8 +65,7 @@ export async function getAdvancedLevels(
     const highs = quotes.high?.filter((v: number) => v != null) ?? [];
     const lows = quotes.low?.filter((v: number) => v != null) ?? [];
 
-    // ❌ Not enough data
-    if (closes.length < 20 || highs.length < 20 || lows.length < 20) {
+    if (closes.length < 20) {
       console.warn(`[getAdvancedLevels] Not enough data for ${symbol}`);
       return INITIAL_LEVELS(symbol);
     }
@@ -74,17 +73,16 @@ export async function getAdvancedLevels(
     const meta = result.meta;
 
     const currentPrice = meta?.regularMarketPrice ?? closes[closes.length - 1];
-
     const previousClose = meta?.previousClose ?? closes[closes.length - 2];
 
-    // ===== EMA (safe) =====
+    /* ================= EMA ================= */
     const ema = (period: number) =>
       closes.slice(-period).reduce((a: any, b: any) => a + b, 0) / period;
 
     const ema20 = ema(20);
     const ema50 = closes.length >= 50 ? ema(50) : ema20;
 
-    // ===== ATR =====
+    /* ================= ATR ================= */
     let totalTR = 0;
     for (let i = 1; i < closes.length; i++) {
       const tr = Math.max(
@@ -96,25 +94,35 @@ export async function getAdvancedLevels(
     }
     const atr = totalTR / Math.max(1, closes.length - 1);
 
-    // ===== STRUCTURE =====
+    /* ================= STRUCTURE ================= */
     const lookback = Math.min(10, lows.length);
     const swingLow = Math.min(...lows.slice(-lookback));
     const swingHigh = Math.max(...highs.slice(-lookback));
 
-    // ===== TREND =====
+    /* ================= TREND ================= */
     let trend: "UP" | "DOWN" | "SIDEWAYS" = "SIDEWAYS";
     if (ema20 > ema50 && currentPrice > ema20) trend = "UP";
     else if (ema20 < ema50 && currentPrice < ema20) trend = "DOWN";
 
-    // ===== ENTRY LOGIC =====
+    /* ================= ENTRY LOGIC ================= */
+
+    // Entry 1: shallow pullback (EMA20)
     let entry1 = ema20 - 0.3 * atr;
-    let entry2 = Math.max(swingLow, ema50 - 0.5 * atr);
 
-    // ===== SAFETY GUARDS =====
-    entry1 = Math.min(entry1, swingHigh - 0.2 * atr);
-    entry2 = Math.min(entry2, entry1 - 0.2 * atr);
+    // Entry 2: deep pullback (EMA50 / structure)
+    const deepByEMA = ema50 - 1.0 * atr;
+    const deepByStructure = swingLow + 0.2 * atr;
+    let entry2Raw = Math.min(deepByEMA, deepByStructure);
 
-    const stopLoss = entry2 - 1.2 * atr;
+    // Ensure meaningful distance between entries
+    const minGap = 1.0 * atr;
+    let entry2 = Math.min(entry2Raw, entry1 - minGap);
+
+    /* ================= SAFETY ================= */
+    entry1 = Math.min(entry1, swingHigh - 0.3 * atr);
+    entry2 = Math.max(entry2, swingLow);
+
+    const stopLoss = entry2 - 1.5 * atr;
 
     return {
       symbol,
