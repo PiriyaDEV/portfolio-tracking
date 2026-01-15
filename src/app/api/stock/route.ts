@@ -1,13 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { AdvancedLevels, getAdvancedLevels } from "./support.function";
 
-const FINNHUB_API_BASE_URL = "https://finnhub.io/api/v1";
+const FINNHUB = "https://finnhub.io/api/v1";
 const API_KEY = process.env.FINNHUB_API_KEY || "";
 
 type Asset = {
   symbol: string;
   quantity: number;
   costPerShare: number;
+};
+
+const fetchJSON = async (url: string) => {
+  const res = await fetch(url);
+  return res.ok ? res.json() : null;
 };
 
 export async function POST(req: NextRequest) {
@@ -19,17 +24,16 @@ export async function POST(req: NextRequest) {
     const previousPrice: Record<string, number | null> = {};
     const logos: Record<string, string | null> = {};
     const advancedLevels: Record<string, AdvancedLevels | null> = {};
-
     const validAssets: Asset[] = [];
 
     for (const asset of assets) {
-      let quote: any = {};
-      let logo: string | null = null;
+      const symbol = asset.symbol;
 
       if (isMock) {
-        advancedLevels[asset.symbol] = {
-          symbol: asset.symbol,
+        advancedLevels[symbol] = {
+          symbol,
           currentPrice: 190.17,
+          previousClose: 180,
           ema20: 188,
           ema50: 182,
           entry1: 186,
@@ -47,59 +51,37 @@ export async function POST(req: NextRequest) {
           },
         };
 
-        quote = { c: 190.17, pc: 185.5 };
-        logo = "https://via.placeholder.com/30?text=Logo";
-      } else {
-        // ===== Quote =====
-        const quoteRes = await fetch(
-          `${FINNHUB_API_BASE_URL}/quote?symbol=${asset.symbol}&token=${API_KEY}`
-        );
-        if (!quoteRes.ok) continue;
-        quote = await quoteRes.json();
-
-        // ===== Profile =====
-        const profileRes = await fetch(
-          `${FINNHUB_API_BASE_URL}/stock/profile2?symbol=${asset.symbol}&token=${API_KEY}`
-        );
-        if (profileRes.ok) {
-          const p = await profileRes.json();
-          logo = p.logo || null;
-        }
-
-        // ===== Recommendation =====
-        const recRes = await fetch(
-          `${FINNHUB_API_BASE_URL}/stock/recommendation?symbol=${asset.symbol}&token=${API_KEY}`
-        );
-
-        let recommendation;
-        if (recRes.ok) {
-          const recData = await recRes.json();
-          const latest = recData?.[0];
-
-          if (latest) {
-            recommendation = {
-              strongBuy: latest.strongBuy,
-              buy: latest.buy,
-              hold: latest.hold,
-              sell: latest.sell,
-              strongSell: latest.strongSell,
-            };
-          }
-        }
-
-        // ===== Advanced Levels =====
-        const levels = await getAdvancedLevels(asset.symbol);
-        advancedLevels[asset.symbol] = {
-          ...levels,
-          recommendation,
-        };
+        prices[symbol] = 190.17;
+        previousPrice[symbol] = 185.5;
+        logos[symbol] = "https://via.placeholder.com/30?text=Logo";
+        validAssets.push(asset);
+        continue;
       }
 
-      // ===== Validate =====
-      if (quote.c !== 0 || quote.pc !== 0) {
-        prices[asset.symbol] = quote.c ?? null;
-        previousPrice[asset.symbol] = quote.pc ?? null;
-        logos[asset.symbol] = logo;
+      const profile = await fetchJSON(
+        `${FINNHUB}/stock/profile2?symbol=${symbol}&token=${API_KEY}`
+      );
+
+      const recData = await fetchJSON(
+        `${FINNHUB}/stock/recommendation?symbol=${symbol}&token=${API_KEY}`
+      );
+
+      const latest = recData?.[0];
+      const recommendation = latest && {
+        strongBuy: latest.strongBuy,
+        buy: latest.buy,
+        hold: latest.hold,
+        sell: latest.sell,
+        strongSell: latest.strongSell,
+      };
+
+      const levels = await getAdvancedLevels(symbol);
+      advancedLevels[symbol] = { ...levels, recommendation };
+
+      if (levels.currentPrice || levels.previousClose) {
+        prices[symbol] = levels.currentPrice ?? null;
+        previousPrice[symbol] = levels.previousClose ?? null;
+        logos[symbol] = profile?.logo || null;
         validAssets.push(asset);
       }
     }

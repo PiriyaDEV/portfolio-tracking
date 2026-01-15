@@ -1,6 +1,8 @@
 export interface AdvancedLevels {
   symbol: string;
+
   currentPrice: number;
+  previousClose: number;
 
   ema20: number;
   ema50: number;
@@ -12,14 +14,14 @@ export interface AdvancedLevels {
   resistance: number;
 
   trend: "UP" | "DOWN" | "SIDEWAYS";
-
-  recommendation?: any
+  recommendation?: any;
 }
 
 /** ---------- SAFE INITIAL FALLBACK ---------- */
 const INITIAL_LEVELS = (symbol: string): AdvancedLevels => ({
   symbol,
   currentPrice: 0,
+  previousClose: 0,
 
   ema20: 0,
   ema50: 0,
@@ -69,7 +71,11 @@ export async function getAdvancedLevels(
       return INITIAL_LEVELS(symbol);
     }
 
-    const currentPrice = closes[closes.length - 1];
+    const meta = result.meta;
+
+    const currentPrice = meta?.regularMarketPrice ?? closes[closes.length - 1];
+
+    const previousClose = meta?.previousClose ?? closes[closes.length - 2];
 
     // ===== EMA (safe) =====
     const ema = (period: number) =>
@@ -113,6 +119,7 @@ export async function getAdvancedLevels(
     return {
       symbol,
       currentPrice: Number(currentPrice.toFixed(2)),
+      previousClose: Number(previousClose.toFixed(2)),
 
       ema20: Number(ema20.toFixed(2)),
       ema50: Number(ema50.toFixed(2)),
