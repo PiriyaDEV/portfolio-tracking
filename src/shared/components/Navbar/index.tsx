@@ -2,10 +2,13 @@
 
 import { JSX } from "react";
 import { FaChartLine, FaCalculator, FaHome } from "react-icons/fa";
+import { FaMagnifyingGlass } from "react-icons/fa6";
 
 type BottomNavbarProps = {
-  currentPage: "portfolio" | "market" | "calculator";
-  setCurrentPage: (page: "portfolio" | "market" | "calculator") => void;
+  currentPage: "portfolio" | "market" | "calculator" | "view";
+  setCurrentPage: (
+    page: "portfolio" | "market" | "calculator" | "view"
+  ) => void;
 };
 
 const navItems: {
@@ -14,14 +17,19 @@ const navItems: {
   page: BottomNavbarProps["currentPage"];
 }[] = [
   {
-    label: "แนวรับ",
-    icon: <FaChartLine className="text-lg" />,
-    page: "market",
+    label: "ค้นหา",
+    icon: <FaMagnifyingGlass className="text-lg" />,
+    page: "view",
   },
   {
     label: "พอร์ต",
     icon: <FaHome className="text-lg" />,
     page: "portfolio",
+  },
+  {
+    label: "แนวรับ",
+    icon: <FaChartLine className="text-lg" />,
+    page: "market",
   },
   {
     label: "คำนวณ",

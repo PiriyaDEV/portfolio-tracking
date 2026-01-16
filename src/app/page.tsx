@@ -20,6 +20,7 @@ import { NoItem } from "@/shared/components/NoItem";
 import BottomNavbar from "@/shared/components/Navbar";
 import MarketScreen from "@/shared/components/MarketScreen";
 import CalculateScreen from "@/shared/components/CalculateScreen";
+import ViewScreen from "@/shared/components/ViewScreen";
 
 const now = new Date();
 const thaiMonths = [
@@ -77,7 +78,7 @@ export default function StockPrice() {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   // Page state for bottom navbar
   const [currentPage, setCurrentPage] = useState<
-    "portfolio" | "market" | "calculator"
+    "portfolio" | "market" | "calculator" | "view"
   >("portfolio");
 
   // Hide/show numbers state
@@ -469,6 +470,11 @@ export default function StockPrice() {
 
       {/* Portfolio Header */}
       <div className="flex flex-wrap w-full">
+        {currentPage === "view" && (
+          <ViewScreen
+            logos={logos}
+          />
+        )}
         {currentPage === "market" && (
           <MarketScreen
             prices={prices}
