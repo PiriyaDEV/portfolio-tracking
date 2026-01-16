@@ -93,7 +93,7 @@ export default function ViewScreen({
       {/* ⭐ Wishlist */}
       {wishlistItems.length > 0 && (
         <div className="text-sm font-semibold text-gray-300 mt-4">
-          รายการโปรด ({wishlistItems.length} / 6)
+          รายการโปรด ({wishlistItems.length} / 12)
         </div>
       )}
 

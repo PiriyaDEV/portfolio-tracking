@@ -108,7 +108,7 @@ export default function StockPrice() {
     loadWishlist();
   }, [isLoggedIn, userColId]);
 
-  const MAX_PINS = 6;
+  const MAX_PINS = 12;
 
   const togglePin = (symbol: string) => {
     setWishlist((prev) => {
