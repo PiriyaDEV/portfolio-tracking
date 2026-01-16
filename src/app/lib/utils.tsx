@@ -172,14 +172,25 @@ export function fTon(number: string | number) {
 
 //Assets
 
-const defaultStockLogo =
+const DEFAULT_STOCK_LOGO =
   "https://png.pngtree.com/png-vector/20190331/ourmid/pngtree-growth-icon-vector--glyph-or-solid-style-icon-stock-png-image_876941.jpg";
-const defaultCryptoLogo =
+const DEFAULT_CRYPTO_LOGO =
   "https://upload.wikimedia.org/wikipedia/commons/thumb/4/46/Bitcoin.svg/1200px-Bitcoin.svg.png";
 
-export function getLogo(symbol: string, logos: any): string {
-  if (symbol === "BINANCE:BTCUSDT") return defaultCryptoLogo;
-  return logos?.[symbol] ?? defaultStockLogo;
+export function getLogo(symbol: string): string {
+  if (!symbol) return DEFAULT_STOCK_LOGO;
+
+  // Special crypto case
+  if (symbol === "BINANCE:BTCUSDT") {
+    return DEFAULT_CRYPTO_LOGO;
+  }
+
+  const ticker = symbol.includes(":") ? symbol.split(":")[1] : symbol;
+  const token = process.env.NEXT_PUBLIC_LOGOKIT_TOKEN;
+
+  if (!token) return DEFAULT_STOCK_LOGO;
+
+  return `https://img.logokit.com/ticker/${ticker}?token=${token}`;
 }
 
 export function getName(symbol: string) {

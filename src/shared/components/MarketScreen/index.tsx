@@ -7,14 +7,9 @@ import StockCard from "../StockCard";
 interface Props {
   advancedLevels: Record<string, AdvancedLevels>;
   prices: Record<string, number | null>;
-  logos: any;
 }
 
-export default function MarketScreen({
-  advancedLevels,
-  prices,
-  logos,
-}: Props) {
+export default function MarketScreen({ advancedLevels, prices }: Props) {
   const sortedSymbols = Object.keys(advancedLevels)
     .filter((s) => advancedLevels[s]?.currentPrice > 0)
     .sort((a, b) => {
@@ -31,7 +26,6 @@ export default function MarketScreen({
           symbol={symbol}
           price={prices[symbol]!}
           levels={advancedLevels[symbol]}
-          logos={logos}
           showAnalyst
         />
       ))}

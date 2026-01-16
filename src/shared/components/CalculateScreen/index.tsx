@@ -18,14 +18,12 @@ type CalculatorScreenProps = {
   assets: Asset[];
   prices: any; // current price USD
   currencyRate: number; // USD -> THB
-  logos: any; // asset logos
 };
 
 export default function CalculatorScreen({
   assets,
   prices,
   currencyRate,
-  logos,
 }: CalculatorScreenProps) {
   const [selectedSymbol, setSelectedSymbol] = useState<string>(
     assets.length > 0 ? assets[0].symbol : ""
@@ -258,10 +256,10 @@ export default function CalculatorScreen({
               <div className="flex items-center gap-2">
                 <div
                   className={`w-[30px] h-[30px] rounded-full bg-cover bg-center border border-gray-600 ${
-                    getLogo(asset.symbol, logos) ? "" : "bg-white"
+                    getLogo(asset.symbol) ? "" : "bg-white"
                   }`}
                   style={{
-                    backgroundImage: `url(${getLogo(asset.symbol, logos)})`,
+                    backgroundImage: `url(${getLogo(asset.symbol)})`,
                   }}
                 />
                 <div className="font-bold text-[16px]">
@@ -310,7 +308,9 @@ export default function CalculatorScreen({
             </div>
             <div>
               ต้นทุนต่อหุ้น:{" "}
-              <span className="text-white">{fNumber(asset.costPerShare, { decimalNumber: 4 })}</span>{" "}
+              <span className="text-white">
+                {fNumber(asset.costPerShare, { decimalNumber: 4 })}
+              </span>{" "}
               USD
             </div>
             <div>
@@ -325,7 +325,9 @@ export default function CalculatorScreen({
             <div className="text-white font-bold px-4 py-1 bg-gray-700">
               หลัง{" "}
               {activeTab === "calculator" && afterData
-                ? `(ต้นทุนใหม่: ${fNumber(afterData.costPerShare, { decimalNumber: 4 })} USD)`
+                ? `(ต้นทุนใหม่: ${fNumber(afterData.costPerShare, {
+                    decimalNumber: 4,
+                  })} USD)`
                 : activeTab === "estimate" && afterData.estimateCost
                 ? `(ที่ราคา: ${afterData.estimateCost} USD)`
                 : ""}
@@ -335,10 +337,10 @@ export default function CalculatorScreen({
                 <div className="flex items-center gap-2">
                   <div
                     className={`w-[30px] h-[30px] rounded-full bg-cover bg-center border border-gray-600 ${
-                      getLogo(asset.symbol, logos) ? "" : "bg-white"
+                      getLogo(asset.symbol) ? "" : "bg-white"
                     }`}
                     style={{
-                      backgroundImage: `url(${getLogo(asset.symbol, logos)})`,
+                      backgroundImage: `url(${getLogo(asset.symbol)})`,
                     }}
                   />
                   <div className="font-bold text-[16px]">

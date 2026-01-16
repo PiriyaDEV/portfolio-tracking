@@ -22,7 +22,6 @@ export async function POST(req: NextRequest) {
 
     const prices: Record<string, number | null> = {};
     const previousPrice: Record<string, number | null> = {};
-    const logos: Record<string, string | null> = {};
     const advancedLevels: Record<string, AdvancedLevels | null> = {};
     const validAssets: Asset[] = [];
 
@@ -53,14 +52,9 @@ export async function POST(req: NextRequest) {
 
         prices[symbol] = 190.17;
         previousPrice[symbol] = 185.5;
-        logos[symbol] = "https://via.placeholder.com/30?text=Logo";
         validAssets.push(asset);
         continue;
       }
-
-      const profile = await fetchJSON(
-        `${FINNHUB}/stock/profile2?symbol=${symbol}&token=${API_KEY}`
-      );
 
       const recData = await fetchJSON(
         `${FINNHUB}/stock/recommendation?symbol=${symbol}&token=${API_KEY}`
@@ -81,7 +75,6 @@ export async function POST(req: NextRequest) {
       if (levels.currentPrice || levels.previousClose) {
         prices[symbol] = levels.currentPrice ?? null;
         previousPrice[symbol] = levels.previousClose ?? null;
-        logos[symbol] = profile?.logo || null;
         validAssets.push(asset);
       }
     }
@@ -89,7 +82,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       prices,
       previousPrice,
-      logos,
       assets: validAssets,
       advancedLevels,
     });

@@ -15,7 +15,6 @@ interface Props {
   symbol: string;
   price: number;
   levels: AdvancedLevels;
-  logos: any;
   pinned?: boolean;
   onTogglePin?: (symbol: string) => void;
   showAnalyst?: boolean;
@@ -25,7 +24,6 @@ export default function StockCard({
   symbol,
   price,
   levels,
-  logos,
   pinned = false,
   onTogglePin,
   showAnalyst = false,
@@ -53,7 +51,7 @@ export default function StockCard({
       <div
         className="w-[40px] h-[40px] rounded-full bg-cover bg-center bg-white"
         style={{
-          backgroundImage: `url(${getLogo(symbol, logos)})`,
+          backgroundImage: `url(${getLogo(symbol)})`,
         }}
       />
 

@@ -58,7 +58,6 @@ export default function StockPrice() {
   const [previousPrice, setPreviousPrice] = useState<
     Record<string, number | null>
   >({});
-  const [logos, setLogos] = useState<Record<string, string | null>>({});
   const [advancedLevels, setAdvancedLevels] = useState<any>({});
   const [isLoading, setIsLoading] = useState(false);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
@@ -382,7 +381,6 @@ export default function StockPrice() {
       }
 
       setPrices(data.prices || {});
-      setLogos(data.logos || {});
       setAdvancedLevels(data.advancedLevels || {});
       setPreviousPrice(data.previousPrice || {});
     } catch (err) {
@@ -547,7 +545,6 @@ export default function StockPrice() {
       <div className="flex flex-wrap w-full">
         {currentPage === "view" && (
           <ViewScreen
-            logos={logos}
             data={data}
             wishlist={wishlist}
             loading={loading}
@@ -557,18 +554,13 @@ export default function StockPrice() {
           />
         )}
         {currentPage === "market" && (
-          <MarketScreen
-            prices={prices}
-            advancedLevels={advancedLevels}
-            logos={logos}
-          />
+          <MarketScreen prices={prices} advancedLevels={advancedLevels} />
         )}
         {currentPage === "calculator" && (
           <CalculateScreen
             assets={assets}
             prices={prices}
             currencyRate={currencyRate}
-            logos={logos}
           />
         )}
         {currentPage === "portfolio" && (
@@ -630,13 +622,10 @@ export default function StockPrice() {
                         <div className="flex items-center gap-2">
                           <div
                             className={`w-[30px] h-[30px] rounded-full bg-cover bg-center border border-gray-600 ${
-                              getLogo(asset.symbol, logos) ? "" : "bg-white"
+                              getLogo(asset.symbol) ? "" : "bg-white"
                             }`}
                             style={{
-                              backgroundImage: `url(${getLogo(
-                                asset.symbol,
-                                logos
-                              )})`,
+                              backgroundImage: `url(${getLogo(asset.symbol)})`,
                             }}
                           />
                           <div className="font-bold text-[16px]">

@@ -11,7 +11,6 @@ export interface StockResult {
 }
 
 interface Props {
-  logos: any;
   data: StockResult[];
   wishlist: string[];
   loading: boolean;
@@ -21,7 +20,6 @@ interface Props {
 }
 
 export default function ViewScreen({
-  logos,
   data,
   wishlist,
   loading,
@@ -87,7 +85,6 @@ export default function ViewScreen({
           symbol={searchedItem.symbol}
           price={searchedItem.price}
           levels={searchedItem.levels}
-          logos={logos}
           pinned={wishlist.includes(searchedItem.symbol)}
           onTogglePin={onTogglePin}
         />
@@ -106,7 +103,6 @@ export default function ViewScreen({
           symbol={item.symbol}
           price={item.price}
           levels={item.levels}
-          logos={logos}
           pinned
           onTogglePin={onTogglePin}
         />
