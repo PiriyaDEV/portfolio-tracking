@@ -9,12 +9,15 @@ import {
   getAnalystLabel,
   getAnalystView,
 } from "../../../app/lib/market.logic";
+import { FaMapPin, FaThumbtack } from "react-icons/fa6";
 
 interface Props {
   symbol: string;
   price: number;
   levels: AdvancedLevels;
   logos: any;
+  pinned?: boolean;
+  onTogglePin?: (symbol: string) => void;
   showAnalyst?: boolean;
 }
 
@@ -23,6 +26,8 @@ export default function StockCard({
   price,
   levels,
   logos,
+  pinned = false,
+  onTogglePin,
   showAnalyst = false,
 }: Props) {
   const strongBuy = isStrongBuy(price, levels.entry2);
@@ -32,7 +37,7 @@ export default function StockCard({
   return (
     <div
       className={`
-        rounded-lg p-4 grid grid-cols-[auto_1fr] gap-4 border
+        relative rounded-lg p-4 grid grid-cols-[auto_1fr] gap-4 border
         ${
           strongBuy
             ? "bg-green-900/40 border-green-400 shadow-lg"
@@ -56,8 +61,25 @@ export default function StockCard({
       <div className="flex flex-col gap-2">
         <div className="flex justify-between items-center">
           <div className="font-bold text-[16px]">{getName(symbol)}</div>
-          <div className="text-[14px] font-semibold">
-            ราคา: <span className="text-white">{fNumber(price)} USD</span>
+
+          <div className="flex items-center gap-2">
+            <div className="text-[14px] font-semibold">
+              ราคา: <span className="text-white">{fNumber(price)} USD</span>
+            </div>
+
+            {/* 📌 Pin */}
+            {onTogglePin && (
+              <button
+                onClick={() => onTogglePin(symbol)}
+                title="Pin to wishlist"
+              >
+                {pinned ? (
+                  <FaThumbtack className="!text-accent-yellow" />
+                ) : (
+                  <FaThumbtack />
+                )}
+              </button>
+            )}
           </div>
         </div>
 

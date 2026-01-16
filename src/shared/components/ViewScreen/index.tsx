@@ -4,51 +4,59 @@ import { useState } from "react";
 import { AdvancedLevels } from "@/app/api/stock/support.function";
 import StockCard from "../StockCard";
 
-interface Props {
-  logos: any;
+export interface StockResult {
+  symbol: string;
+  price: number;
+  levels: AdvancedLevels;
 }
 
-export default function ViewScreen({ logos }: Props) {
+interface Props {
+  logos: any;
+  data: StockResult[];
+  wishlist: string[];
+  loading: boolean;
+  searchedSymbol: string | null;
+  onSearch: (symbol: string) => void;
+  onTogglePin: (symbol: string) => void;
+}
+
+export default function ViewScreen({
+  logos,
+  data,
+  wishlist,
+  loading,
+  searchedSymbol,
+  onSearch,
+  onTogglePin,
+}: Props) {
   const [query, setQuery] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<{
-    symbol: string;
-    price: number;
-    levels: AdvancedLevels;
-  } | null>(null);
 
-  const handleSearch = async () => {
+  /* -------------------- Derived -------------------- */
+
+  const searchedItem = searchedSymbol
+    ? data.find((d) => d.symbol === searchedSymbol)
+    : null;
+
+  const wishlistItems = data.filter(
+    (d) => wishlist.includes(d.symbol) && d.symbol !== searchedSymbol
+  );
+
+  /* -------------------- Handlers -------------------- */
+
+  const handleSearch = () => {
     if (!query) return;
-
-    setLoading(true);
-    setError(null);
-    setResult(null);
-
-    try {
-      const res = await fetch("/api/view", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ symbol: query.trim() }),
-      });
-
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error);
-
-      setResult(json.data);
-    } catch {
-      setError("ไม่สามารถดึงข้อมูลได้");
-    } finally {
-      setLoading(false);
-    }
+    onSearch(query);
   };
+
+  /* -------------------- Render -------------------- */
 
   return (
     <div className="w-full px-4 mt-4 space-y-4 pb-[70px]">
+      {/* Search */}
       <div className="flex gap-2">
         <input
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(e) => setQuery(e.target.value.toUpperCase())}
           onKeyDown={(e) => e.key === "Enter" && handleSearch()}
           placeholder="ค้นหาหุ้น (เช่น AAPL)"
           className="flex-1 rounded-lg bg-black-lighter border border-gray-700 px-3 py-2 text-sm"
@@ -61,17 +69,48 @@ export default function ViewScreen({ logos }: Props) {
         </button>
       </div>
 
-      {loading && <div className="text-gray-400">กำลังค้นหา...</div>}
-      {error && <div className="text-red-400">{error}</div>}
+      {loading && <div className="text-gray-400">กำลังโหลด...</div>}
 
-      {result && (
+      {/* 🔍 Search Result */}
+      <div className="text-sm font-semibold text-gray-300 mt-2">ผลการค้นหา</div>
+
+      {!searchedSymbol && (
+        <div className="text-sm text-gray-500 text-center">ยังไม่ได้ค้นหา</div>
+      )}
+
+      {searchedSymbol && !loading && !searchedItem && (
+        <div className="text-sm text-gray-500 text-center">ไม่พบข้อมูล</div>
+      )}
+
+      {searchedItem && (
         <StockCard
-          symbol={result.symbol}
-          price={result.price}
-          levels={result.levels}
+          symbol={searchedItem.symbol}
+          price={searchedItem.price}
+          levels={searchedItem.levels}
           logos={logos}
+          pinned={wishlist.includes(searchedItem.symbol)}
+          onTogglePin={onTogglePin}
         />
       )}
+
+      {/* ⭐ Wishlist */}
+      {wishlistItems.length > 0 && (
+        <div className="text-sm font-semibold text-gray-300 mt-4">
+          รายการโปรด ({wishlistItems.length} / 6)
+        </div>
+      )}
+
+      {wishlistItems.map((item) => (
+        <StockCard
+          key={item.symbol}
+          symbol={item.symbol}
+          price={item.price}
+          levels={item.levels}
+          logos={logos}
+          pinned
+          onTogglePin={onTogglePin}
+        />
+      ))}
     </div>
   );
 }

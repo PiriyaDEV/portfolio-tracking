@@ -20,7 +20,7 @@ import { NoItem } from "@/shared/components/NoItem";
 import BottomNavbar from "@/shared/components/Navbar";
 import MarketScreen from "@/shared/components/MarketScreen";
 import CalculateScreen from "@/shared/components/CalculateScreen";
-import ViewScreen from "@/shared/components/ViewScreen";
+import ViewScreen, { StockResult } from "@/shared/components/ViewScreen";
 
 const now = new Date();
 const thaiMonths = [
@@ -80,6 +80,81 @@ export default function StockPrice() {
   const [currentPage, setCurrentPage] = useState<
     "portfolio" | "market" | "calculator" | "view"
   >("portfolio");
+
+  // ===== SEARCH
+
+  const WISHLIST_KEY = "stock-wishlist";
+
+  const [wishlist, setWishlist] = useState<string[]>([]);
+  const [data, setData] = useState<StockResult[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [searchedSymbol, setSearchedSymbol] = useState<string | null>(null);
+
+  /* -------------------- Wishlist -------------------- */
+
+  useEffect(() => {
+    const saved = localStorage.getItem(WISHLIST_KEY);
+    if (saved) setWishlist(JSON.parse(saved));
+  }, []);
+
+  const MAX_PINS = 6;
+
+  const togglePin = (symbol: string) => {
+    setWishlist((prev) => {
+      const isPinned = prev.includes(symbol);
+
+      // ❌ Unpin
+      if (isPinned) {
+        const next = prev.filter((s) => s !== symbol);
+        localStorage.setItem(WISHLIST_KEY, JSON.stringify(next));
+        return next;
+      }
+
+      // ⛔ Max pin limit
+      if (prev.length >= MAX_PINS) {
+        return prev; // silently ignore (or toast later)
+      }
+
+      // ✅ Pin
+      const next = [...prev, symbol];
+      localStorage.setItem(WISHLIST_KEY, JSON.stringify(next));
+
+      // 🔥 If pinning searched item → remove from search
+      setSearchedSymbol((current) => (current === symbol ? null : current));
+
+      return next;
+    });
+  };
+
+  /* -------------------- Bulk Fetch -------------------- */
+
+  const fetchSymbols = async (symbols: string[]) => {
+    if (!symbols.length) return;
+
+    setLoading(true);
+    try {
+      const res = await fetch("/api/view-bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ symbols }),
+      });
+
+      const json = await res.json();
+      setData(json.data);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /* -------------------- Effects -------------------- */
+
+  useEffect(() => {
+    const symbols = Array.from(
+      new Set([...(searchedSymbol ? [searchedSymbol] : []), ...wishlist])
+    );
+
+    fetchSymbols(symbols);
+  }, [searchedSymbol, wishlist]);
 
   // Hide/show numbers state
   const [isNumbersHidden, setIsNumbersHidden] = useState(false);
@@ -473,6 +548,12 @@ export default function StockPrice() {
         {currentPage === "view" && (
           <ViewScreen
             logos={logos}
+            data={data}
+            wishlist={wishlist}
+            loading={loading}
+            searchedSymbol={searchedSymbol}
+            onSearch={setSearchedSymbol}
+            onTogglePin={togglePin}
           />
         )}
         {currentPage === "market" && (
