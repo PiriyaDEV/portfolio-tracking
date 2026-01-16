@@ -63,7 +63,7 @@ export default function ViewScreen({
           onClick={handleSearch}
           className="px-4 py-2 rounded-lg bg-green-600 text-sm font-semibold"
         >
-          Search
+          ค้นหา
         </button>
       </div>
 

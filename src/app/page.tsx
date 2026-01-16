@@ -92,9 +92,21 @@ export default function StockPrice() {
   /* -------------------- Wishlist -------------------- */
 
   useEffect(() => {
-    const saved = localStorage.getItem(WISHLIST_KEY);
-    if (saved) setWishlist(JSON.parse(saved));
-  }, []);
+    if (!isLoggedIn || !userColId) return;
+
+    const loadWishlist = async () => {
+      try {
+        const res = await fetch(`/api/wishlist/${userColId}`);
+        const json = await res.json();
+        setWishlist(json.assets || []);
+      } catch (err) {
+        console.error("Failed to load wishlist", err);
+        setWishlist([]);
+      }
+    };
+
+    loadWishlist();
+  }, [isLoggedIn, userColId]);
 
   const MAX_PINS = 6;
 
@@ -103,23 +115,25 @@ export default function StockPrice() {
       const isPinned = prev.includes(symbol);
 
       // ❌ Unpin
-      if (isPinned) {
-        const next = prev.filter((s) => s !== symbol);
-        localStorage.setItem(WISHLIST_KEY, JSON.stringify(next));
-        return next;
-      }
-
-      // ⛔ Max pin limit
-      if (prev.length >= MAX_PINS) {
-        return prev; // silently ignore (or toast later)
-      }
-
-      // ✅ Pin
-      const next = [...prev, symbol];
-      localStorage.setItem(WISHLIST_KEY, JSON.stringify(next));
+      let next = isPinned
+        ? prev.filter((s) => s !== symbol)
+        : prev.length < MAX_PINS
+        ? [...prev, symbol]
+        : prev;
 
       // 🔥 If pinning searched item → remove from search
-      setSearchedSymbol((current) => (current === symbol ? null : current));
+      if (!isPinned) {
+        setSearchedSymbol((current) => (current === symbol ? null : current));
+      }
+
+      // 🔁 Persist to API (column C)
+      fetch(`/api/wishlist/${userColId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ wishlist: next }),
+      }).catch((err) => {
+        console.error("Wishlist sync failed", err);
+      });
 
       return next;
     });
