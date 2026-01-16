@@ -32,6 +32,15 @@ export default function StockCard({
   const buyZone = isNormalBuy(price, levels.entry1, levels.entry2);
   const takeProfit = isNearResistance(price, levels.resistance);
 
+  const percentChange =
+    levels.previousClose > 0
+      ? ((levels.currentPrice - levels.previousClose) / levels.previousClose) *
+        100
+      : 0;
+
+  const isUp = percentChange > 0;
+  const isDown = percentChange < 0;
+
   return (
     <div
       className={`
@@ -58,7 +67,22 @@ export default function StockCard({
       {/* Content */}
       <div className="flex flex-col gap-2">
         <div className="flex justify-between items-center">
-          <div className="font-bold text-[16px]">{getName(symbol)}</div>
+          <div className="flex items-center gap-2">
+            <div className="font-bold text-[16px]">{getName(symbol)}</div>
+
+            <div
+              className={`text-[13px] font-semibold ${
+                isUp
+                  ? "text-green-400"
+                  : isDown
+                  ? "text-red-400"
+                  : "text-gray-300"
+              }`}
+            >
+              ({isUp && "+"}
+              {percentChange.toFixed(2)}%)
+            </div>
+          </div>
 
           <div className="flex items-center gap-2">
             <div className="text-[14px] font-semibold">
