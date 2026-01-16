@@ -11,7 +11,7 @@ export interface StockResult {
 }
 
 interface Props {
-  data: StockResult[];
+  data?: StockResult[]; // 👈 allow undefined
   wishlist: string[];
   loading: boolean;
   searchedSymbol: string | null;
@@ -29,25 +29,25 @@ export default function ViewScreen({
 }: Props) {
   const [query, setQuery] = useState("");
 
-  /* -------------------- Derived -------------------- */
+  /* -------------------- SAFE DATA -------------------- */
+  const safeData: StockResult[] = Array.isArray(data) ? data : [];
 
+  /* -------------------- Derived -------------------- */
   const searchedItem = searchedSymbol
-    ? data.find((d) => d.symbol === searchedSymbol)
+    ? safeData.find((d) => d.symbol === searchedSymbol)
     : null;
 
-  const wishlistItems = data.filter(
+  const wishlistItems = safeData.filter(
     (d) => wishlist.includes(d.symbol) && d.symbol !== searchedSymbol
   );
 
   /* -------------------- Handlers -------------------- */
-
   const handleSearch = () => {
     if (!query) return;
     onSearch(query);
   };
 
   /* -------------------- Render -------------------- */
-
   return (
     <div className="w-full px-4 mt-4 space-y-4 pb-[70px]">
       {/* Search */}
