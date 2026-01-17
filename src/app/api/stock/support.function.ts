@@ -7,8 +7,8 @@ export interface AdvancedLevels {
   ema20: number;
   ema50: number;
 
-  entry1: number; // shallow pullback
-  entry2: number; // deep pullback
+  entry1: number; // support 1 (shallow)
+  entry2: number; // support 2 (deep)
 
   stopLoss: number;
   resistance: number;
@@ -75,7 +75,7 @@ export async function getAdvancedLevels(
     const currentPrice = meta?.regularMarketPrice ?? closes[closes.length - 1];
     const previousClose = meta?.previousClose ?? closes[closes.length - 2];
 
-    /* ================= EMA ================= */
+    /* ================= EMA (SMA-style) ================= */
     const ema = (period: number) =>
       closes.slice(-period).reduce((a: any, b: any) => a + b, 0) / period;
 
@@ -106,23 +106,35 @@ export async function getAdvancedLevels(
 
     /* ================= ENTRY LOGIC ================= */
 
-    // Entry 1: shallow pullback (EMA20)
+    // Support 1: shallow pullback
     let entry1 = ema20 - 0.3 * atr;
 
-    // Entry 2: deep pullback (EMA50 / structure)
+    // Support 2: deep pullback
     const deepByEMA = ema50 - 1.0 * atr;
     const deepByStructure = swingLow + 0.2 * atr;
-    let entry2Raw = Math.min(deepByEMA, deepByStructure);
+    let entry2 = Math.min(deepByEMA, deepByStructure);
 
-    // Ensure meaningful distance between entries
-    const minGap = 1.0 * atr;
-    let entry2 = Math.min(entry2Raw, entry1 - minGap);
+    /* ================= ORDER ENFORCEMENT ================= */
 
-    /* ================= SAFETY ================= */
+    const minGap = 0.8 * atr;
+
+    // Force correct hierarchy
+    if (entry2 >= entry1) {
+      entry2 = entry1 - minGap;
+    }
+
+    /* ================= SAFETY CLAMPS ================= */
+
     entry1 = Math.min(entry1, swingHigh - 0.3 * atr);
     entry2 = Math.max(entry2, swingLow);
 
-    const stopLoss = entry2 - 1.5 * atr;
+    // FINAL HARD GUARANTEE
+    if (entry2 >= entry1) {
+      entry2 = entry1 - minGap;
+    }
+
+    const stopLossPercent = 0.05;
+    const stopLoss = entry2 * (1 - stopLossPercent);
 
     return {
       symbol,
