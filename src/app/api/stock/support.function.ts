@@ -35,8 +35,9 @@ const INITIAL_LEVELS = (symbol: string): AdvancedLevels => ({
   trend: "SIDEWAYS",
 });
 
+/** ---------- MAIN FUNCTION ---------- */
 export async function getAdvancedLevels(
-  symbol: string = "TSLA"
+  symbol: string = "TSLA",
 ): Promise<AdvancedLevels> {
   if (symbol === "BINANCE:BTCUSDT") {
     symbol = "BTC-USD";
@@ -61,38 +62,45 @@ export async function getAdvancedLevels(
 
     const quotes = result.indicators.quote[0];
 
-    const closes = quotes.close?.filter((v: number) => v != null) ?? [];
-    const highs = quotes.high?.filter((v: number) => v != null) ?? [];
-    const lows = quotes.low?.filter((v: number) => v != null) ?? [];
+    const closes = (quotes.close ?? []).filter((v: number) => v != null);
+    const highs = (quotes.high ?? []).filter((v: number) => v != null);
+    const lows = (quotes.low ?? []).filter((v: number) => v != null);
 
-    if (closes.length < 20) {
-      console.warn(`[getAdvancedLevels] Not enough data for ${symbol}`);
+    // Absolute minimum guard
+    if (closes.length < 10 || highs.length < 10 || lows.length < 10) {
+      console.warn(`[getAdvancedLevels] Too little data for ${symbol}`);
       return INITIAL_LEVELS(symbol);
     }
 
     const meta = result.meta;
 
     const currentPrice = meta?.regularMarketPrice ?? closes[closes.length - 1];
+
     const previousClose = meta?.previousClose ?? closes[closes.length - 2];
 
-    /* ================= EMA (SMA-style) ================= */
-    const ema = (period: number) =>
-      closes.slice(-period).reduce((a: any, b: any) => a + b, 0) / period;
+    /* ================= EMA (ADAPTIVE) ================= */
+    const ema = (period: number) => {
+      const p = Math.min(period, closes.length);
+      return closes.slice(-p).reduce((a: any, b: any) => a + b, 0) / p;
+    };
 
     const ema20 = ema(20);
-    const ema50 = closes.length >= 50 ? ema(50) : ema20;
+    const ema50 = ema(50);
 
     /* ================= ATR ================= */
     let totalTR = 0;
-    for (let i = 1; i < closes.length; i++) {
+    const len = Math.min(highs.length, lows.length, closes.length);
+
+    for (let i = 1; i < len; i++) {
       const tr = Math.max(
         highs[i] - lows[i],
         Math.abs(highs[i] - closes[i - 1]),
-        Math.abs(lows[i] - closes[i - 1])
+        Math.abs(lows[i] - closes[i - 1]),
       );
       totalTR += tr;
     }
-    const atr = totalTR / Math.max(1, closes.length - 1);
+
+    const atr = totalTR / Math.max(1, len - 1);
 
     /* ================= STRUCTURE ================= */
     const lookback = Math.min(10, lows.length);
@@ -101,6 +109,7 @@ export async function getAdvancedLevels(
 
     /* ================= TREND ================= */
     let trend: "UP" | "DOWN" | "SIDEWAYS" = "SIDEWAYS";
+
     if (ema20 > ema50 && currentPrice > ema20) trend = "UP";
     else if (ema20 < ema50 && currentPrice < ema20) trend = "DOWN";
 
@@ -118,7 +127,6 @@ export async function getAdvancedLevels(
 
     const minGap = 0.8 * atr;
 
-    // Force correct hierarchy
     if (entry2 >= entry1) {
       entry2 = entry1 - minGap;
     }
@@ -128,13 +136,16 @@ export async function getAdvancedLevels(
     entry1 = Math.min(entry1, swingHigh - 0.3 * atr);
     entry2 = Math.max(entry2, swingLow);
 
-    // FINAL HARD GUARANTEE
     if (entry2 >= entry1) {
       entry2 = entry1 - minGap;
     }
 
+    /* ================= RISK ================= */
+
     const stopLossPercent = 0.05;
     const stopLoss = entry2 * (1 - stopLossPercent);
+
+    /* ================= FINAL ================= */
 
     return {
       symbol,

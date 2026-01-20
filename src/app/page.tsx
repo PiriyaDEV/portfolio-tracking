@@ -68,6 +68,7 @@ export default function StockPrice() {
   const [userId, setUserId] = useState("");
   const [assets, setAssets] = useState<Asset[] | null>(null);
   const [userColId, setUserColId] = useState("");
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editAssets, setEditAssets] = useState<Asset[]>([]);
@@ -118,8 +119,8 @@ export default function StockPrice() {
       let next = isPinned
         ? prev.filter((s) => s !== symbol)
         : prev.length < MAX_PINS
-        ? [...prev, symbol]
-        : prev;
+          ? [...prev, symbol]
+          : prev;
 
       // 🔥 If pinning searched item → remove from search
       if (!isPinned) {
@@ -163,7 +164,7 @@ export default function StockPrice() {
 
   useEffect(() => {
     const symbols = Array.from(
-      new Set([...(searchedSymbol ? [searchedSymbol] : []), ...wishlist])
+      new Set([...(searchedSymbol ? [searchedSymbol] : []), ...wishlist]),
     );
 
     fetchSymbols(symbols);
@@ -216,13 +217,16 @@ export default function StockPrice() {
         setIsLoading(true);
         try {
           await fetchUserData(session.userId);
+          // Don't set loading false here - let the data loading effect handle it
         } catch (error) {
           console.error("Session restore failed:", error);
           clearSession();
           setIsLoggedIn(false);
-        } finally {
           setIsLoading(false);
+          setIsInitialLoad(false);
         }
+      } else {
+        setIsInitialLoad(false);
       }
     };
 
@@ -248,7 +252,7 @@ export default function StockPrice() {
   const updateAsset = (
     index: number,
     field: keyof Asset,
-    value: string | number
+    value: string | number,
   ) => {
     const updated = [...editAssets];
     updated[index] = { ...updated[index], [field]: value };
@@ -260,10 +264,14 @@ export default function StockPrice() {
     setFormattedDate(`${day} ${month} ${year} ${hours}:${minutes} น.`);
   }, [isLoggedIn]);
 
-  // Load data when assets are available
+  // Load data when assets are available - FIXED VERSION
   useEffect(() => {
     if (assets && assets.length > 0 && isLoggedIn) {
       loadData();
+    } else if (assets !== null && assets.length === 0 && isLoggedIn) {
+      // Empty assets case - finish loading immediately
+      setIsLoading(false);
+      setIsInitialLoad(false);
     }
   }, [assets, isLoggedIn]);
 
@@ -281,11 +289,11 @@ export default function StockPrice() {
 
     try {
       await fetchUserData(userId);
+      // Don't set loading false here - let the data loading effect handle it
     } catch (err: any) {
       console.error(err);
       setLoginError(err.message || "ไม่เจอผู้ใช้งาน");
       setIsLoggedIn(false);
-    } finally {
       setIsLoading(false);
     }
   }
@@ -353,9 +361,15 @@ export default function StockPrice() {
   async function loadData() {
     if (!assets || assets.length === 0) return;
 
-    setIsLoading(true);
+    // Only show loading spinner on manual refresh, not initial load
+    if (!isInitialLoad) {
+      setIsLoading(true);
+    }
+
     try {
+      // Wait for ALL data to load using Promise.all
       await Promise.all([fetchFinancialData(), fetchFxRate()]);
+
       const now = new Date();
       const day = now.getDate();
       const month = thaiMonths[now.getMonth()];
@@ -366,7 +380,9 @@ export default function StockPrice() {
     } catch (err) {
       console.error(err);
     } finally {
+      // Only set loading false after ALL data is loaded
       setIsLoading(false);
+      setIsInitialLoad(false);
     }
   }
 
@@ -511,7 +527,8 @@ export default function StockPrice() {
     else {
       setSortBy(column);
       // Default order based on column
-      if (column === "asset") setSortOrder("asc"); // asset default asc
+      if (column === "asset")
+        setSortOrder("asc"); // asset default asc
       else setSortOrder("desc"); // value and profit default desc
     }
   };
@@ -617,7 +634,7 @@ export default function StockPrice() {
                 const isExpanded = !!expanded[asset.symbol];
                 const portfolioValueUsd = assets.reduce(
                   (sum, a) => sum + (prices[a.symbol] ?? 0) * a.quantity,
-                  0
+                  0,
                 );
 
                 const previousClose = previousPrice[asset.symbol] ?? 0;
@@ -650,7 +667,7 @@ export default function StockPrice() {
                           <ChartIcon />
                           {portfolioValueUsd > 0
                             ? `${fNumber(
-                                (marketValueUsd / portfolioValueUsd) * 100
+                                (marketValueUsd / portfolioValueUsd) * 100,
                               )}%`
                             : "0.00%"}
                         </div>
@@ -687,7 +704,7 @@ export default function StockPrice() {
                           จำนวนหุ้น:{" "}
                           <span className="text-white">
                             {maskNumber(
-                              fNumber(asset.quantity, { decimalNumber: 7 })
+                              fNumber(asset.quantity, { decimalNumber: 7 }),
                             )}
                           </span>
                         </div>
@@ -701,7 +718,7 @@ export default function StockPrice() {
                           <div className="flex flex-col items-end text-right">
                             <div
                               className={`font-bold flex items-center gap-1 ${getProfitColor(
-                                percentChange
+                                percentChange,
                               )}`}
                             >
                               {percentChange > 0 ? (
@@ -718,7 +735,7 @@ export default function StockPrice() {
                           ต้นทุนต่อหุ้น:{" "}
                           <span className="text-white">
                             {maskNumber(
-                              fNumber(asset.costPerShare, { decimalNumber: 4 })
+                              fNumber(asset.costPerShare, { decimalNumber: 4 }),
                             )}{" "}
                             USD
                           </span>
