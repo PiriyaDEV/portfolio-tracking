@@ -10,7 +10,7 @@ interface Asset {
   costPerShare: number;
 }
 
-type Range = "1d" | "1m" | "1y";
+type Range = "1d" | "5d" | "1m" | "6m" | "1y";
 
 /* =======================
    Yahoo helpers
@@ -21,6 +21,8 @@ async function fetchYahooChart(
   range: string,
   interval: string,
 ) {
+  if (symbol === "BINANCE:BTCUSDT") symbol = "BTC";
+
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(
     symbol,
   )}?range=${range}&interval=${interval}`;
@@ -59,6 +61,20 @@ async function fetchPreviousClose(symbol: string): Promise<number> {
 }
 
 /* =======================
+   Range config
+======================= */
+
+const RANGE_CONFIG: Record<
+  Exclude<Range, "1d">,
+  { range: string; interval: string }
+> = {
+  "5d": { range: "5d", interval: "1d" },
+  "1m": { range: "1mo", interval: "1d" },
+  "6m": { range: "6mo", interval: "1wk" },
+  "1y": { range: "1y", interval: "1wk" },
+};
+
+/* =======================
    API
 ======================= */
 
@@ -74,60 +90,61 @@ export async function POST(req: NextRequest) {
     }
 
     /* =====================================================
-       1D → previous close → intraday → close
+       1D → intraday vs previous close
     ===================================================== */
+
     if (range === "1d") {
-      // previous close (base)
+      const interval = "5m";
+      const chartRange = "1d";
+
       const [spPrevClose, assetPrevCloses] = await Promise.all([
         fetchPreviousClose("^GSPC"),
         Promise.all(assets.map((a) => fetchPreviousClose(a.symbol))),
       ]);
 
-      // intraday (today)
-      const [spIntraday, assetIntraday] = await Promise.all([
-        fetchYahooChart("^GSPC", "1d", "5m"),
-        Promise.all(assets.map((a) => fetchYahooChart(a.symbol, "1d", "5m"))),
+      const [spChart, assetCharts] = await Promise.all([
+        fetchYahooChart("^GSPC", chartRange, interval),
+        Promise.all(
+          assets.map((a) => fetchYahooChart(a.symbol, chartRange, interval)),
+        ),
       ]);
 
-      // portfolio base value
-      let portfolioBase = 0;
-      assetPrevCloses.forEach((p, i) => {
-        portfolioBase += p * assets[i].quantity;
-      });
-
-      const length = Math.min(
-        spIntraday.length,
-        ...assetIntraday.map((c) => c.length),
+      const basePortfolio = assetPrevCloses.reduce(
+        (sum, price, i) => sum + price * assets[i].quantity,
+        0,
       );
 
-      const data = [];
+      const length = Math.min(
+        spChart.length,
+        ...assetCharts.map((c) => c.length),
+      );
 
-      // 👇 first point = previous close
-      data.push({
-        time: spIntraday[0].time,
-        portfolioValue: portfolioBase,
-        sp500Value: spPrevClose,
-      });
+      const data = [
+        {
+          time: spChart[0]?.time,
+          portfolioValue: basePortfolio,
+          sp500Value: spPrevClose,
+        },
+      ];
 
-      // 👇 intraday points
       for (let i = 0; i < length; i++) {
         let portfolioValue = 0;
 
-        assetIntraday.forEach((chart, idx) => {
+        assetCharts.forEach((chart, idx) => {
           portfolioValue += chart[i].close! * assets[idx].quantity;
         });
 
         data.push({
-          time: spIntraday[i].time,
+          time: spChart[i].time,
           portfolioValue,
-          sp500Value: spIntraday[i].close!,
+          sp500Value: spChart[i].close!,
         });
       }
 
       return NextResponse.json({
         range,
         base: {
-          portfolio: portfolioBase,
+          portfolio: basePortfolio,
           sp500: spPrevClose,
         },
         data,
@@ -135,13 +152,10 @@ export async function POST(req: NextRequest) {
     }
 
     /* =====================================================
-       1M / 1Y → historical
+       5D / 1M / 6M / 1Y → historical
     ===================================================== */
 
-    const cfg =
-      range === "1m"
-        ? { range: "1mo", interval: "1d" }
-        : { range: "1y", interval: "1wk" };
+    const cfg = RANGE_CONFIG[range];
 
     const [spChart, assetCharts] = await Promise.all([
       fetchYahooChart("^GSPC", cfg.range, cfg.interval),
@@ -154,6 +168,15 @@ export async function POST(req: NextRequest) {
       spChart.length,
       ...assetCharts.map((c) => c.length),
     );
+
+    /* ---------- BASE (first candle) ---------- */
+
+    const basePortfolio = assetCharts.reduce(
+      (sum, chart, i) => sum + chart[0].close! * assets[i].quantity,
+      0,
+    );
+
+    const baseSP500 = spChart[0].close!;
 
     const data = [];
 
@@ -171,7 +194,14 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    return NextResponse.json({ range, data });
+    return NextResponse.json({
+      range,
+      base: {
+        portfolio: basePortfolio,
+        sp500: baseSP500,
+      },
+      data,
+    });
   } catch (err: any) {
     console.error("compare api error:", err);
     return NextResponse.json(
