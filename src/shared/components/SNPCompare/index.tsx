@@ -35,11 +35,28 @@ const RANGE_MAP: Record<TimeRange, ApiRange> = {
   "1Y": "1y",
 };
 
-const formatTime = (t: number, r: TimeRange) =>
-  new Date(t * 1000).toLocaleString(
-    [],
-    r === "1D" ? { hour: "2-digit", minute: "2-digit" } : undefined,
-  );
+/* =======================
+   Time formatter
+   - 1D  : show time only
+   - else: show date only
+======================= */
+
+const formatTime = (t: number, r: TimeRange) => {
+  const d = new Date(t * 1000);
+
+  if (r === "1D") {
+    return d.toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
+
+  return d.toLocaleDateString([], {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+};
 
 /* =======================
    Component
@@ -98,12 +115,27 @@ export default function SNPCompare({ assets }: { assets: Asset[] }) {
   ======================= */
 
   return (
-    <div className="bg-gray-900 text-white p-4 rounded-lg">
+    <div className="bg-black-lighter text-white p-4 rounded-lg">
       {/* Header */}
       <div className="flex justify-between mb-4">
-        <h2 className="text-xl font-bold">Portfolio vs S&P 500</h2>
+        {/* Range selector */}
+        <div className="flex gap-2 bg-black-lighter2 p-1 rounded-lg w-fit">
+          {TIME_RANGES.map((r) => (
+            <button
+              key={r}
+              onClick={() => setRange(r)}
+              className={`px-3 py-1 rounded text-sm ${
+                range === r
+                  ? "bg-yellow-500 text-black font-bold"
+                  : "text-gray-300"
+              }`}
+            >
+              {r}
+            </button>
+          ))}
+        </div>
         <div className="flex gap-3">
-          <button onClick={() => fetchData(true)} title="Refresh">
+          <button onClick={() => fetchData(true)} title="รีเฟรช">
             <FaSync />
           </button>
           <button onClick={() => setHidden(!hidden)}>
@@ -112,30 +144,13 @@ export default function SNPCompare({ assets }: { assets: Asset[] }) {
         </div>
       </div>
 
-      {/* Range selector */}
-      <div className="flex gap-2 mb-4 bg-gray-800 p-1 rounded-lg w-fit">
-        {TIME_RANGES.map((r) => (
-          <button
-            key={r}
-            onClick={() => setRange(r)}
-            className={`px-3 py-1 rounded text-sm ${
-              range === r
-                ? "bg-yellow-500 text-black font-bold"
-                : "text-gray-300"
-            }`}
-          >
-            {r}
-          </button>
-        ))}
-      </div>
-
       {/* Summary */}
       <div className="grid grid-cols-2 gap-4 mb-6">
         {[
-          ["Your Portfolio", end.portfolio],
+          ["พอร์ตของคุณ", end.portfolio],
           ["S&P 500", end.snp500],
         ].map(([label, val]: any) => (
-          <div key={label} className="bg-gray-800 p-4 rounded">
+          <div key={label} className="bg-black-lighter2 p-4 rounded">
             <p className="text-gray-400 text-sm">{label}</p>
             <p
               className={`text-2xl font-bold ${
@@ -150,22 +165,31 @@ export default function SNPCompare({ assets }: { assets: Asset[] }) {
 
       {/* Chart */}
       {loading ? (
-        <div className="text-center text-gray-400 py-10">Loading…</div>
+        <div className="text-center text-gray-400 py-10">กำลังโหลด…</div>
       ) : (
         <ResponsiveContainer width="100%" height={350}>
           <LineChart data={data}>
             <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
             <XAxis dataKey="date" stroke="#9CA3AF" />
             <YAxis tickFormatter={(v) => `${v.toFixed(1)}%`} />
-            <Legend />
+            <Legend
+              itemSorter={(item) => {
+                if (item.dataKey === "portfolio") return 1;
+                if (item.dataKey === "snp500") return 2;
+                return 3;
+              }}
+            />
+
             <Line
               dataKey="portfolio"
+              name="พอร์ตของคุณ"
               stroke="#EAB308"
               strokeWidth={3}
               dot={false}
             />
             <Line
               dataKey="snp500"
+              name="S&P 500"
               stroke="#3B82F6"
               strokeWidth={3}
               dot={false}

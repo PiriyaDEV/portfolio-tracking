@@ -14,6 +14,7 @@ export default {
         foreground: "var(--foreground)",
         "black": "#171616ff",
         'black-lighter': '#1f1e1eff',
+        'black-lighter2': '#353434',
         "text-light": "#c5c6c7",
         "accent-yellow": "#FFD700",
       },

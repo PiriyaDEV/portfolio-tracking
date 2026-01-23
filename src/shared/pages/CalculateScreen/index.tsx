@@ -143,7 +143,7 @@ export default function CalculatorScreen({
             className={`px-4 py-2 rounded ${
               activeTab === tab.key
                 ? "bg-yellow-500 text-black"
-                : "bg-gray-800 text-white"
+                : "bg-black-lighter2 text-white"
             }`}
             onClick={() => {
               setActiveTab(tab.key as "calculator" | "estimate");
@@ -174,7 +174,7 @@ export default function CalculatorScreen({
             setEstimatePrice("");
             setNewCostPerShare(null);
           }}
-          className="p-2 rounded bg-gray-800 text-white w-full"
+          className="p-2 rounded bg-black-lighter2 text-white w-full"
         >
           {assets.map((a) => (
             <option key={a.symbol} value={a.symbol}>
@@ -202,7 +202,7 @@ export default function CalculatorScreen({
             placeholder="จำนวนเงินลงทุนใหม่ (บาท)"
             value={newInvestment}
             onChange={(e) => setNewInvestment(e.target.value)}
-            className="p-2 rounded bg-gray-800 text-white"
+            className="p-2 rounded bg-black-lighter2 text-white"
           />
 
           <label className="text-white text-sm">ราคาหุ้นใหม่ (USD)</label>
@@ -213,7 +213,7 @@ export default function CalculatorScreen({
             placeholder="ราคาหุ้นใหม่ (USD)"
             value={newPrice}
             onChange={(e) => setNewPrice(e.target.value)}
-            className="p-2 rounded bg-gray-800 text-white"
+            className="p-2 rounded bg-black-lighter2 text-white"
           />
 
           <button
@@ -235,7 +235,7 @@ export default function CalculatorScreen({
             placeholder="ราคาหุ้นใหม่ (USD)"
             value={estimatePrice}
             onChange={(e) => setEstimatePrice(e.target.value)}
-            className="p-2 rounded bg-gray-800 text-white"
+            className="p-2 rounded bg-black-lighter2 text-white"
           />
 
           <button
@@ -251,7 +251,7 @@ export default function CalculatorScreen({
         {/* Before card */}
         <div className="w-full shadow-sm">
           <div className="text-white font-bold px-4 py-1 bg-gray-700">ก่อน</div>
-          <div className="w-full grid grid-cols-[2fr_1fr_1fr] gap-3 px-4 py-2 bg-gray-900">
+          <div className="w-full grid grid-cols-[2fr_1fr_1fr] gap-3 px-4 py-2 bg-black-lighter">
             <div className="flex flex-col gap-1">
               <div className="flex items-center gap-2">
                 <div
@@ -332,7 +332,7 @@ export default function CalculatorScreen({
                 ? `(ที่ราคา: ${afterData.estimateCost} USD)`
                 : ""}
             </div>
-            <div className="w-full grid grid-cols-[2fr_1fr_1fr] gap-3 px-4 py-2 bg-gray-900">
+            <div className="w-full grid grid-cols-[2fr_1fr_1fr] gap-3 px-4 py-2 bg-black-lighter">
               <div className="flex flex-col gap-1">
                 <div className="flex items-center gap-2">
                   <div

@@ -30,17 +30,17 @@ export default function MarketScreen({
   return (
     <div className="w-full px-4 mt-4 space-y-3 pb-[70px]">
       {/* Tabs mapping */}
-      <div className="flex mb-4 gap-2">
+      <div className="fixed top-[80px] flex mb-4 gap-2 z-[99] bg-black w-full py-4">
         {[
           { key: "support", label: "แนวรับ" },
-          { key: "compare", label: "เทียบกำไร กับ Index" },
+          { key: "compare", label: "เทียบพอร์ต กับ S&P500" },
         ].map((tab) => (
           <button
             key={tab.key}
             className={`px-4 py-2 rounded ${
               activeTab === tab.key
                 ? "bg-yellow-500 text-black"
-                : "bg-gray-800 text-white"
+                : "bg-black-lighter2 text-white"
             }`}
             onClick={() => {
               setActiveTab(tab.key as "support" | "compare");
@@ -51,21 +51,23 @@ export default function MarketScreen({
         ))}
       </div>
 
-      {activeTab === "compare" ? (
-        <SNPCompare assets={assets} />
-      ) : (
-        <>
-          {sortedSymbols.map((symbol) => (
-            <StockCard
-              key={symbol}
-              symbol={symbol}
-              price={prices[symbol]!}
-              levels={advancedLevels[symbol]}
-              showAnalyst
-            />
-          ))}
-        </>
-      )}
+      <div className="pt-[50px]">
+        {activeTab === "compare" ? (
+          <SNPCompare assets={assets} />
+        ) : (
+          <div className="flex flex-col gap-3">
+            {sortedSymbols.map((symbol) => (
+              <StockCard
+                key={symbol}
+                symbol={symbol}
+                price={prices[symbol]!}
+                levels={advancedLevels[symbol]}
+                showAnalyst
+              />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
