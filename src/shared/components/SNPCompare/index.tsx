@@ -12,6 +12,7 @@ import {
 } from "recharts";
 import { FaEye, FaEyeSlash, FaSync } from "react-icons/fa";
 import { useNumbersHidden } from "@/shared/hooks/useNumbersHidden";
+import CommonLoading from "../CommonLoading";
 
 /* =======================
    Types & constants
@@ -67,8 +68,6 @@ export default function SNPCompare({ assets }: { assets: Asset[] }) {
   const [range, setRange] = useState<TimeRange>("1D");
   const [loading, setLoading] = useState(false);
 
-  const { isNumbersHidden, setIsNumbersHidden } = useNumbersHidden();
-
   const [cache, setCache] = useState<Partial<Record<TimeRange, any[]>>>({});
   const data = cache[range] ?? [];
 
@@ -110,14 +109,13 @@ export default function SNPCompare({ assets }: { assets: Asset[] }) {
   }, [range, assets]);
 
   const end = data.at(-1) || { portfolio: 0, snp500: 0 };
-  const mask = (v: string) => (isNumbersHidden ? "*****" : v);
 
   /* =======================
      Render
   ======================= */
 
   return (
-    <div className="bg-black-lighter text-white p-4 rounded-lg">
+    <div className="bg-black-lighter text-white p-4 rounded-lg min-h-[542px]">
       {/* Header */}
       <div className="flex justify-between mb-4">
         {/* Range selector */}
@@ -140,9 +138,6 @@ export default function SNPCompare({ assets }: { assets: Asset[] }) {
           <button onClick={() => fetchData(true)} title="รีเฟรช">
             <FaSync />
           </button>
-          <button onClick={() => setIsNumbersHidden(!isNumbersHidden)}>
-            {isNumbersHidden ? <FaEyeSlash /> : <FaEye />}
-          </button>
         </div>
       </div>
 
@@ -159,7 +154,7 @@ export default function SNPCompare({ assets }: { assets: Asset[] }) {
                 val >= 0 ? "text-green-500" : "text-red-500"
               }`}
             >
-              {mask(`${val >= 0 ? "+" : ""}${val.toFixed(2)}%`)}
+              {`${val >= 0 ? "+" : ""}${val.toFixed(2)}%`}
             </p>
           </div>
         ))}
@@ -167,7 +162,9 @@ export default function SNPCompare({ assets }: { assets: Asset[] }) {
 
       {/* Chart */}
       {loading ? (
-        <div className="text-center text-gray-400 py-10">กำลังโหลด…</div>
+        <div className="pt-[90px]">
+          <CommonLoading isFullScreen={false} />
+        </div>
       ) : (
         <ResponsiveContainer width="100%" height={350}>
           <LineChart data={data}>

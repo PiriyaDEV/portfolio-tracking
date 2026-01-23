@@ -5,7 +5,7 @@ import numeral from "numeral";
 
 export const getMemberObjByName = (
   name: string,
-  members: MemberObj[]
+  members: MemberObj[],
 ): MemberObj | undefined => {
   return members.find((m) => m.name === name);
 };
@@ -25,7 +25,7 @@ export const decodeBase64 = (data: string) => {
   try {
     const decodedString = atob(data);
     const utf8Array = Array.from(decodedString).map((char) =>
-      char.charCodeAt(0)
+      char.charCodeAt(0),
     );
     const jsonString = new TextDecoder().decode(new Uint8Array(utf8Array));
     return JSON.parse(jsonString);
@@ -87,7 +87,7 @@ export async function getShortUrl(longUrl: string) {
 export function getPrice(
   price: number,
   vat?: number | null,
-  serviceCharge?: number | null
+  serviceCharge?: number | null,
 ): number {
   let basePrice = price;
 
@@ -116,7 +116,7 @@ export function fPercent(number: number) {
 
 export function fNumber(
   number: string | number,
-  options?: { disabledDecimal?: boolean; decimalNumber?: number }
+  options?: { disabledDecimal?: boolean; decimalNumber?: number },
 ) {
   const { disabledDecimal = false, decimalNumber = 2 } = options || {};
 
@@ -128,7 +128,7 @@ export function fNumber(
 
 export function f3Number(
   number: string | number,
-  options?: { disabledDecimal: boolean }
+  options?: { disabledDecimal: boolean },
 ) {
   if (options) {
     if (options.disabledDecimal) return numeral(number).format();
@@ -138,7 +138,7 @@ export function f3Number(
 
 export function fInteger(
   number: string | number,
-  options?: { disabledDecimal: boolean }
+  options?: { disabledDecimal: boolean },
 ) {
   if (options) {
     if (options.disabledDecimal) return numeral(number).format();
@@ -159,14 +159,14 @@ export function formatNumber(val: string, min?: number) {
   const formattedVal = min !== undefined && numVal < min ? min : numVal;
 
   return numeral(formattedVal).format(
-    Number.isInteger(formattedVal) ? "0" : "0.[00]"
+    Number.isInteger(formattedVal) ? "0" : "0.[00]",
   );
 }
 
 export function fTon(number: string | number) {
   const n = Number(number) / 1000;
   return numeral(n).format(
-    Number.isInteger(n) ? "0,0" : "$0,0.00".replace("$", "")
+    Number.isInteger(n) ? "0,0" : "$0,0.00".replace("$", ""),
   );
 }
 

@@ -22,6 +22,7 @@ import ViewScreen, { StockResult } from "@/shared/pages/ViewScreen";
 import MarketScreen from "@/shared/pages/MarketScreen";
 import CalculateScreen from "@/shared/pages/CalculateScreen";
 import { useNumbersHidden } from "@/shared/hooks/useNumbersHidden";
+import { useMaskNumber } from "@/shared/hooks/useMaskNumber";
 
 const now = new Date();
 const thaiMonths = [
@@ -73,6 +74,7 @@ export default function StockPrice() {
 
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editAssets, setEditAssets] = useState<Asset[]>([]);
+  const maskNumber = useMaskNumber();
 
   // Sorting state
   const [sortBy, setSortBy] = useState<"asset" | "value" | "profit">("value");
@@ -465,12 +467,6 @@ export default function StockPrice() {
     }
   };
 
-  // Helper function to mask numbers
-  const maskNumber = (value: string | number) => {
-    if (!isNumbersHidden) return value;
-    return "*****";
-  };
-
   // Loading state
   if (isLoading) return <CommonLoading />;
 
@@ -716,7 +712,7 @@ export default function StockPrice() {
                           <div className="flex items-center gap-1">
                             ราคาปัจจุบัน:{" "}
                             <span className="text-white">
-                              {maskNumber(fNumber(currentPrice))} USD
+                              {fNumber(currentPrice)} USD
                             </span>
                           </div>
                           <div className="flex flex-col items-end text-right">
