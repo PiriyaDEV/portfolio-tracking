@@ -68,10 +68,10 @@ const RANGE_CONFIG: Record<
   Exclude<Range, "1d">,
   { range: string; interval: string }
 > = {
-  "5d": { range: "5d", interval: "1d" },
-  "1m": { range: "1mo", interval: "1d" },
-  "6m": { range: "6mo", interval: "1wk" },
-  "1y": { range: "1y", interval: "1wk" },
+  "5d": { range: "5d", interval: "30m" }, // ~26 จุด
+  "1m": { range: "1mo", interval: "1d" }, // ~22 จุด (baseline)
+  "6m": { range: "6mo", interval: "1wk" }, // ~26 จุด
+  "1y": { range: "1y", interval: "1wk" }, // ~52 จุด (ยังพอดี)
 };
 
 /* =======================
