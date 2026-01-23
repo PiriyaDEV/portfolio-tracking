@@ -1,6 +1,7 @@
 "use client";
 
 import { AdvancedLevels } from "@/app/api/stock/support.function";
+import { Asset } from "@/app/lib/interface";
 import { getSignal, getSignalRank } from "@/app/lib/market.logic";
 import SNPCompare from "@/shared/components/SNPCompare";
 import StockCard from "@/shared/components/StockCard";
@@ -9,9 +10,14 @@ import { useState } from "react";
 interface Props {
   advancedLevels: Record<string, AdvancedLevels>;
   prices: Record<string, number | null>;
+  assets: Asset[];
 }
 
-export default function MarketScreen({ advancedLevels, prices }: Props) {
+export default function MarketScreen({
+  advancedLevels,
+  prices,
+  assets,
+}: Props) {
   const [activeTab, setActiveTab] = useState<"support" | "compare">("support");
   const sortedSymbols = Object.keys(advancedLevels)
     .filter((s) => advancedLevels[s]?.currentPrice > 0)
@@ -46,7 +52,7 @@ export default function MarketScreen({ advancedLevels, prices }: Props) {
       </div>
 
       {activeTab === "compare" ? (
-        <SNPCompare />
+        <SNPCompare assets={assets} />
       ) : (
         <>
           {sortedSymbols.map((symbol) => (

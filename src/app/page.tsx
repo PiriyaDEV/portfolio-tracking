@@ -585,7 +585,11 @@ export default function StockPrice() {
           />
         )}
         {currentPage === "market" && (
-          <MarketScreen prices={prices} advancedLevels={advancedLevels} />
+          <MarketScreen
+            prices={prices}
+            advancedLevels={advancedLevels}
+            assets={assets}
+          />
         )}
         {currentPage === "calculator" && (
           <CalculateScreen
