@@ -11,6 +11,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { FaEye, FaEyeSlash, FaSync } from "react-icons/fa";
+import { useNumbersHidden } from "@/shared/hooks/useNumbersHidden";
 
 /* =======================
    Types & constants
@@ -64,8 +65,9 @@ const formatTime = (t: number, r: TimeRange) => {
 
 export default function SNPCompare({ assets }: { assets: Asset[] }) {
   const [range, setRange] = useState<TimeRange>("1D");
-  const [hidden, setHidden] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  const { isNumbersHidden, setIsNumbersHidden } = useNumbersHidden();
 
   const [cache, setCache] = useState<Partial<Record<TimeRange, any[]>>>({});
   const data = cache[range] ?? [];
@@ -108,7 +110,7 @@ export default function SNPCompare({ assets }: { assets: Asset[] }) {
   }, [range, assets]);
 
   const end = data.at(-1) || { portfolio: 0, snp500: 0 };
-  const mask = (v: string) => (hidden ? "*****" : v);
+  const mask = (v: string) => (isNumbersHidden ? "*****" : v);
 
   /* =======================
      Render
@@ -138,8 +140,8 @@ export default function SNPCompare({ assets }: { assets: Asset[] }) {
           <button onClick={() => fetchData(true)} title="รีเฟรช">
             <FaSync />
           </button>
-          <button onClick={() => setHidden(!hidden)}>
-            {hidden ? <FaEyeSlash /> : <FaEye />}
+          <button onClick={() => setIsNumbersHidden(!isNumbersHidden)}>
+            {isNumbersHidden ? <FaEyeSlash /> : <FaEye />}
           </button>
         </div>
       </div>

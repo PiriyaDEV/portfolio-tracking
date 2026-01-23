@@ -21,6 +21,7 @@ import BottomNavbar from "@/shared/components/Navbar";
 import ViewScreen, { StockResult } from "@/shared/pages/ViewScreen";
 import MarketScreen from "@/shared/pages/MarketScreen";
 import CalculateScreen from "@/shared/pages/CalculateScreen";
+import { useNumbersHidden } from "@/shared/hooks/useNumbersHidden";
 
 const now = new Date();
 const thaiMonths = [
@@ -170,8 +171,7 @@ export default function StockPrice() {
     fetchSymbols(symbols);
   }, [searchedSymbol, wishlist]);
 
-  // Hide/show numbers state
-  const [isNumbersHidden, setIsNumbersHidden] = useState(false);
+  const { isNumbersHidden, setIsNumbersHidden } = useNumbersHidden();
 
   // Session Storage Functions
   const saveSession = (userId: string, userColId: string) => {
