@@ -25,15 +25,38 @@ interface Asset {
 
 interface ChartDataPoint {
   date: string;
-  portfolio: number;
-  snp500: number;
+  portfolio: number; // % return
+  snp500: number; // % return
 }
 
-type TimeRange = "1D" | "5D" | "1W" | "1M" | "5M" | "1Y";
+type TimeRange = "1D" | "1M" | "1Y";
 
 interface PortfolioComparisonProps {
   assets: Asset[];
 }
+
+/* =======================
+   Utils
+======================= */
+
+const RANGE_MAP: Record<TimeRange, "1d" | "1m" | "1y"> = {
+  "1D": "1d",
+  "1M": "1m",
+  "1Y": "1y",
+};
+
+const formatTime = (unix: number, range: TimeRange) => {
+  const d = new Date(unix * 1000);
+
+  if (range === "1D") {
+    return d.toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
+
+  return d.toLocaleDateString();
+};
 
 /* =======================
    Component
@@ -63,40 +86,39 @@ export default function SNPCompare({ assets }: PortfolioComparisonProps) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             assets,
-            range: timeRange,
+            range: RANGE_MAP[timeRange],
           }),
         });
 
-        const data = await res.json();
+        const json = await res.json();
+
+        if (!json?.data || json.data.length < 2) return;
 
         /* =======================
-         Transform API response
-      ======================= */
+           Normalize to % return
+        ======================= */
 
-        const chart: ChartDataPoint[] = data.dates.map(
-          (date: string, i: number) => ({
-            date,
-            portfolio: data.portfolio[i],
-            snp500: data.snp500[i],
-          }),
-        );
+        const raw = json.data;
+        const pBase = raw[0].portfolioValue;
+        const sBase = raw[0].sp500Value;
+
+        const chart: ChartDataPoint[] = raw.map((p: any) => ({
+          date: formatTime(p.time, timeRange),
+          portfolio: (p.portfolioValue / pBase - 1) * 100,
+          snp500: (p.sp500Value / sBase - 1) * 100,
+        }));
 
         setChartData(chart);
 
         /* =======================
-         Calculate returns
-      ======================= */
+           Summary return
+        ======================= */
 
-        if (chart.length > 1) {
-          const p0 = chart[0].portfolio;
-          const p1 = chart.at(-1)!.portfolio;
+        const pEnd = chart.at(-1)!.portfolio;
+        const sEnd = chart.at(-1)!.snp500;
 
-          const s0 = chart[0].snp500;
-          const s1 = chart.at(-1)!.snp500;
-
-          setPortfolioReturn(((p1 - p0) / p0) * 100);
-          setSnpReturn(((s1 - s0) / s0) * 100);
-        }
+        setPortfolioReturn(pEnd);
+        setSnpReturn(sEnd);
       } catch (err) {
         console.error("Portfolio compare error:", err);
       } finally {
@@ -129,7 +151,7 @@ export default function SNPCompare({ assets }: PortfolioComparisonProps) {
 
       {/* Range Selector */}
       <div className="flex gap-2 mb-4 bg-gray-800 p-1 rounded-lg w-fit">
-        {(["1D", "5D", "1W", "1M", "5M", "1Y"] as TimeRange[]).map((r) => (
+        {(["1D", "1M", "1Y"] as TimeRange[]).map((r) => (
           <button
             key={r}
             onClick={() => setTimeRange(r)}
@@ -179,8 +201,8 @@ export default function SNPCompare({ assets }: PortfolioComparisonProps) {
           <LineChart data={chartData}>
             <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
             <XAxis dataKey="date" stroke="#9CA3AF" />
-            <YAxis stroke="#9CA3AF" />
-            <Tooltip />
+            <YAxis stroke="#9CA3AF" tickFormatter={(v) => `${v.toFixed(1)}%`} />
+            {/* <Tooltip formatter={(value: number) => `${value.toFixed(2)}%`} /> */}
             <Legend />
             <Line
               dataKey="portfolio"
