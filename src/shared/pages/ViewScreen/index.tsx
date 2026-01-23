@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { AdvancedLevels } from "@/app/api/stock/support.function";
-import StockCard from "../StockCard";
+import StockCard from "@/shared/components/StockCard";
 
 export interface StockResult {
   symbol: string;

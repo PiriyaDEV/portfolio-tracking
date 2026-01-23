@@ -18,9 +18,9 @@ import LoginModal from "@/shared/components/LoginModal";
 import EditModal from "@/shared/components/EditModal";
 import { NoItem } from "@/shared/components/NoItem";
 import BottomNavbar from "@/shared/components/Navbar";
-import MarketScreen from "@/shared/components/MarketScreen";
-import CalculateScreen from "@/shared/components/CalculateScreen";
-import ViewScreen, { StockResult } from "@/shared/components/ViewScreen";
+import ViewScreen, { StockResult } from "@/shared/pages/ViewScreen";
+import MarketScreen from "@/shared/pages/MarketScreen";
+import CalculateScreen from "@/shared/pages/CalculateScreen";
 
 const now = new Date();
 const thaiMonths = [

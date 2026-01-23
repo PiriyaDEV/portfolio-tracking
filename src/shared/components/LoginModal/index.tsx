@@ -126,7 +126,7 @@ export default function LoginModal({
         <button
           className="bg-accent-yellow text-white p-2 rounded w-full mt-2 font-bold"
           onClick={handleLogin}
-          disabled={isLoading}
+          disabled={isLoading || userId.length !== 4}
         >
           {isLoading ? "กำลังโหลด..." : "ยืนยัน"}
         </button>
