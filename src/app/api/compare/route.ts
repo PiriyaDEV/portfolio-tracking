@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
+/* =======================
+   Types
+======================= */
+
 interface Asset {
   symbol: string;
   quantity: number;
@@ -8,111 +12,146 @@ interface Asset {
 
 type Range = "1d" | "1m" | "1y";
 
-const RANGE_CONFIG: Record<Range, { range: string; interval: string }> = {
-  "1d": { range: "2d", interval: "1d" }, // ← IMPORTANT
-  "1m": { range: "1mo", interval: "1d" },
-  "1y": { range: "1y", interval: "1wk" },
-};
+/* =======================
+   Yahoo helpers
+======================= */
 
-async function fetchYahooChart(symbol: string, range: Range) {
-  const { range: yahooRange, interval } = RANGE_CONFIG[range];
-
+async function fetchYahooChart(
+  symbol: string,
+  range: string,
+  interval: string,
+) {
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(
     symbol,
-  )}?range=${yahooRange}&interval=${interval}`;
+  )}?range=${range}&interval=${interval}`;
 
   const res = await fetch(url, {
     headers: { "User-Agent": "Mozilla/5.0" },
     cache: "no-store",
   });
 
-  if (!res.ok) {
-    throw new Error(`Yahoo fetch failed: ${symbol}`);
-  }
+  if (!res.ok) throw new Error(`Yahoo fetch failed: ${symbol}`);
 
   const json = await res.json();
   const result = json?.chart?.result?.[0];
 
-  if (!result?.timestamp || !result?.indicators?.quote?.[0]?.close) {
+  const timestamps: number[] = result?.timestamp;
+  const closes: (number | null)[] = result?.indicators?.quote?.[0]?.close;
+
+  if (!timestamps || !closes) {
     throw new Error(`Invalid Yahoo data: ${symbol}`);
   }
 
-  const timestamps = result.timestamp as number[];
-  const closes = result.indicators.quote[0].close as (number | null)[];
-
-  // Remove nulls safely
-  const points = timestamps
-    .map((t, i) => ({ time: t, close: closes[i] }))
+  return timestamps
+    .map((t, i) => ({
+      time: t,
+      close: closes[i],
+    }))
     .filter((p) => p.close != null);
-
-  if (points.length < 2) {
-    throw new Error(`Not enough data for ${symbol}`);
-  }
-
-  return points;
 }
+
+async function fetchPreviousClose(symbol: string): Promise<number> {
+  const data = await fetchYahooChart(symbol, "2d", "1d");
+  if (data.length < 2) {
+    throw new Error(`No previous close for ${symbol}`);
+  }
+  return data[data.length - 2].close!;
+}
+
+/* =======================
+   API
+======================= */
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { assets, range } = body as {
+    const { assets, range } = (await req.json()) as {
       assets: Asset[];
       range: Range;
     };
 
-    // ---------- Validation ----------
-    if (!Array.isArray(assets) || assets.length === 0) {
-      return NextResponse.json(
-        { error: "assets must be non-empty array" },
-        { status: 400 },
-      );
+    if (!assets?.length) {
+      return NextResponse.json({ error: "assets required" }, { status: 400 });
     }
 
-    if (!["1d", "1m", "1y"].includes(range)) {
-      return NextResponse.json(
-        { error: "range must be 1d | 1m | 1y" },
-        { status: 400 },
-      );
-    }
-
-    // ---------- Fetch S&P500 ----------
-    const sp500Points = await fetchYahooChart("^GSPC", range);
-
-    // ---------- Fetch Assets ----------
-    const assetCharts = await Promise.all(
-      assets.map((a) => fetchYahooChart(a.symbol, range)),
-    );
-
-    // ---------- 1 DAY (Previous close vs latest) ----------
+    /* =====================================================
+       1D → previous close → intraday → close
+    ===================================================== */
     if (range === "1d") {
-      let portfolioPrev = 0;
-      let portfolioNow = 0;
+      // previous close (base)
+      const [spPrevClose, assetPrevCloses] = await Promise.all([
+        fetchPreviousClose("^GSPC"),
+        Promise.all(assets.map((a) => fetchPreviousClose(a.symbol))),
+      ]);
 
-      assetCharts.forEach((points, i) => {
-        portfolioPrev += points[0].close! * assets[i].quantity;
-        portfolioNow += points.at(-1)!.close! * assets[i].quantity;
+      // intraday (today)
+      const [spIntraday, assetIntraday] = await Promise.all([
+        fetchYahooChart("^GSPC", "1d", "5m"),
+        Promise.all(assets.map((a) => fetchYahooChart(a.symbol, "1d", "5m"))),
+      ]);
+
+      // portfolio base value
+      let portfolioBase = 0;
+      assetPrevCloses.forEach((p, i) => {
+        portfolioBase += p * assets[i].quantity;
       });
+
+      const length = Math.min(
+        spIntraday.length,
+        ...assetIntraday.map((c) => c.length),
+      );
+
+      const data = [];
+
+      // 👇 first point = previous close
+      data.push({
+        time: spIntraday[0].time,
+        portfolioValue: portfolioBase,
+        sp500Value: spPrevClose,
+      });
+
+      // 👇 intraday points
+      for (let i = 0; i < length; i++) {
+        let portfolioValue = 0;
+
+        assetIntraday.forEach((chart, idx) => {
+          portfolioValue += chart[i].close! * assets[idx].quantity;
+        });
+
+        data.push({
+          time: spIntraday[i].time,
+          portfolioValue,
+          sp500Value: spIntraday[i].close!,
+        });
+      }
 
       return NextResponse.json({
         range,
-        data: [
-          {
-            time: sp500Points[0].time,
-            portfolioValue: portfolioPrev,
-            sp500Value: sp500Points[0].close,
-          },
-          {
-            time: sp500Points.at(-1)!.time,
-            portfolioValue: portfolioNow,
-            sp500Value: sp500Points.at(-1)!.close,
-          },
-        ],
+        base: {
+          portfolio: portfolioBase,
+          sp500: spPrevClose,
+        },
+        data,
       });
     }
 
-    // ---------- 1M / 1Y (Time series) ----------
+    /* =====================================================
+       1M / 1Y → historical
+    ===================================================== */
+
+    const cfg =
+      range === "1m"
+        ? { range: "1mo", interval: "1d" }
+        : { range: "1y", interval: "1wk" };
+
+    const [spChart, assetCharts] = await Promise.all([
+      fetchYahooChart("^GSPC", cfg.range, cfg.interval),
+      Promise.all(
+        assets.map((a) => fetchYahooChart(a.symbol, cfg.range, cfg.interval)),
+      ),
+    ]);
+
     const length = Math.min(
-      sp500Points.length,
+      spChart.length,
       ...assetCharts.map((c) => c.length),
     );
 
@@ -126,21 +165,17 @@ export async function POST(req: NextRequest) {
       });
 
       data.push({
-        time: sp500Points[i].time,
+        time: spChart[i].time,
         portfolioValue,
-        sp500Value: sp500Points[i].close,
+        sp500Value: spChart[i].close!,
       });
     }
 
-    return NextResponse.json({
-      range,
-      data,
-    });
+    return NextResponse.json({ range, data });
   } catch (err: any) {
-    console.error("Portfolio performance API error:", err);
-
+    console.error("compare api error:", err);
     return NextResponse.json(
-      { error: err.message || "Internal server error" },
+      { error: err.message || "server error" },
       { status: 500 },
     );
   }
