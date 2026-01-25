@@ -39,8 +39,8 @@ const INITIAL_LEVELS = (symbol: string): AdvancedLevels => ({
 export async function getAdvancedLevels(
   symbol: string = "TSLA",
 ): Promise<AdvancedLevels> {
-  if (symbol === "BINANCE:BTCUSDT") {
-    symbol = "BTC-USD";
+  if (symbol === "GOLD-USD") {
+    symbol = "GC=F";
   }
 
   try {

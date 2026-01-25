@@ -176,13 +176,17 @@ const DEFAULT_STOCK_LOGO =
   "https://png.pngtree.com/png-vector/20190331/ourmid/pngtree-growth-icon-vector--glyph-or-solid-style-icon-stock-png-image_876941.jpg";
 const DEFAULT_CRYPTO_LOGO =
   "https://upload.wikimedia.org/wikipedia/commons/thumb/4/46/Bitcoin.svg/1200px-Bitcoin.svg.png";
+const DEFAULT_GOLD_LOGO =
+  "https://media.istockphoto.com/id/1185640227/vector/gold-bars-or-ingot-flat-style-isometric-illustration.jpg?s=612x612&w=0&k=20&c=UchT_VVWg0C1pYQppe4IkvD15bt61XGESS-bq4GiixQ=";
 
 export function getLogo(symbol: string): string {
   if (!symbol) return DEFAULT_STOCK_LOGO;
 
   // Special crypto case
-  if (symbol === "BINANCE:BTCUSDT") {
+  if (symbol === "BTC-USD") {
     return DEFAULT_CRYPTO_LOGO;
+  } else if (symbol === "GOLD-USD") {
+    return DEFAULT_GOLD_LOGO;
   }
 
   const ticker = symbol.includes(":") ? symbol.split(":")[1] : symbol;
@@ -194,7 +198,8 @@ export function getLogo(symbol: string): string {
 }
 
 export function getName(symbol: string) {
-  if (symbol === "BINANCE:BTCUSDT") return "BTC";
+  if (symbol === "BTC-USD") return "BTC";
+  else if (symbol === "GOLD-USD") return "GOLD";
   return symbol;
 }
 

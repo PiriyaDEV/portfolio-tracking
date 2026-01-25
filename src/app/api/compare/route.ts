@@ -16,12 +16,26 @@ type Range = "1d" | "5d" | "1m" | "6m" | "1y";
    Yahoo helpers
 ======================= */
 
+function normalizeYahooSymbol(raw: string): string {
+  const symbol = raw.trim().toUpperCase();
+
+  switch (symbol) {
+    case "BTC-USD":
+      return "BTC-USD";
+    case "GOLD-USD":
+      return "GC=F";
+    default:
+      return symbol;
+  }
+}
+
+
 async function fetchYahooChart(
-  symbol: string,
+  rawSymbol: string,
   range: string,
   interval: string,
 ) {
-  if (symbol === "BINANCE:BTCUSDT") symbol = "BTC";
+  const symbol = normalizeYahooSymbol(rawSymbol);
 
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(
     symbol,
