@@ -29,7 +29,6 @@ function normalizeYahooSymbol(raw: string): string {
   }
 }
 
-
 async function fetchYahooChart(
   rawSymbol: string,
   range: string,
@@ -51,8 +50,9 @@ async function fetchYahooChart(
   const json = await res.json();
   const result = json?.chart?.result?.[0];
 
-  const timestamps: number[] = result?.timestamp;
-  const closes: (number | null)[] = result?.indicators?.quote?.[0]?.close;
+  const timestamps: number[] | undefined = result?.timestamp;
+  const closes: (number | null)[] | undefined =
+    result?.indicators?.quote?.[0]?.close;
 
   if (!timestamps || !closes) {
     throw new Error(`Invalid Yahoo data: ${symbol}`);
@@ -68,9 +68,11 @@ async function fetchYahooChart(
 
 async function fetchPreviousClose(symbol: string): Promise<number> {
   const data = await fetchYahooChart(symbol, "2d", "1d");
+
   if (data.length < 2) {
     throw new Error(`No previous close for ${symbol}`);
   }
+
   return data[data.length - 2].close!;
 }
 
@@ -82,10 +84,10 @@ const RANGE_CONFIG: Record<
   Exclude<Range, "1d">,
   { range: string; interval: string }
 > = {
-  "5d": { range: "5d", interval: "30m" }, // ~26 จุด
-  "1m": { range: "1mo", interval: "1d" }, // ~22 จุด (baseline)
-  "6m": { range: "6mo", interval: "1wk" }, // ~26 จุด
-  "1y": { range: "1y", interval: "1wk" }, // ~52 จุด (ยังพอดี)
+  "5d": { range: "5d", interval: "30m" },
+  "1m": { range: "1mo", interval: "1d" },
+  "6m": { range: "6mo", interval: "1wk" },
+  "1y": { range: "1y", interval: "1wk" },
 };
 
 /* =======================
@@ -104,7 +106,7 @@ export async function POST(req: NextRequest) {
     }
 
     /* =====================================================
-       1D → intraday vs previous close
+       1D → intraday vs previous close (FIXED)
     ===================================================== */
 
     if (range === "1d") {
@@ -128,20 +130,45 @@ export async function POST(req: NextRequest) {
         0,
       );
 
+      /* ---------- Market CLOSED ---------- */
+      if (spChart.length <= 1) {
+        return NextResponse.json({
+          range,
+          base: {
+            portfolio: basePortfolio,
+            sp500: spPrevClose,
+          },
+          data: [
+            {
+              time: spChart[0]?.time ?? Math.floor(Date.now() / 1000),
+              portfolioValue: basePortfolio,
+              sp500Value: spPrevClose,
+            },
+          ],
+        });
+      }
+
+      /* ---------- Market OPEN ---------- */
+
       const length = Math.min(
         spChart.length,
         ...assetCharts.map((c) => c.length),
       );
 
-      const data = [
-        {
-          time: spChart[0]?.time,
-          portfolioValue: basePortfolio,
-          sp500Value: spPrevClose,
-        },
-      ];
+      const data: {
+        time: number;
+        portfolioValue: number;
+        sp500Value: number;
+      }[] = [];
 
-      for (let i = 0; i < length; i++) {
+      // base point = previous close
+      data.push({
+        time: spChart[0].time,
+        portfolioValue: basePortfolio,
+        sp500Value: spPrevClose,
+      });
+
+      for (let i = 1; i < length; i++) {
         let portfolioValue = 0;
 
         assetCharts.forEach((chart, idx) => {
@@ -183,7 +210,7 @@ export async function POST(req: NextRequest) {
       ...assetCharts.map((c) => c.length),
     );
 
-    /* ---------- BASE (first candle) ---------- */
+    /* ---------- BASE ---------- */
 
     const basePortfolio = assetCharts.reduce(
       (sum, chart, i) => sum + chart[0].close! * assets[i].quantity,
@@ -192,7 +219,11 @@ export async function POST(req: NextRequest) {
 
     const baseSP500 = spChart[0].close!;
 
-    const data = [];
+    const data: {
+      time: number;
+      portfolioValue: number;
+      sp500Value: number;
+    }[] = [];
 
     for (let i = 0; i < length; i++) {
       let portfolioValue = 0;
