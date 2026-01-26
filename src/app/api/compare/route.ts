@@ -69,11 +69,7 @@ async function fetchYahooChart(
 async function fetchPreviousClose(symbol: string): Promise<number> {
   const data = await fetchYahooChart(symbol, "2d", "1d");
 
-  if (data.length < 2) {
-    throw new Error(`No previous close for ${symbol}`);
-  }
-
-  return data[data.length - 2].close!;
+  return data[data.length - 2]?.close! ?? data[0].close;
 }
 
 /* =======================

@@ -10,8 +10,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import { FaEye, FaEyeSlash, FaSync } from "react-icons/fa";
-import { useNumbersHidden } from "@/shared/hooks/useNumbersHidden";
+import { FaSync } from "react-icons/fa";
 import CommonLoading from "../CommonLoading";
 
 /* =======================
@@ -39,8 +38,6 @@ const RANGE_MAP: Record<TimeRange, ApiRange> = {
 
 /* =======================
    Time formatter
-   - 1D  : show time only
-   - else: show date only
 ======================= */
 
 const formatTime = (t: number, r: TimeRange) => {
@@ -68,29 +65,41 @@ export default function SNPCompare({ assets }: { assets: Asset[] }) {
   const [range, setRange] = useState<TimeRange>("1D");
   const [loading, setLoading] = useState(false);
 
+  // cache per range
   const [cache, setCache] = useState<Partial<Record<TimeRange, any[]>>>({});
+
   const data = cache[range] ?? [];
 
   /* =======================
-     Fetch (cached)
+     Clear cache when assets change
   ======================= */
+  useEffect(() => {
+    setCache({});
+  }, [assets]);
 
+  /* =======================
+     Fetch (cached per range)
+  ======================= */
   const fetchData = async (force = false) => {
-    if (!assets.length || (!force && cache[range])) return;
+    if (!assets.length) return;
+    if (!force && cache[range]?.length) return;
 
     setLoading(true);
     try {
       const res = await fetch("/api/compare", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ assets, range: RANGE_MAP[range] }),
+        body: JSON.stringify({
+          assets,
+          range: RANGE_MAP[range],
+        }),
       });
 
       const json = await res.json();
       if (!json?.data?.length) return;
 
-      const baseP = json.data[0].portfolioValue;
-      const baseS = json.data[0].sp500Value;
+      const baseP = json.data[0].portfolioValue || 1;
+      const baseS = json.data[0].sp500Value || 1;
 
       const normalized = json.data.map((d: any) => ({
         date: formatTime(d.time, range),
@@ -108,7 +117,7 @@ export default function SNPCompare({ assets }: { assets: Asset[] }) {
     fetchData();
   }, [range, assets]);
 
-  const end = data.at(-1) || { portfolio: 0, snp500: 0 };
+  const end = data.at(-1) ?? { portfolio: 0, snp500: 0 };
 
   /* =======================
      Render
@@ -118,7 +127,6 @@ export default function SNPCompare({ assets }: { assets: Asset[] }) {
     <div className="bg-black-lighter text-white p-4 rounded-lg min-h-[542px]">
       {/* Header */}
       <div className="flex justify-between mb-4">
-        {/* Range selector */}
         <div className="flex gap-2 bg-black-lighter2 p-1 rounded-lg w-fit">
           {TIME_RANGES.map((r) => (
             <button
