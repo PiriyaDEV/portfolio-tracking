@@ -13,6 +13,34 @@ interface Asset {
 type Range = "1d" | "5d" | "1m" | "6m" | "1y";
 
 /* =======================
+   Currency helpers
+======================= */
+
+function isThaiStock(symbol: string): boolean {
+  return symbol.toUpperCase().endsWith(".BK");
+}
+
+/**
+ * USDTHB=X = THB per 1 USD
+ * THB → USD = price / rate
+ */
+async function fetchUSDTHBRate(): Promise<number> {
+  const data = await fetchYahooChart("USDTHB=X", "2d", "1d");
+  return data[data.length - 1].close!;
+}
+
+function convertToUSD(
+  price: number,
+  symbol: string,
+  usdThbRate: number,
+): number {
+  if (isThaiStock(symbol)) {
+    return price / usdThbRate;
+  }
+  return price;
+}
+
+/* =======================
    Yahoo helpers
 ======================= */
 
@@ -68,7 +96,6 @@ async function fetchYahooChart(
 
 async function fetchPreviousClose(symbol: string): Promise<number> {
   const data = await fetchYahooChart(symbol, "2d", "1d");
-
   return data[data.length - 2]?.close! ?? data[0].close;
 }
 
@@ -101,8 +128,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "assets required" }, { status: 400 });
     }
 
+    // FX rate (THB → USD)
+    const usdThbRate = await fetchUSDTHBRate();
+
     /* =====================================================
-       1D → intraday vs previous close (FIXED)
+       1D → intraday vs previous close
     ===================================================== */
 
     if (range === "1d") {
@@ -121,10 +151,10 @@ export async function POST(req: NextRequest) {
         ),
       ]);
 
-      const basePortfolio = assetPrevCloses.reduce(
-        (sum, price, i) => sum + price * assets[i].quantity,
-        0,
-      );
+      const basePortfolio = assetPrevCloses.reduce((sum, price, i) => {
+        const usdPrice = convertToUSD(price, assets[i].symbol, usdThbRate);
+        return sum + usdPrice * assets[i].quantity;
+      }, 0);
 
       /* ---------- Market CLOSED ---------- */
       if (spChart.length <= 1) {
@@ -157,7 +187,6 @@ export async function POST(req: NextRequest) {
         sp500Value: number;
       }[] = [];
 
-      // base point = previous close
       data.push({
         time: spChart[0].time,
         portfolioValue: basePortfolio,
@@ -168,7 +197,12 @@ export async function POST(req: NextRequest) {
         let portfolioValue = 0;
 
         assetCharts.forEach((chart, idx) => {
-          portfolioValue += chart[i].close! * assets[idx].quantity;
+          const usdPrice = convertToUSD(
+            chart[i].close!,
+            assets[idx].symbol,
+            usdThbRate,
+          );
+          portfolioValue += usdPrice * assets[idx].quantity;
         });
 
         data.push({
@@ -206,12 +240,14 @@ export async function POST(req: NextRequest) {
       ...assetCharts.map((c) => c.length),
     );
 
-    /* ---------- BASE ---------- */
-
-    const basePortfolio = assetCharts.reduce(
-      (sum, chart, i) => sum + chart[0].close! * assets[i].quantity,
-      0,
-    );
+    const basePortfolio = assetCharts.reduce((sum, chart, i) => {
+      const usdPrice = convertToUSD(
+        chart[0].close!,
+        assets[i].symbol,
+        usdThbRate,
+      );
+      return sum + usdPrice * assets[i].quantity;
+    }, 0);
 
     const baseSP500 = spChart[0].close!;
 
@@ -225,7 +261,12 @@ export async function POST(req: NextRequest) {
       let portfolioValue = 0;
 
       assetCharts.forEach((chart, idx) => {
-        portfolioValue += chart[i].close! * assets[idx].quantity;
+        const usdPrice = convertToUSD(
+          chart[i].close!,
+          assets[idx].symbol,
+          usdThbRate,
+        );
+        portfolioValue += usdPrice * assets[idx].quantity;
       });
 
       data.push({
