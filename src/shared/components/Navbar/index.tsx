@@ -27,7 +27,7 @@ const navItems: {
     page: "portfolio",
   },
   {
-    label: "กราฟ",
+    label: "วิเคราะห์",
     icon: <FaChartLine className="text-lg" />,
     page: "market",
   },

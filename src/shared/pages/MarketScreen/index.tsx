@@ -3,6 +3,7 @@
 import { AdvancedLevels } from "@/app/api/stock/support.function";
 import { Asset } from "@/app/lib/interface";
 import { getSignal, getSignalRank } from "@/app/lib/market.logic";
+import DividendSummary from "@/shared/components/Dividend";
 import SNPCompare from "@/shared/components/SNPCompare";
 import StockCard from "@/shared/components/StockCard";
 import { useState } from "react";
@@ -11,14 +12,18 @@ interface Props {
   advancedLevels: Record<string, AdvancedLevels>;
   prices: Record<string, number | null>;
   assets: Asset[];
+  dividend: any;
 }
 
 export default function MarketScreen({
   advancedLevels,
   prices,
   assets,
+  dividend,
 }: Props) {
-  const [activeTab, setActiveTab] = useState<"support" | "compare">("support");
+  const [activeTab, setActiveTab] = useState<
+    "support" | "compare" | "dividend"
+  >("support");
   const sortedSymbols = Object.keys(advancedLevels)
     .filter((s) => advancedLevels[s]?.currentPrice > 0)
     .sort((a, b) => {
@@ -27,6 +32,8 @@ export default function MarketScreen({
       return getSignalRank(sa) - getSignalRank(sb);
     });
 
+  console.log("dividend", dividend);
+
   return (
     <div className="w-full px-4 mt-4 space-y-3 pb-[70px]">
       {/* Tabs mapping */}
@@ -34,6 +41,7 @@ export default function MarketScreen({
         {[
           { key: "support", label: "แนวรับ" },
           { key: "compare", label: "เทียบพอร์ต กับ S&P500" },
+          { key: "dividend", label: "ปันผล" },
         ].map((tab) => (
           <button
             key={tab.key}
@@ -54,6 +62,8 @@ export default function MarketScreen({
       <div className="pt-[50px]">
         {activeTab === "compare" ? (
           <SNPCompare assets={assets} />
+        ) : activeTab === "dividend" ? (
+          <DividendSummary data={dividend} />
         ) : (
           <div className="flex flex-col gap-3">
             {sortedSymbols.map((symbol) => (
