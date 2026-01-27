@@ -143,7 +143,7 @@ export default function DividendSummary({ data }: DividendSummaryProps) {
                     <span className="inline-flex items-center gap-2">
                       {symbol}
                       {rank && (
-                        <span className="text-xs bg-black-lighter2 px-2 py-0.5 rounded text-yellow-400">
+                        <span className="text-[10px] bg-black-lighter2 px-1 py-0.5 rounded text-yellow-400">
                           อันดับ {index + 1}
                         </span>
                       )}
