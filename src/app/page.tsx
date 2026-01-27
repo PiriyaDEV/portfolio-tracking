@@ -55,6 +55,11 @@ interface SessionData {
   expiresAt: number;
 }
 
+// Helper function to check if stock is Thai
+const isThaiStock = (symbol: string): boolean => {
+  return symbol.toUpperCase().endsWith(".BK");
+};
+
 export default function StockPrice() {
   const [prices, setPrices] = useState<Record<string, number | null>>({});
   const [previousPrice, setPreviousPrice] = useState<
@@ -505,10 +510,21 @@ export default function StockPrice() {
   const sortedAssets = [...assets].sort((a, b) => {
     const priceA = prices[a.symbol] ?? 0;
     const priceB = prices[b.symbol] ?? 0;
-    const valueA = priceA * a.quantity;
-    const valueB = priceB * b.quantity;
-    const profitA = valueA - a.costPerShare * a.quantity;
-    const profitB = valueB - b.costPerShare * b.quantity;
+
+    // Check if stocks are Thai to determine correct currency
+    const isThaiA = isThaiStock(a.symbol);
+    const isThaiB = isThaiStock(b.symbol);
+
+    const valueA = isThaiA
+      ? priceA * a.quantity
+      : priceA * a.quantity * currencyRate;
+    const valueB = isThaiB
+      ? priceB * b.quantity
+      : priceB * b.quantity * currencyRate;
+    const profitA =
+      valueA - a.costPerShare * a.quantity * (isThaiA ? 1 : currencyRate);
+    const profitB =
+      valueB - b.costPerShare * b.quantity * (isThaiB ? 1 : currencyRate);
 
     let compare = 0;
     if (sortBy === "asset") compare = a.symbol.localeCompare(b.symbol);
@@ -623,25 +639,44 @@ export default function StockPrice() {
             <div className="mt-[100px] mb-[50px] w-full">
               {/* Portfolio Rows */}
               {sortedAssets.map((asset) => {
+                const isThai = isThaiStock(asset.symbol);
                 const currentPrice = prices[asset.symbol] ?? 0;
                 const cost = asset.costPerShare * asset.quantity;
-                const marketValueUsd = currentPrice * asset.quantity;
-                const marketValueThb = marketValueUsd * currencyRate;
-                const profit = currentPrice > 0 ? marketValueUsd - cost : 0;
+
+                // For Thai stocks, price is already in THB, no conversion needed
+                // For US stocks, price is in USD, needs conversion to THB
+                const marketValueBase = currentPrice * asset.quantity; // In original currency
+                const marketValueThb = isThai
+                  ? marketValueBase
+                  : marketValueBase * currencyRate;
+
+                // Calculate profit in original currency first
+                const profitBase =
+                  currentPrice > 0 ? marketValueBase - cost : 0;
+                const profitThb = isThai
+                  ? profitBase
+                  : profitBase * currencyRate;
+
                 const profitPercent =
-                  currentPrice > 0 && cost > 0 ? (profit / cost) * 100 : 0;
-                const profitColor = getProfitColor(profit);
+                  currentPrice > 0 && cost > 0 ? (profitBase / cost) * 100 : 0;
+                const profitColor = getProfitColor(profitBase);
                 const isExpanded = !!expanded[asset.symbol];
-                const portfolioValueUsd = assets.reduce(
-                  (sum, a) => sum + (prices[a.symbol] ?? 0) * a.quantity,
-                  0,
-                );
+
+                // Calculate total portfolio value in THB for percentage
+                const portfolioValueThb = assets.reduce((sum, a) => {
+                  const price = prices[a.symbol] ?? 0;
+                  const isThaiAsset = isThaiStock(a.symbol);
+                  const value = price * a.quantity;
+                  return sum + (isThaiAsset ? value : value * currencyRate);
+                }, 0);
 
                 const previousClose = previousPrice[asset.symbol] ?? 0;
                 const percentChange =
                   previousClose > 0
                     ? ((currentPrice - previousClose) / previousClose) * 100
                     : 0;
+
+                const currencyLabel = isThai ? "THB" : "USD";
 
                 return (
                   <div key={asset.symbol} className="w-full shadow-sm">
@@ -665,9 +700,9 @@ export default function StockPrice() {
                         </div>
                         <div className="text-[12px] flex items-center gap-1">
                           <ChartIcon />
-                          {portfolioValueUsd > 0
+                          {portfolioValueThb > 0
                             ? `${fNumber(
-                                (marketValueUsd / portfolioValueUsd) * 100,
+                                (marketValueThb / portfolioValueThb) * 100,
                               )}%`
                             : "0.00%"}
                         </div>
@@ -677,23 +712,31 @@ export default function StockPrice() {
                           {maskNumber(fNumber(marketValueThb))} THB
                         </div>
                         <div className="text-[12px] text-gray-300">
-                          ≈ {maskNumber(fNumber(marketValueUsd))} USD
+                          ≈{" "}
+                          {maskNumber(
+                            fNumber(
+                              isThai
+                                ? marketValueBase / currencyRate
+                                : marketValueBase,
+                            ),
+                          )}{" "}
+                          USD
                         </div>
                       </div>
                       <div className="flex flex-col items-end text-right">
                         <div
                           className={`font-bold text-[16px] flex items-center gap-1 ${profitColor}`}
                         >
-                          {profit > 0 ? (
+                          {profitBase > 0 ? (
                             <UpIcon className="text-[12px]" />
-                          ) : profit < 0 ? (
+                          ) : profitBase < 0 ? (
                             <DownIcon className="text-[12px]" />
                           ) : null}
                           {fNumber(profitPercent)}%
                         </div>
                         <div className={`text-[12px] ${profitColor}`}>
-                          ({profit > 0 ? "+" : ""}
-                          {maskNumber(fNumber(profit * currencyRate))} บาท)
+                          ({profitBase > 0 ? "+" : ""}
+                          {maskNumber(fNumber(profitThb))} บาท)
                         </div>
                       </div>
                     </div>
@@ -712,7 +755,7 @@ export default function StockPrice() {
                           <div className="flex items-center gap-1">
                             ราคาปัจจุบัน:{" "}
                             <span className="text-white">
-                              {fNumber(currentPrice)} USD
+                              {fNumber(currentPrice)} {currencyLabel}
                             </span>
                           </div>
                           <div className="flex flex-col items-end text-right">
@@ -737,7 +780,7 @@ export default function StockPrice() {
                             {maskNumber(
                               fNumber(asset.costPerShare, { decimalNumber: 4 }),
                             )}{" "}
-                            USD
+                            {currencyLabel}
                           </span>
                         </div>
                         <div>
@@ -745,7 +788,7 @@ export default function StockPrice() {
                           <span className="text-white">
                             {maskNumber(fNumber(cost))}
                           </span>{" "}
-                          USD
+                          {currencyLabel}
                         </div>
                       </div>
                     )}

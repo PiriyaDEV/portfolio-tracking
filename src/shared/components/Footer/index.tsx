@@ -24,6 +24,11 @@ type Props = {
   isNumbersHidden?: boolean;
 };
 
+// Helper function to check if stock is Thai
+const isThaiStock = (symbol: string): boolean => {
+  return symbol.toUpperCase().endsWith(".BK");
+};
+
 export default function FooterPortfolio({
   assets,
   prices,
@@ -37,24 +42,26 @@ export default function FooterPortfolio({
 
   if (!assets) return null;
 
-  // Total cost (what you paid)
-  const totalCostUsd = assets.reduce(
-    (sum, a) => sum + a.quantity * a.costPerShare,
-    0
-  );
-
-  // Total current market value (what it's worth now)
-  const totalMarketUsd = assets.reduce((sum, asset) => {
-    const currentPrice = prices[asset.symbol] ?? 0;
-    return sum + currentPrice * asset.quantity;
+  // Total cost in THB (converting USD stocks to THB)
+  const totalCostThb = assets.reduce((sum, a) => {
+    const isThai = isThaiStock(a.symbol);
+    const cost = a.quantity * a.costPerShare;
+    return sum + (isThai ? cost : cost * currencyRate);
   }, 0);
 
-  // Profit/Loss
-  const totalProfitUsd = totalMarketUsd - totalCostUsd;
-  const totalProfitThb = totalProfitUsd * currencyRate;
+  // Total current market value in THB
+  const totalMarketThb = assets.reduce((sum, asset) => {
+    const isThai = isThaiStock(asset.symbol);
+    const currentPrice = prices[asset.symbol] ?? 0;
+    const value = currentPrice * asset.quantity;
+    return sum + (isThai ? value : value * currencyRate);
+  }, 0);
+
+  // Profit/Loss in THB
+  const totalProfitThb = totalMarketThb - totalCostThb;
 
   const totalProfitPercent =
-    totalCostUsd > 0 ? (totalProfitUsd / totalCostUsd) * 100 : 0;
+    totalCostThb > 0 ? (totalProfitThb / totalCostThb) * 100 : 0;
 
   const totalPercentChange = (): number => {
     if (!assets || assets.length === 0) return 0;
@@ -65,12 +72,17 @@ export default function FooterPortfolio({
     for (const asset of assets) {
       const symbol = asset.symbol;
       const quantity = asset.quantity;
+      const isThai = isThaiStock(symbol);
 
       const prevPrice = previousPrice[symbol] ?? 0;
       const currPrice = prices[symbol] ?? 0;
 
-      totalPreviousValue += prevPrice * quantity;
-      totalCurrentValue += currPrice * quantity;
+      const prevValue = prevPrice * quantity;
+      const currValue = currPrice * quantity;
+
+      // Convert to THB if US stock
+      totalPreviousValue += isThai ? prevValue : prevValue * currencyRate;
+      totalCurrentValue += isThai ? currValue : currValue * currencyRate;
     }
 
     const percentChange =
@@ -90,8 +102,7 @@ export default function FooterPortfolio({
             มูลค่าเงินทั้งหมด ({formattedDate})
           </div>
           <div className="font-bold text-[26px] mt-1 flex items-center justify-center gap-2">
-            {isNumbersHidden ? "*****" : fNumber(totalMarketUsd * currencyRate)}{" "}
-            บาท{" "}
+            {isNumbersHidden ? "*****" : fNumber(totalMarketThb)} บาท{" "}
             <HiChevronDown
               onClick={() => setIsOpen(!isOpen)}
               className={`mt-2 !text-[16px] text-gray-300 transition-transform duration-200 ${
@@ -109,7 +120,7 @@ export default function FooterPortfolio({
               % เปลี่ยนจากวันก่อน :{" "}
               <span
                 className={`flex items-center gap-1 ${getProfitColor(
-                  totalPercentChange()
+                  totalPercentChange(),
                 )}`}
               >
                 {totalPercentChange() > 0 ? (
@@ -126,7 +137,7 @@ export default function FooterPortfolio({
               % กำไรของทรัพย์ที่ถืออยู่ :{" "}
               <span
                 className={`flex items-center gap-1 ${getProfitColor(
-                  totalProfitUsd
+                  totalProfitThb,
                 )}`}
               >
                 {totalProfitPercent > 0 ? (

@@ -17,8 +17,13 @@ export type Asset = {
 
 type CalculatorScreenProps = {
   assets: Asset[];
-  prices: any; // current price USD
+  prices: any; // current price (THB for Thai stocks, USD for US stocks)
   currencyRate: number; // USD -> THB
+};
+
+// Helper function to check if stock is Thai
+const isThaiStock = (symbol: string): boolean => {
+  return symbol.toUpperCase().endsWith(".BK");
 };
 
 export default function CalculatorScreen({
@@ -27,7 +32,7 @@ export default function CalculatorScreen({
   currencyRate,
 }: CalculatorScreenProps) {
   const [selectedSymbol, setSelectedSymbol] = useState<string>(
-    assets.length > 0 ? assets[0].symbol : ""
+    assets.length > 0 ? assets[0].symbol : "",
   );
   const [newInvestment, setNewInvestment] = useState<string>("");
   const [newPrice, setNewPrice] = useState<string>("");
@@ -36,14 +41,14 @@ export default function CalculatorScreen({
   const maskNumber = useMaskNumber();
 
   const [activeTab, setActiveTab] = useState<"calculator" | "estimate">(
-    "calculator"
+    "calculator",
   );
 
   const [afterData, setAfterData] = useState<{
     quantity: number;
     costPerShare: number;
     totalCost: number;
-    marketValueUsd: number;
+    marketValueBase: number; // in original currency
     marketValueThb: number;
     profit: number;
     profitPercent: number;
@@ -54,33 +59,43 @@ export default function CalculatorScreen({
     const asset = assets.find((a) => a.symbol === selectedSymbol);
     if (!asset) return;
 
+    const isThai = isThaiStock(selectedSymbol);
     const investment = parseFloat(newInvestment);
     const price = parseFloat(newPrice);
 
     if (isNaN(investment) || isNaN(price) || price <= 0) return;
 
-    const investmentUSD = investment / currencyRate;
-    const newQty = investmentUSD / price;
+    // Convert investment THB to stock currency
+    const investmentInStockCurrency = isThai
+      ? investment
+      : investment / currencyRate;
+    const newQty = investmentInStockCurrency / price;
     const existingQty = parseFloat(asset.quantity.toString());
     const existingCost = parseFloat(asset.costPerShare.toString());
     const totalQty = existingQty + newQty;
-    const totalCostUSD = existingQty * existingCost + investmentUSD;
-    const averageCostUSD = totalCostUSD / totalQty;
+    const totalCostInStockCurrency =
+      existingQty * existingCost + investmentInStockCurrency;
+    const averageCostInStockCurrency = totalCostInStockCurrency / totalQty;
 
-    setNewCostPerShare(averageCostUSD);
+    setNewCostPerShare(averageCostInStockCurrency);
 
     // Update after card data
     const currentPrice = prices[asset.symbol] ?? 0;
-    const marketValueUsd = currentPrice * totalQty;
-    const marketValueThb = marketValueUsd * currencyRate;
-    const profit = marketValueUsd - totalCostUSD;
-    const profitPercent = totalCostUSD > 0 ? (profit / totalCostUSD) * 100 : 0;
+    const marketValueBase = currentPrice * totalQty;
+    const marketValueThb = isThai
+      ? marketValueBase
+      : marketValueBase * currencyRate;
+    const profit = marketValueBase - totalCostInStockCurrency;
+    const profitPercent =
+      totalCostInStockCurrency > 0
+        ? (profit / totalCostInStockCurrency) * 100
+        : 0;
 
     setAfterData({
       quantity: totalQty,
-      costPerShare: averageCostUSD,
-      totalCost: totalCostUSD,
-      marketValueUsd,
+      costPerShare: averageCostInStockCurrency,
+      totalCost: totalCostInStockCurrency,
+      marketValueBase,
       marketValueThb,
       profit,
       profitPercent,
@@ -91,27 +106,32 @@ export default function CalculatorScreen({
     const asset = assets.find((a) => a.symbol === selectedSymbol);
     if (!asset) return;
 
-    // const investment = parseFloat(newInvestment);
+    const isThai = isThaiStock(selectedSymbol);
     const price = parseFloat(estimatePrice);
 
     const totalQty = asset.quantity;
-    const totalCostUSD = asset.quantity * asset.costPerShare;
-    const averageCostUSD = totalCostUSD / totalQty;
+    const totalCostInStockCurrency = asset.quantity * asset.costPerShare;
+    const averageCostInStockCurrency = totalCostInStockCurrency / totalQty;
 
-    setNewCostPerShare(averageCostUSD);
+    setNewCostPerShare(averageCostInStockCurrency);
 
     // Update after card data
     const currentPrice = price;
-    const marketValueUsd = currentPrice * totalQty;
-    const marketValueThb = marketValueUsd * currencyRate;
-    const profit = marketValueUsd - totalCostUSD;
-    const profitPercent = totalCostUSD > 0 ? (profit / totalCostUSD) * 100 : 0;
+    const marketValueBase = currentPrice * totalQty;
+    const marketValueThb = isThai
+      ? marketValueBase
+      : marketValueBase * currencyRate;
+    const profit = marketValueBase - totalCostInStockCurrency;
+    const profitPercent =
+      totalCostInStockCurrency > 0
+        ? (profit / totalCostInStockCurrency) * 100
+        : 0;
 
     setAfterData({
       quantity: totalQty,
-      costPerShare: averageCostUSD,
-      totalCost: totalCostUSD,
-      marketValueUsd,
+      costPerShare: averageCostInStockCurrency,
+      totalCost: totalCostInStockCurrency,
+      marketValueBase,
       marketValueThb,
       profit,
       profitPercent,
@@ -122,15 +142,21 @@ export default function CalculatorScreen({
   const asset = assets.find((a) => a.symbol === selectedSymbol);
   if (!asset) return null;
 
+  const isThai = isThaiStock(selectedSymbol);
+  const currencyLabel = isThai ? "THB" : "USD";
+
   // --- Before calculations ---
   const currentPrice = prices[asset.symbol] ?? 0;
-  const cost = asset.quantity * asset.costPerShare; // USD
-  const marketValueUsd = currentPrice * asset.quantity;
-  const marketValueThb = marketValueUsd * currencyRate;
-  const profit = marketValueUsd - cost;
+  const cost = asset.quantity * asset.costPerShare; // in stock currency
+  const marketValueBase = currentPrice * asset.quantity; // in stock currency
+  const marketValueThb = isThai
+    ? marketValueBase
+    : marketValueBase * currencyRate;
+  const profit = marketValueBase - cost;
   const profitPercent = cost > 0 ? (profit / cost) * 100 : 0;
   const profitColor =
     profit > 0 ? "text-green-500" : profit < 0 ? "text-red-500" : "text-white";
+  const profitThb = isThai ? profit : profit * currencyRate;
 
   return (
     <div className="p-4 w-full pb-[50px]">
@@ -187,7 +213,10 @@ export default function CalculatorScreen({
 
         <div>
           <label className="text-white text-sm">
-            ราคาตอนนี้: <span className="font-bold">({currentPrice} USD)</span>
+            ราคาตอนนี้:{" "}
+            <span className="font-bold">
+              ({currentPrice} {currencyLabel})
+            </span>
           </label>
         </div>
       </div>
@@ -207,12 +236,14 @@ export default function CalculatorScreen({
             className="p-2 rounded bg-black-lighter2 text-white"
           />
 
-          <label className="text-white text-sm">ราคาหุ้นใหม่ (USD)</label>
+          <label className="text-white text-sm">
+            ราคาหุ้นใหม่ ({currencyLabel})
+          </label>
           <input
             type="number"
             step="any"
             min="0"
-            placeholder="ราคาหุ้นใหม่ (USD)"
+            placeholder={`ราคาหุ้นใหม่ (${currencyLabel})`}
             value={newPrice}
             onChange={(e) => setNewPrice(e.target.value)}
             className="p-2 rounded bg-black-lighter2 text-white"
@@ -229,12 +260,14 @@ export default function CalculatorScreen({
 
       {activeTab == "estimate" && (
         <div className="mb-4 flex flex-col gap-2">
-          <label className="text-white text-sm">ราคาหุ้นเป้าหมาย (USD)</label>
+          <label className="text-white text-sm">
+            ราคาหุ้นเป้าหมาย ({currencyLabel})
+          </label>
           <input
             type="number"
             step="any"
             min="0"
-            placeholder="ราคาหุ้นใหม่ (USD)"
+            placeholder={`ราคาหุ้นเป้าหมาย (${currencyLabel})`}
             value={estimatePrice}
             onChange={(e) => setEstimatePrice(e.target.value)}
             className="p-2 rounded bg-black-lighter2 text-white"
@@ -275,7 +308,13 @@ export default function CalculatorScreen({
                 {maskNumber(fNumber(marketValueThb))} THB
               </div>
               <div className="text-[12px] text-gray-300">
-                ≈ {maskNumber(fNumber(marketValueUsd))} USD
+                ≈{" "}
+                {maskNumber(
+                  fNumber(
+                    isThai ? marketValueBase / currencyRate : marketValueBase,
+                  ),
+                )}{" "}
+                USD
               </div>
             </div>
 
@@ -292,7 +331,7 @@ export default function CalculatorScreen({
               </div>
               <div className={`text-[12px] ${profitColor}`}>
                 ({profit > 0 ? "+" : ""}
-                {maskNumber(fNumber(profit * currencyRate))} บาท)
+                {maskNumber(fNumber(profitThb))} บาท)
               </div>
             </div>
           </div>
@@ -306,17 +345,20 @@ export default function CalculatorScreen({
             </div>
             <div>
               ราคาปัจจุบัน:{" "}
-              <span className="text-white">{fNumber(currentPrice)}</span> USD
+              <span className="text-white">{fNumber(currentPrice)}</span>{" "}
+              {currencyLabel}
             </div>
             <div>
               ต้นทุนต่อหุ้น:{" "}
               <span className="text-white">
                 {maskNumber(fNumber(asset.costPerShare, { decimalNumber: 4 }))}
               </span>{" "}
-              USD
+              {currencyLabel}
             </div>
             <div>
-              ต้นทุนรวม: <span className="text-white">{maskNumber(fNumber(cost))}</span> USD
+              ต้นทุนรวม:{" "}
+              <span className="text-white">{maskNumber(fNumber(cost))}</span>{" "}
+              {currencyLabel}
             </div>
           </div>
         </div>
@@ -329,10 +371,10 @@ export default function CalculatorScreen({
               {activeTab === "calculator" && afterData
                 ? `(ต้นทุนใหม่: ${fNumber(afterData.costPerShare, {
                     decimalNumber: 4,
-                  })} USD)`
+                  })} ${currencyLabel})`
                 : activeTab === "estimate" && afterData.estimateCost
-                ? `(ที่ราคา: ${afterData.estimateCost} USD)`
-                : ""}
+                  ? `(ที่ราคา: ${afterData.estimateCost} ${currencyLabel})`
+                  : ""}
             </div>
             <div className="w-full grid grid-cols-[2fr_1fr_1fr] gap-3 px-4 py-2 bg-black-lighter">
               <div className="flex flex-col gap-1">
@@ -355,9 +397,11 @@ export default function CalculatorScreen({
                 <div className="font-bold text-[16px]">
                   {maskNumber(fNumber(afterData.marketValueThb))} THB
                 </div>
-                <div className="text-[12px] text-gray-300">
-                  ≈ {maskNumber(fNumber(afterData.marketValueUsd))} USD
-                </div>
+                {!isThai && (
+                  <div className="text-[12px] text-gray-300">
+                    ≈ {maskNumber(fNumber(afterData.marketValueBase))} USD
+                  </div>
+                )}
               </div>
 
               <div className="flex flex-col items-end text-right">
@@ -366,8 +410,8 @@ export default function CalculatorScreen({
                     afterData.profit > 0
                       ? "text-green-500"
                       : afterData.profit < 0
-                      ? "text-red-500"
-                      : "text-white"
+                        ? "text-red-500"
+                        : "text-white"
                   }`}
                 >
                   {afterData.profit > 0 ? (
@@ -382,12 +426,19 @@ export default function CalculatorScreen({
                     afterData.profit > 0
                       ? "text-green-500"
                       : afterData.profit < 0
-                      ? "text-red-500"
-                      : "text-white"
+                        ? "text-red-500"
+                        : "text-white"
                   }`}
                 >
                   ({afterData.profit > 0 ? "+" : ""}
-                  {maskNumber(fNumber(afterData.profit * currencyRate))} บาท)
+                  {maskNumber(
+                    fNumber(
+                      isThai
+                        ? afterData.profit
+                        : afterData.profit * currencyRate,
+                    ),
+                  )}{" "}
+                  บาท)
                 </div>
               </div>
             </div>
@@ -396,15 +447,17 @@ export default function CalculatorScreen({
               <div>
                 จำนวนหุ้น:{" "}
                 <span className="text-white">
-                  {maskNumber(fNumber(afterData.quantity, { decimalNumber: 7 }))}
+                  {maskNumber(
+                    fNumber(afterData.quantity, { decimalNumber: 7 }),
+                  )}
                 </span>
               </div>
               <div>
                 ราคาปัจจุบัน:{" "}
                 <span className="text-white">
                   {activeTab === "estimate" && afterData.estimateCost
-                    ? `${fNumber(afterData.estimateCost)} USD`
-                    : `${fNumber(currentPrice)} USD`}
+                    ? `${fNumber(afterData.estimateCost)} ${currencyLabel}`
+                    : `${fNumber(currentPrice)} ${currencyLabel}`}
                 </span>
               </div>
 
@@ -413,14 +466,14 @@ export default function CalculatorScreen({
                 <span className="text-white">
                   {maskNumber(fNumber(afterData.costPerShare))}
                 </span>{" "}
-                USD
+                {currencyLabel}
               </div>
               <div>
                 ต้นทุนรวม:{" "}
                 <span className="text-white">
                   {maskNumber(fNumber(afterData.totalCost))}
                 </span>{" "}
-                USD
+                {currencyLabel}
               </div>
             </div>
           </div>
