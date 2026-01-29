@@ -73,7 +73,7 @@ export default function MarketScreen({
   return (
     <div className="w-full px-4 mt-4 pb-[90px]">
       {/* Tabs */}
-      <div className="fixed top-[80px] left-1/2 -translate-x-1/2 max-w-[450px] w-full z-[99] bg-black py-3">
+      <div className="fixed top-[80px] left-1/2 -translate-x-1/2 max-w-[450px] w-full z-[99] bg-black py-3 border-b border-black-lighter2">
         <div className="flex justify-around">
           {tabs.map((tab) => {
             const isActive = activeTab === tab.key;

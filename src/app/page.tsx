@@ -618,7 +618,7 @@ export default function StockPrice() {
         )}
         {currentPage === "portfolio" && (
           <>
-            <div className="w-full grid grid-cols-[2fr_1fr_1fr] gap-3 px-4 py-2 cursor-pointer fixed top-[140px] z-[99] sm:max-w-[450px] bg-black">
+            <div className="w-full grid grid-cols-[2fr_1fr_1fr] gap-3 px-4 py-2 cursor-pointer fixed top-[140px] z-[99] sm:max-w-[450px] bg-black border-b border-black-lighter2">
               <div
                 className="text-[12px] text-gray-400 flex items-center gap-1"
                 onClick={() => toggleSort("asset")}

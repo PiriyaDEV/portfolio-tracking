@@ -124,7 +124,12 @@ export default function LoginModal({
 
         {/* ⭐ SUBMIT BUTTON (RESTORED) */}
         <button
-          className="bg-accent-yellow text-white p-2 rounded w-full mt-2 font-bold"
+          className={`bg-accent-yellow text-white p-2 rounded w-full mt-2 font-bold
+              ${
+                isLoading || userId.length !== 4
+                  ? "bg-gray-400 text-black cursor-not-allowed"
+                  : "bg-accent-yellow text-black hover:opacity-90"
+              }`}
           onClick={handleLogin}
           disabled={isLoading || userId.length !== 4}
         >

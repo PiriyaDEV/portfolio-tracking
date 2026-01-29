@@ -91,7 +91,6 @@ export default function DividendSummary({ data }: DividendSummaryProps) {
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr className="border-b border-gray-700 text-gray-400 text-left">
-              <th className="py-2 align-middle">อันดับ</th>
               <th className="py-2 align-middle">สัญลักษณ์</th>
               <th className="py-2 align-middle">ปันผล/หุ้น</th>
               <th className="py-2 align-middle text-right">
@@ -134,19 +133,10 @@ export default function DividendSummary({ data }: DividendSummaryProps) {
                   className="border-b border-gray-800 last:border-b-0"
                 >
                   {/* Rank (by annual dividend) */}
-                  <td className="py-3 text-center text-lg align-middle">
-                    {rank ?? index + 1}
-                  </td>
-
-                  {/* Symbol */}
-                  <td className="py-3 font-medium align-middle">
-                    <span className="inline-flex items-center gap-2">
+                  <td className="py-3 text-left align-left font-bold">
+                    <span className="text-lg">{rank ?? null}</span>
+                    <span className="pl-1 inline-flex items-center gap-2">
                       {symbol}
-                      {rank && (
-                        <span className="text-[10px] bg-black-lighter2 px-1 py-0.5 rounded text-yellow-400">
-                          อันดับ {index + 1}
-                        </span>
-                      )}
                     </span>
                   </td>
 

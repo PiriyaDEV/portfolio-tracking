@@ -96,7 +96,7 @@ export function GraphPrice({ graphs, assets, prices }: Props) {
   return (
     <div className="flex flex-col divide-y divide-black-lighter2">
       {/* HEADER */}
-      <div className="fixed top-[170px] left-1/2 -translate-x-1/2 max-w-[450px] w-full grid grid-cols-[2fr_1fr_1fr] gap-3 py-2 px-3 text-[12px] text-gray-400 bg-black z-[99]">
+      <div className="fixed top-[173px] left-1/2 -translate-x-1/2 max-w-[450px] w-full grid grid-cols-[2fr_1fr_1fr] gap-3 py-2 px-3 text-[12px] text-gray-400 bg-black z-[99] border-b border-black-lighter2">
         <div>สินทรัพย์</div>
         <div></div>
 
@@ -150,7 +150,17 @@ export function GraphPrice({ graphs, assets, prices }: Props) {
             </div>
 
             {/* GRAPH */}
-            <div className="w-full h-[36px] pointer-events-none">
+            <div
+              className={`w-full pointer-events-none rounded-md
+                ${
+                  percentChange > 0
+                    ? "bg-gradient-to-b from-green-500/25 via-green-400/10 to-transparent"
+                    : percentChange < 0
+                      ? "bg-gradient-to-b from-red-500/25 via-red-400/10 to-transparent"
+                      : "bg-gradient-to-b from-gray-400/20 to-transparent"
+                }
+              `}
+            >
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart
                   data={data}
