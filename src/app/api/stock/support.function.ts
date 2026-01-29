@@ -9,6 +9,7 @@ export interface AdvancedLevels {
   stopLoss: number;
   resistance: number;
   trend: "UP" | "DOWN" | "SIDEWAYS";
+  recommendation?: any
 }
 
 const INITIAL_LEVELS = (symbol: string): AdvancedLevels => ({
@@ -22,6 +23,7 @@ const INITIAL_LEVELS = (symbol: string): AdvancedLevels => ({
   stopLoss: 0,
   resistance: 0,
   trend: "SIDEWAYS",
+  recommendation: ''
 });
 
 export async function getAdvancedLevels(
