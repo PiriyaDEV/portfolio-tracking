@@ -95,7 +95,7 @@ export default function FooterPortfolio({
 
   return (
     <div className="fixed bottom-[52px] left-1/2 -translate-x-1/2 w-full sm:w-[450px] bg-black-lighter">
-      <div className="container mx-auto px-4 py-4 text-center">
+      <div className="container mx-auto px-4 pt-4 pb-7 text-center">
         {/* Total Value - always visible */}
         <div>
           <div className="font-bold text-[10px] text-gray-300">
