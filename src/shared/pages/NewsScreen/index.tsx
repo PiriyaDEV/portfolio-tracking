@@ -113,6 +113,10 @@ export default function NewsScreen() {
     fetchNews();
   }, []);
 
+  const filteredMessages = messages.filter(
+    (msg) => msg.text && msg.text.trim() !== "",
+  );
+
   /* =======================
      Render
   ======================= */
@@ -170,7 +174,7 @@ export default function NewsScreen() {
 
         {/* News list */}
         {!(refreshing || loading) &&
-          messages.map((msg) => (
+          filteredMessages.map((msg) => (
             <div
               key={msg.id}
               className="
