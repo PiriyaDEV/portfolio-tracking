@@ -24,6 +24,7 @@ interface Props {
   assets: Asset[];
   dividend: any;
   graphs: any;
+  previousPrice: any;
 }
 
 type TabKey = "graph" | "support" | "compare" | "dividend" | "news";
@@ -34,6 +35,7 @@ export default function AnalystScreen({
   assets,
   dividend,
   graphs,
+  previousPrice,
 }: Props) {
   const [activeTab, setActiveTab] = useState<TabKey>("graph");
 
@@ -78,7 +80,7 @@ export default function AnalystScreen({
   ];
 
   return (
-    <div className="w-full px-4 mt-4 pb-[90px]">
+    <div className="w-full px-4 mt-[35px] pb-[90px]">
       {/* Tabs */}
       <div className="fixed top-[80px] left-1/2 -translate-x-1/2 max-w-[450px] w-full z-[99] bg-black py-3 border-b border-black-lighter2">
         <div className="flex justify-around">
@@ -137,7 +139,12 @@ export default function AnalystScreen({
         {activeTab === "dividend" && <DividendSummary data={dividend} />}
 
         {activeTab === "graph" && (
-          <GraphPrice assets={assets} graphs={graphs} prices={prices} />
+          <GraphPrice
+            assets={assets}
+            graphs={graphs}
+            prices={prices}
+            previousPrice={previousPrice}
+          />
         )}
 
         {activeTab === "news" && <NewsScreen />}

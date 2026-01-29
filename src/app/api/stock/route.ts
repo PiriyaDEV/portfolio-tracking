@@ -119,54 +119,57 @@ async function fetchPreviousClose(symbol: string): Promise<number> {
    Fetch 1D Graph (WITH shortName)
 ======================= */
 
+function isInUSTradingHoursTH(timestampSec: number): boolean {
+  const date = new Date(timestampSec * 1000);
+
+  // แปลงเป็นเวลาไทย
+  const th = new Date(
+    date.toLocaleString("en-US", { timeZone: "Asia/Bangkok" }),
+  );
+  const hours = th.getHours();
+  const minutes = th.getMinutes();
+
+  const timeInMinutes = hours * 60 + minutes;
+
+  // 21:30 → 04:00
+  const start = 21 * 60 + 30; // 1290
+  const end = 4 * 60; // 240
+
+  return timeInMinutes >= start || timeInMinutes <= end;
+}
+
 async function fetch1DGraphForStock(symbol: string) {
   try {
     const interval = "5m";
     const chartRange = "1d";
 
-    const [prevClose, chartRes] = await Promise.all([
-      fetchPreviousClose(symbol),
-      fetchYahooChart(symbol, chartRange, interval),
-    ]);
-
+    const chartRes = await fetchYahooChart(symbol, chartRange, interval);
     const { meta, data: chart } = chartRes;
 
     const shortName = meta?.shortName || meta?.symbol || symbol;
 
-    /* ---------- Market CLOSED ---------- */
-    if (chart.length <= 1) {
+    // กรองเฉพาะแท่งที่อยู่ในเวลาตลาด US (เวลาไทย)
+    const filtered = chart.filter((p) => isInUSTradingHoursTH(p.time));
+
+    // ถ้ายังไม่เปิดตลาด → ไม่มีกราฟ
+    if (filtered.length === 0) {
       return {
         symbol,
         shortName,
-        base: prevClose,
-        data: [
-          {
-            time: chart[0]?.time ?? Math.floor(Date.now() / 1000),
-            price: prevClose,
-          },
-        ],
+        base: null,
+        data: [],
       };
     }
 
-    /* ---------- Market OPEN ---------- */
-    const data: { time: number; price: number }[] = [];
-
-    data.push({
-      time: chart[0].time,
-      price: prevClose,
-    });
-
-    for (let i = 1; i < chart.length; i++) {
-      data.push({
-        time: chart[i].time,
-        price: chart[i].close,
-      });
-    }
+    const data = filtered.map((p) => ({
+      time: p.time,
+      price: p.close,
+    }));
 
     return {
       symbol,
       shortName,
-      base: prevClose,
+      base: data[0].price, // ราคาแท่งแรกของวันนี้จริง ๆ
       data,
     };
   } catch (error) {

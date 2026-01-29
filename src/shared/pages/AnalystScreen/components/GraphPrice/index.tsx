@@ -26,12 +26,13 @@ type Props = {
   graphs: Record<string, GraphData>;
   assets: Asset[];
   prices: any;
+  previousPrice: any;
 };
 
 type SortBy = "holding" | "profit";
 type SortOrder = "asc" | "desc";
 
-export function GraphPrice({ graphs, assets, prices }: Props) {
+export function GraphPrice({ graphs, assets, prices, previousPrice }: Props) {
   const [sortBy, setSortBy] = useState<SortBy>("holding");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
 
@@ -42,11 +43,12 @@ export function GraphPrice({ graphs, assets, prices }: Props) {
    ======================= */
 
   const getProfitPercent = (symbol: string) => {
-    const graph = graphs[symbol];
-    if (!graph || graph.data.length < 2) return 0;
+    const currentPrice = prices?.[symbol];
+    const prevPrice = previousPrice?.[symbol];
 
-    const lastPrice = graph.data[graph.data.length - 1].price;
-    return ((lastPrice - graph.base) / graph.base) * 100;
+    if (!currentPrice || !prevPrice) return 0;
+
+    return ((currentPrice - prevPrice) / prevPrice) * 100;
   };
 
   /** =======================
@@ -69,7 +71,7 @@ export function GraphPrice({ graphs, assets, prices }: Props) {
 
       return sortOrder === "asc" ? pa - pb : pb - pa;
     });
-  }, [assets, graphs, sortBy, sortOrder]);
+  }, [assets, prices, previousPrice, sortBy, sortOrder]);
 
   /** =======================
    * Toggle handler
@@ -112,14 +114,20 @@ export function GraphPrice({ graphs, assets, prices }: Props) {
         </div>
       </div>
 
-      {sortedAssets.map((asset, index) => {
+      {sortedAssets.map((asset) => {
         const symbol = asset.symbol;
         const graph = graphs[symbol];
         if (!graph || graph.data.length <= 1) return null;
 
-        const { base, data } = graph;
-        const lastPrice = data[data.length - 1].price;
-        const percentChange = ((lastPrice - base) / base) * 100;
+        const { data } = graph;
+        const currentPrice = prices?.[symbol];
+        const prevPrice = previousPrice?.[symbol];
+
+        // Calculate percent change from previous close (market open to current)
+        const percentChange =
+          prevPrice && currentPrice
+            ? ((currentPrice - prevPrice) / prevPrice) * 100
+            : 0;
 
         const color =
           percentChange > 0
@@ -131,9 +139,7 @@ export function GraphPrice({ graphs, assets, prices }: Props) {
         return (
           <div
             key={symbol}
-            className={`w-full grid grid-cols-[2fr_1fr_1fr] gap-3 py-2 ${
-              index === 0 ? "mt-[20px]" : ""
-            }`}
+            className="w-full grid grid-cols-[2fr_1fr_1fr] gap-3 py-2"
           >
             {/* LEFT */}
             <div className="flex items-center gap-2">
@@ -175,7 +181,11 @@ export function GraphPrice({ graphs, assets, prices }: Props) {
                       (max: number) => max * 1.005,
                     ]}
                   />
-                  <ReferenceLine y={base} stroke="#777" strokeDasharray="3 3" />
+                  <ReferenceLine
+                    y={prevPrice || 0}
+                    stroke="#777"
+                    strokeDasharray="3 3"
+                  />
                   <Line
                     type="monotone"
                     dataKey="price"
@@ -206,7 +216,7 @@ export function GraphPrice({ graphs, assets, prices }: Props) {
               </div>
 
               <div className="font-normal text-[12px] truncate text-end">
-                ราคา: {prices?.[symbol] ?? "-"}
+                ราคา: {currentPrice ?? "-"}
               </div>
             </div>
           </div>
