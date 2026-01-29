@@ -162,6 +162,30 @@ export default function NewsScreen() {
     (msg) => msg.text && msg.text.trim() !== "",
   );
 
+  const renderTextWithLinks = (text: string) => {
+    if (!text) return "-";
+
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+
+    return text.split(urlRegex).map((part, index) => {
+      if (part.match(urlRegex)) {
+        return (
+          <a
+            key={index}
+            href={part}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600 underline break-words"
+          >
+            {part}
+          </a>
+        );
+      }
+
+      return part;
+    });
+  };
+
   /* =======================
      Render
   ======================= */
@@ -267,7 +291,7 @@ export default function NewsScreen() {
                 </div>
 
                 <div className="text-[16px] text-gray-800 whitespace-pre-line leading-relaxed">
-                  {msg.text || "-"}
+                   {renderTextWithLinks(msg.text) || "-"}
                 </div>
               </div>
             );
