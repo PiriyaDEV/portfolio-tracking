@@ -1,6 +1,5 @@
 "use client";
 
-import CommonLoading from "@/shared/components/CommonLoading";
 import { useEffect, useState } from "react";
 import {
   TiChartPieOutline as ChartIcon,
@@ -13,16 +12,17 @@ import {
 import { FaEye as EyeIcon, FaEyeSlash as EyeSlashIcon } from "react-icons/fa";
 import { fNumber, getLogo, getName, getProfitColor } from "./lib/utils";
 import { Asset } from "./lib/interface";
-import FooterPortfolio from "@/shared/components/Footer";
-import LoginModal from "@/shared/components/LoginModal";
-import EditModal from "@/shared/components/EditModal";
-import { NoItem } from "@/shared/components/NoItem";
-import BottomNavbar from "@/shared/components/Navbar";
 import ViewScreen, { StockResult } from "@/shared/pages/ViewScreen";
 import MarketScreen from "@/shared/pages/MarketScreen";
 import CalculateScreen from "@/shared/pages/CalculateScreen";
 import { useNumbersHidden } from "@/shared/hooks/useNumbersHidden";
 import { useMaskNumber } from "@/shared/hooks/useMaskNumber";
+import EditModal from "@/shared/components/modal/EditModal";
+import { NoItem } from "@/shared/components/common/NoItem";
+import CommonLoading from "@/shared/components/common/CommonLoading";
+import LoginModal from "@/shared/components/modal/LoginModal";
+import FooterPortfolio from "@/shared/components/common/Footer";
+import BottomNavbar from "@/shared/components/common/Navbar";
 
 const now = new Date();
 const thaiMonths = [

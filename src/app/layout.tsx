@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import BackgroundLayout from "@/shared/components/BackgroundLayout";
 
 import "./globals.css";
+import BackgroundLayout from "@/shared/components/common/BackgroundLayout";
 
 export const metadata: Metadata = {
   title: "P'tracker",

@@ -47,12 +47,12 @@ export default function StockCard({
         relative rounded-lg p-4 grid grid-cols-[auto_1fr] gap-4 border
         ${
           strongBuy
-            ? "bg-green-900/40 border-green-400 shadow-lg"
+            ? "bg-gradient-to-b from-green-500/30 via-green-400/15 to-transparent border-green-400 shadow-[0_0_12px_rgba(34,197,94,0.35)]"
             : buyZone
-            ? "bg-green-900/25 border-green-300 shadow-md"
-            : takeProfit
-            ? "bg-red-900/30 border-red-400 shadow-lg"
-            : "bg-black-lighter border-transparent"
+              ? "bg-gradient-to-b from-green-500/5 via-green-400/5 to-transparent border-green-500/40 shadow-sm"
+              : takeProfit
+                ? "bg-gradient-to-b from-red-500/5 via-red-400/5 to-transparent border-red-400/40 shadow-sm"
+                : "bg-black-lighter border-transparent"
         }
       `}
     >
@@ -75,8 +75,8 @@ export default function StockCard({
                 isUp
                   ? "text-green-400"
                   : isDown
-                  ? "text-red-400"
-                  : "text-gray-300"
+                    ? "text-red-400"
+                    : "text-gray-300"
               }`}
             >
               ({isUp && "+"}
