@@ -131,7 +131,7 @@ export function GraphPrice({ graphs, assets, prices }: Props) {
         return (
           <div
             key={symbol}
-            className={`w-full grid grid-cols-[2fr_1fr_1fr] gap-3 py-2 hover:bg-black-lighter2 ${
+            className={`w-full grid grid-cols-[2fr_1fr_1fr] gap-3 py-2 ${
               index === 0 ? "mt-[20px]" : ""
             }`}
           >
