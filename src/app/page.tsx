@@ -550,7 +550,9 @@ export default function StockPrice() {
   };
 
   return (
-    <div className="mt-[81px] mb-[172px]">
+    <div
+      className={`mt-[81px] ${currentPage === "portfolio" ? "mb-[172px]" : ""}`}
+    >
       {isEditOpen && (
         <EditModal
           editAssets={editAssets}
@@ -808,15 +810,17 @@ export default function StockPrice() {
         )}
       </div>
 
-      <FooterPortfolio
-        assets={assets}
-        prices={prices}
-        previousPrice={previousPrice}
-        currencyRate={currencyRate}
-        formattedDate={formattedDate}
-        getProfitColor={getProfitColor}
-        isNumbersHidden={isNumbersHidden}
-      />
+      {currentPage === "portfolio" && (
+        <FooterPortfolio
+          assets={assets}
+          prices={prices}
+          previousPrice={previousPrice}
+          currencyRate={currencyRate}
+          formattedDate={formattedDate}
+          getProfitColor={getProfitColor}
+          isNumbersHidden={isNumbersHidden}
+        />
+      )}
 
       {/* Bottom Navbar */}
       <BottomNavbar currentPage={currentPage} setCurrentPage={setCurrentPage} />

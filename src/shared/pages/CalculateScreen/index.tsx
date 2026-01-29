@@ -174,7 +174,7 @@ export default function CalculatorScreen({
   ];
 
   return (
-    <div className="p-4 w-full pb-[50px]">
+    <div className="p-4 w-full pb-[100px]">
       {/* Tabs mapping */}
       <div className="fixed top-[80px] left-1/2 -translate-x-1/2 max-w-[450px] w-full bg-black w-full py-3 px-5 px-1 border-b border-black-lighter2">
         <div className="flex justify-start gap-[35px]">

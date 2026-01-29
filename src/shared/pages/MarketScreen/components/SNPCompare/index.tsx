@@ -126,7 +126,7 @@ export default function SNPCompare({ assets }: { assets: Asset[] }) {
   return (
     <div className="bg-black-lighter text-white p-4 rounded-lg min-h-[542px]">
       {/* Header */}
-      <div className="flex justify-between mb-4">
+      <div className="flex justify-between mb-6">
         <div className="flex gap-2 bg-black-lighter2 p-1 rounded-lg w-fit">
           {TIME_RANGES.map((r) => (
             <button
