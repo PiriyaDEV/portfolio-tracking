@@ -70,10 +70,10 @@ export default function NewsScreen() {
     const ticker = getTickerFromText(text);
     const type = getNewsType(text);
 
-    if (ticker) return ticker;
     if (type === "trump") return "โดนัลด์ ทรัมป์";
     if (type === "fed") return "ประธานเฟด (เจอโรม พาวเวลล์)";
     if (type === "bloomberg") return "Bloomberg";
+    if (ticker) return ticker;
     return "คุณ จาง";
   }
 
