@@ -77,6 +77,11 @@ export default function NewsScreen() {
      Fetch News
   ======================= */
   const fetchNews = async (reset = false) => {
+    if (!reset && messages.length >= 50) {
+      setHasMore(false);
+      return;
+    }
+
     try {
       if (reset) {
         setRefreshing(true);
