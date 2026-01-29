@@ -19,7 +19,22 @@ export const NEWS_CONFIG = [
     emoji: "📰",
     keywords: ["cnn"],
   },
-
+  {
+    key: "hunterbrook",
+    name: "Hunterbrook",
+    image:
+      "https://hntrbrk.com/wp-content/uploads/2024/04/hunterbrook_avatar_W_H20.png",
+    emoji: "📰",
+    keywords: ["hunterbrook"],
+  },
+  {
+    key: "hunterbrook",
+    name: "Hunterbrook",
+    image:
+      "https://hntrbrk.com/wp-content/uploads/2024/04/hunterbrook_avatar_W_H20.png",
+    emoji: "📰",
+    keywords: ["hunterbrook"],
+  },
   {
     key: "theinformation",
     name: "The Information",
@@ -43,6 +58,14 @@ export const NEWS_CONFIG = [
       "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f0/Jerome_H._Powell%2C_Federal_Reserve_Chair_%28cropped%29.jpg/250px-Jerome_H._Powell%2C_Federal_Reserve_Chair_%28cropped%29.jpg",
     emoji: "😢",
     keywords: ["fomc", "เฟด", "พาวเวลล์"],
+  },
+  {
+    key: "cathie",
+    name: "เคธี่ วูด",
+    image:
+      "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRv6xqiTlSMvfVolZzBKmATnzyYrWKws7Kmvw&s",
+    emoji: "🚀",
+    keywords: ["เคธี่", "cathie", "cathie wood", "ark invest", "วูดส์"],
   },
   {
     key: "elon",
