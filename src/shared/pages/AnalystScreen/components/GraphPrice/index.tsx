@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Asset } from "@/app/lib/interface";
-import { getLogo, getName } from "@/app/lib/utils";
+import { fNumber, getLogo, getName } from "@/app/lib/utils";
 import {
   LineChart,
   Line,
@@ -216,7 +216,7 @@ export function GraphPrice({ graphs, assets, prices, previousPrice }: Props) {
               </div>
 
               <div className="font-normal text-[12px] truncate text-end">
-                ราคา: {currentPrice ?? "-"}
+                ราคา: {fNumber(currentPrice) ?? "-"}
               </div>
             </div>
           </div>
