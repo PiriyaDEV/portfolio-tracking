@@ -13,7 +13,7 @@ import { FaEye as EyeIcon, FaEyeSlash as EyeSlashIcon } from "react-icons/fa";
 import { fNumber, getLogo, getName, getProfitColor } from "./lib/utils";
 import { Asset } from "./lib/interface";
 import ViewScreen, { StockResult } from "@/shared/pages/ViewScreen";
-import AnalystScreen from "@/shared/pages/MarketScreen";
+import AnalystScreen from "@/shared/pages/AnalystScreen";
 import CalculateScreen from "@/shared/pages/CalculateScreen";
 import { useNumbersHidden } from "@/shared/hooks/useNumbersHidden";
 import { useMaskNumber } from "@/shared/hooks/useMaskNumber";
