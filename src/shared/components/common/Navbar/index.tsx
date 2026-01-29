@@ -43,7 +43,7 @@ export default function BottomNavbar({
   setCurrentPage,
 }: BottomNavbarProps) {
   return (
-    <div className="fixed bottom-0 w-full bg-black border-t border-gray-600 flex justify-around py-2 z-50 sm:w-[450px]">
+    <div className="fixed bottom-0 w-full bg-black border-t border-gray-600 flex justify-around py-3 z-50 sm:w-[450px]">
       {navItems.map((item) => (
         <button
           key={item.page}
