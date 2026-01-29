@@ -8,7 +8,7 @@ import {
   isNearResistance,
   getAnalystLabel,
   getAnalystView,
-} from "../../../app/lib/market.logic";
+} from "@/app/lib/market.logic";
 import { FaMapPin, FaThumbtack } from "react-icons/fa6";
 
 interface Props {

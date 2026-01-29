@@ -3,10 +3,6 @@
 import { AdvancedLevels } from "@/app/api/stock/support.function";
 import { Asset } from "@/app/lib/interface";
 import { getSignal, getSignalRank } from "@/app/lib/market.logic";
-import DividendSummary from "@/shared/components/Dividend";
-import { GraphPrice } from "@/shared/components/GraphPrice";
-import SNPCompare from "@/shared/components/SNPCompare";
-import StockCard from "@/shared/components/StockCard";
 import { JSX, useState } from "react";
 
 import {
@@ -15,6 +11,10 @@ import {
   FaChartBar,
   FaCoins,
 } from "react-icons/fa6";
+import SNPCompare from "./components/SNPCompare";
+import DividendSummary from "./components/Dividend";
+import { GraphPrice } from "./components/GraphPrice";
+import StockCard from "./components/StockCard";
 
 interface Props {
   advancedLevels: Record<string, AdvancedLevels>;

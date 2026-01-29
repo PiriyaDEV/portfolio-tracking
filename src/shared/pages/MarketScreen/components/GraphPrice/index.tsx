@@ -112,7 +112,7 @@ export function GraphPrice({ graphs, assets, prices }: Props) {
         </div>
       </div>
 
-      {sortedAssets.map((asset) => {
+      {sortedAssets.map((asset, index) => {
         const symbol = asset.symbol;
         const graph = graphs[symbol];
         if (!graph || graph.data.length <= 1) return null;
@@ -131,7 +131,9 @@ export function GraphPrice({ graphs, assets, prices }: Props) {
         return (
           <div
             key={symbol}
-            className="pt-[25px] w-full grid grid-cols-[2fr_1fr_1fr] gap-3 py-2 hover:bg-black-lighter2"
+            className={`w-full grid grid-cols-[2fr_1fr_1fr] gap-3 py-2 hover:bg-black-lighter2 ${
+              index === 0 ? "mt-[20px]" : ""
+            }`}
           >
             {/* LEFT */}
             <div className="flex items-center gap-2">

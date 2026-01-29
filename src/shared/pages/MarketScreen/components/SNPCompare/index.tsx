@@ -11,7 +11,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { FaSync } from "react-icons/fa";
-import CommonLoading from "../common/CommonLoading";
+import CommonLoading from "@/shared/components/common/CommonLoading";
 
 /* =======================
    Types & constants
