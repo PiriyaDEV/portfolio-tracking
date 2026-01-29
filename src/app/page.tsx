@@ -67,6 +67,7 @@ export default function StockPrice() {
   >({});
   const [dividend, setDividend] = useState<any>({});
   const [advancedLevels, setAdvancedLevels] = useState<any>({});
+  const [graphs, setGraphs] = useState<Record<string, any>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [currencyRate, setCurrencyRate] = useState<number>(0);
@@ -421,7 +422,8 @@ export default function StockPrice() {
       setPrices(data.prices || {});
       setAdvancedLevels(data.advancedLevels || {});
       setPreviousPrice(data.previousPrice || {});
-      setDividend(data.dividendSummary || {})
+      setDividend(data.dividendSummary || {});
+      setGraphs(data.graphs || {});
     } catch (err) {
       console.error(err);
     }
@@ -604,6 +606,7 @@ export default function StockPrice() {
             advancedLevels={advancedLevels}
             assets={assets}
             dividend={dividend}
+            graphs={graphs}
           />
         )}
         {currentPage === "calculator" && (

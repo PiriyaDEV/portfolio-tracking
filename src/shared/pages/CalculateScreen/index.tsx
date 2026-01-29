@@ -5,6 +5,8 @@ import { TiChartPieOutline as ChartIcon } from "react-icons/ti";
 import {
   FaArrowTrendUp as UpIcon,
   FaArrowTrendDown as DownIcon,
+  FaCalculator,
+  FaBullseye,
 } from "react-icons/fa6";
 import { fNumber, getLogo, getName } from "@/app/lib/utils";
 import { useMaskNumber } from "@/shared/hooks/useMaskNumber";
@@ -158,34 +160,67 @@ export default function CalculatorScreen({
     profit > 0 ? "text-green-500" : profit < 0 ? "text-red-500" : "text-white";
   const profitThb = isThai ? profit : profit * currencyRate;
 
+  const tabs = [
+    {
+      key: "calculator",
+      label: "คำนวณต้นทุน",
+      icon: <FaCalculator />, // change icon as needed
+    },
+    {
+      key: "estimate",
+      label: "คำนวณเป้าหมาย",
+      icon: <FaBullseye />, // change icon as needed
+    },
+  ];
+
   return (
     <div className="p-4 w-full pb-[50px]">
       {/* Tabs mapping */}
-      <div className="fixed top-[80px] flex mb-4 gap-2 z-[99] bg-black w-full py-4">
-        {[
-          { key: "calculator", label: "เครื่องคิดต้นทุนและกำไร" },
-          { key: "estimate", label: "คำนวณเป้าหมาย" },
-        ].map((tab) => (
-          <button
-            key={tab.key}
-            className={`px-4 py-2 rounded ${
-              activeTab === tab.key
-                ? "bg-yellow-500 text-black"
-                : "bg-black-lighter2 text-white"
-            }`}
-            onClick={() => {
-              setActiveTab(tab.key as "calculator" | "estimate");
-              // Clear all data on tab change
-              setAfterData(null);
-              setNewInvestment("");
-              setNewPrice("");
-              setEstimatePrice("");
-              setNewCostPerShare(null);
-            }}
-          >
-            {tab.label}
-          </button>
-        ))}
+      <div className="fixed top-[80px] z-[99] bg-black w-full py-3 px-1">
+        <div className="flex justify-start gap-[35px]">
+          {tabs.map((tab) => {
+            const isActive = activeTab === tab.key;
+
+            if (tab?.label == "") return null;
+
+            return (
+              <button
+                key={tab.key}
+                onClick={() => {
+                  setActiveTab(tab.key as "calculator" | "estimate");
+
+                  // Clear all data on tab change
+                  setAfterData(null);
+                  setNewInvestment("");
+                  setNewPrice("");
+                  setEstimatePrice("");
+                  setNewCostPerShare(null);
+                }}
+                className="flex flex-col items-center gap-1"
+              >
+                <div
+                  className={`w-12 h-12 flex items-center justify-center rounded-full transition
+              ${
+                isActive
+                  ? "bg-yellow-500 text-black"
+                  : "bg-black-lighter2 text-white"
+              }
+            `}
+                >
+                  {tab.icon}
+                </div>
+
+                <span
+                  className={`text-xs ${
+                    isActive ? "text-yellow-400" : "text-gray-300"
+                  }`}
+                >
+                  {tab.label}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Asset selector */}

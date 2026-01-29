@@ -4,26 +4,37 @@ import { AdvancedLevels } from "@/app/api/stock/support.function";
 import { Asset } from "@/app/lib/interface";
 import { getSignal, getSignalRank } from "@/app/lib/market.logic";
 import DividendSummary from "@/shared/components/Dividend";
+import { GraphPrice } from "@/shared/components/GraphPrice";
 import SNPCompare from "@/shared/components/SNPCompare";
 import StockCard from "@/shared/components/StockCard";
-import { useState } from "react";
+import { JSX, useState } from "react";
+
+import {
+  FaChartLine,
+  FaLayerGroup,
+  FaChartBar,
+  FaCoins,
+} from "react-icons/fa6";
 
 interface Props {
   advancedLevels: Record<string, AdvancedLevels>;
   prices: Record<string, number | null>;
   assets: Asset[];
   dividend: any;
+  graphs: any;
 }
+
+type TabKey = "graph" | "support" | "compare" | "dividend";
 
 export default function MarketScreen({
   advancedLevels,
   prices,
   assets,
   dividend,
+  graphs,
 }: Props) {
-  const [activeTab, setActiveTab] = useState<
-    "support" | "compare" | "dividend"
-  >("support");
+  const [activeTab, setActiveTab] = useState<TabKey>("graph");
+
   const sortedSymbols = Object.keys(advancedLevels)
     .filter((s) => advancedLevels[s]?.currentPrice > 0)
     .sort((a, b) => {
@@ -32,39 +43,75 @@ export default function MarketScreen({
       return getSignalRank(sa) - getSignalRank(sb);
     });
 
-  console.log("dividend", dividend);
+  const tabs: {
+    key: TabKey;
+    label: string;
+    icon: JSX.Element;
+  }[] = [
+    {
+      key: "graph",
+      label: "กราฟ",
+      icon: <FaChartLine size={22} />,
+    },
+    {
+      key: "support",
+      label: "แนวรับ",
+      icon: <FaLayerGroup size={22} />,
+    },
+    {
+      key: "compare",
+      label: "เทียบ S&P",
+      icon: <FaChartBar size={22} />,
+    },
+    {
+      key: "dividend",
+      label: "ปันผล",
+      icon: <FaCoins size={22} />,
+    },
+  ];
 
   return (
-    <div className="w-full px-4 mt-4 space-y-3 pb-[70px]">
-      {/* Tabs mapping */}
-      <div className="fixed top-[80px] flex mb-4 gap-2 z-[99] bg-black w-full py-4">
-        {[
-          { key: "support", label: "แนวรับ" },
-          { key: "compare", label: "เทียบพอร์ต กับ S&P500" },
-          { key: "dividend", label: "ปันผล" },
-        ].map((tab) => (
-          <button
-            key={tab.key}
-            className={`px-4 py-2 rounded ${
-              activeTab === tab.key
-                ? "bg-yellow-500 text-black"
-                : "bg-black-lighter2 text-white"
-            }`}
-            onClick={() => {
-              setActiveTab(tab.key as "support" | "compare");
-            }}
-          >
-            {tab.label}
-          </button>
-        ))}
+    <div className="w-full px-4 mt-4 pb-[90px]">
+      {/* Tabs */}
+      <div className="fixed top-[80px] left-1/2 -translate-x-1/2 max-w-[450px] w-full z-[99] bg-black py-3">
+        <div className="flex justify-around">
+          {tabs.map((tab) => {
+            const isActive = activeTab === tab.key;
+
+            return (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className="flex flex-col items-center gap-1"
+              >
+                <div
+                  className={`w-12 h-12 flex items-center justify-center rounded-full transition
+                    ${
+                      isActive
+                        ? "bg-yellow-500 text-white"
+                        : "bg-black-lighter2 text-white"
+                    }
+                  `}
+                >
+                  {tab.icon}
+                </div>
+
+                <span
+                  className={`text-xs ${
+                    isActive ? "text-yellow-400" : "text-gray-300"
+                  }`}
+                >
+                  {tab.label}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      <div className="pt-[50px]">
-        {activeTab === "compare" ? (
-          <SNPCompare assets={assets} />
-        ) : activeTab === "dividend" ? (
-          <DividendSummary data={dividend} />
-        ) : (
+      {/* Content */}
+      <div className="pt-[90px] space-y-3">
+        {activeTab === "support" && (
           <div className="flex flex-col gap-3">
             {sortedSymbols.map((symbol) => (
               <StockCard
@@ -76,6 +123,14 @@ export default function MarketScreen({
               />
             ))}
           </div>
+        )}
+
+        {activeTab === "compare" && <SNPCompare assets={assets} />}
+
+        {activeTab === "dividend" && <DividendSummary data={dividend} />}
+
+        {activeTab === "graph" && (
+          <GraphPrice assets={assets} graphs={graphs} prices={prices} />
         )}
       </div>
     </div>

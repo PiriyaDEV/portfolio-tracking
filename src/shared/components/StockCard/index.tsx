@@ -14,7 +14,7 @@ import { FaMapPin, FaThumbtack } from "react-icons/fa6";
 interface Props {
   symbol: string;
   price: number;
-  levels: AdvancedLevels;
+  levels: any;
   pinned?: boolean;
   onTogglePin?: (symbol: string) => void;
   showAnalyst?: boolean;
