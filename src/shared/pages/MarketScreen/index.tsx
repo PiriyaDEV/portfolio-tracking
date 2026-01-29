@@ -10,11 +10,13 @@ import {
   FaLayerGroup,
   FaChartBar,
   FaCoins,
+  FaNewspaper,
 } from "react-icons/fa6";
 import SNPCompare from "./components/SNPCompare";
 import DividendSummary from "./components/Dividend";
 import { GraphPrice } from "./components/GraphPrice";
 import StockCard from "./components/StockCard";
+import NewsScreen from "../NewsScreen";
 
 interface Props {
   advancedLevels: Record<string, AdvancedLevels>;
@@ -24,9 +26,9 @@ interface Props {
   graphs: any;
 }
 
-type TabKey = "graph" | "support" | "compare" | "dividend";
+type TabKey = "graph" | "support" | "compare" | "dividend" | "news";
 
-export default function MarketScreen({
+export default function AnalystScreen({
   advancedLevels,
   prices,
   assets,
@@ -52,6 +54,11 @@ export default function MarketScreen({
       key: "graph",
       label: "กราฟ",
       icon: <FaChartLine size={22} />,
+    },
+    {
+      key: "news",
+      label: "ข่าว",
+      icon: <FaNewspaper size={22} />,
     },
     {
       key: "support",
@@ -132,6 +139,8 @@ export default function MarketScreen({
         {activeTab === "graph" && (
           <GraphPrice assets={assets} graphs={graphs} prices={prices} />
         )}
+
+        {activeTab === "news" && <NewsScreen />}
       </div>
     </div>
   );
