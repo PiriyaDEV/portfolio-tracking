@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { TelegramClient } from "telegram";
 import { StringSession } from "telegram/sessions";
 
@@ -31,18 +31,29 @@ async function getClient() {
 }
 
 /* =======================
-   GET HANDLER
+   GET HANDLER WITH PAGINATION
 ======================= */
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const searchParams = request.nextUrl.searchParams;
+    const offset = parseInt(searchParams.get("offset") || "0", 10);
+    const limit = parseInt(searchParams.get("limit") || "5", 10);
+
     const client = await getClient();
     const channel = await client.getEntity(CHANNEL);
 
-    const messages = await client.getMessages(channel, { limit: 20 });
+    // Telegram's getMessages uses offsetId for pagination
+    // We need to fetch all messages up to offset + limit, then slice
+    const messages = await client.getMessages(channel, {
+      limit: offset + limit,
+    });
+
+    // Slice to get only the messages for this page
+    const paginatedMessages = messages.slice(offset, offset + limit);
 
     return NextResponse.json(
-      messages.map((m) => ({
+      paginatedMessages.map((m) => ({
         id: m.id,
         text: m.text,
         date: m.date,
