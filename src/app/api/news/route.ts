@@ -14,52 +14,78 @@ const sessionStr = process.env.TG_SESSION!;
 const CHANNEL = "usstockthailand1";
 
 /* =======================
-   SINGLETON CLIENT
+   GLOBAL SINGLETON (SAFE)
 ======================= */
 
-let client: TelegramClient | null = null;
+declare global {
+  // eslint-disable-next-line no-var
+  var _tgClient: TelegramClient | undefined;
+  // eslint-disable-next-line no-var
+  var _tgClientPromise: Promise<TelegramClient> | undefined;
+}
 
-async function getClient() {
-  if (client) return client;
+async function getClient(): Promise<TelegramClient> {
+  // already connected
+  if (global._tgClient) {
+    return global._tgClient;
+  }
 
-  client = new TelegramClient(new StringSession(sessionStr), apiId, apiHash, {
-    connectionRetries: 5,
-  });
+  // connection in progress (important!)
+  if (global._tgClientPromise) {
+    return global._tgClientPromise;
+  }
 
-  await client.connect();
-  return client;
+  global._tgClientPromise = (async () => {
+    const client = new TelegramClient(
+      new StringSession(sessionStr),
+      apiId,
+      apiHash,
+      {
+        connectionRetries: 5,
+      },
+    );
+
+    await client.connect();
+
+    global._tgClient = client;
+    return client;
+  })();
+
+  return global._tgClientPromise;
 }
 
 /* =======================
-   GET HANDLER WITH PAGINATION
+   GET HANDLER
 ======================= */
 
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
-    const offset = parseInt(searchParams.get("offset") || "0", 10);
-    const limit = parseInt(searchParams.get("limit") || "5", 10);
+    const offset = Number(searchParams.get("offset") ?? 0);
+    const limit = Number(searchParams.get("limit") ?? 5);
 
     const client = await getClient();
+
     const channel = await client.getEntity(CHANNEL);
 
-    // Telegram's getMessages uses offsetId for pagination
-    // We need to fetch all messages up to offset + limit, then slice
     const messages = await client.getMessages(channel, {
       limit: offset + limit,
     });
 
-    // Slice to get only the messages for this page
-    const paginatedMessages = messages.slice(offset, offset + limit);
+    const paginated = messages.slice(offset, offset + limit);
 
     return NextResponse.json(
-      paginatedMessages.map((m) => ({
+      paginated.map((m) => ({
         id: m.id,
         text: m.text,
         date: m.date,
       })),
     );
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    console.error("Telegram error:", err);
+    return NextResponse.json(
+      { error: err.message },
+      { status: 500 },
+    );
   }
 }
