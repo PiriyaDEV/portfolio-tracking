@@ -6,29 +6,11 @@ type Asset = {
   costPerShare: number;
 };
 
-// const BIG_SYMBOLS = [];
-
 const FINNHUB_KEY = process.env.FINNHUB_API_KEY!;
 
 /* ======================
    HELPERS
 ====================== */
-function getWeekRange() {
-  const now = new Date();
-  const day = now.getDay();
-  const monday = new Date(now);
-  monday.setDate(now.getDate() - ((day + 6) % 7));
-
-  const friday = new Date(monday);
-  friday.setDate(monday.getDate() + 4);
-
-  const format = (d: Date) => d.toISOString().slice(0, 10);
-
-  return {
-    from: format(monday),
-    to: format(friday),
-  };
-}
 
 function getRange15Days() {
   const now = new Date();
@@ -47,7 +29,6 @@ function getRange15Days() {
   };
 }
 
-
 const normalize = (s: string) => s.replace("-", ".").toUpperCase();
 
 /* ======================
@@ -57,13 +38,12 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const assets: Asset[] = body.assets ?? [];
 
-  const SYMBOLS = Array.from(
-    new Set([...assets.map((a) => normalize(a.symbol))]),
-  );
+  const SYMBOLS = Array.from(new Set(assets.map((a) => normalize(a.symbol))));
 
   const { from, to } = getRange15Days();
 
-  const result: any[] = [];
+  /** เก็บ event ที่ "วันแรกสุด" ต่อ symbol */
+  const bySymbol: Record<string, any> = {};
 
   for (const symbol of SYMBOLS) {
     const url =
@@ -77,23 +57,34 @@ export async function POST(req: NextRequest) {
       const earnings = json.earningsCalendar ?? [];
 
       earnings.forEach((e: any) => {
-        result.push({
-          symbol: symbol,
-          company: e.company ?? e.symbol,
-          reportDate: e.date,
-          announceTime:
-            e.hour === "amc"
-              ? "After Market Close"
-              : e.hour === "bmo"
-                ? "Before Market Open"
-                : "Not Supplied",
-          epsEstimate: e.epsEstimate,
-        });
+        const reportDate = e.date;
+        if (!reportDate) return;
+
+        const prev = bySymbol[symbol];
+
+        // 👉 เลือกวันที่ "เร็วที่สุด" เท่านั้น
+        if (
+          !prev ||
+          new Date(reportDate).getTime() < new Date(prev.reportDate).getTime()
+        ) {
+          bySymbol[symbol] = {
+            symbol,
+            company: e.company ?? symbol,
+            reportDate,
+            announceTime:
+              e.hour === "amc"
+                ? "After Market Close"
+                : e.hour === "bmo"
+                  ? "Before Market Open"
+                  : "Not Supplied",
+            epsEstimate: e.epsEstimate,
+          };
+        }
       });
     } catch (err) {
       console.error("❌ Finnhub error:", symbol, err);
     }
   }
 
-  return NextResponse.json(result);
+  return NextResponse.json(Object.values(bySymbol));
 }
