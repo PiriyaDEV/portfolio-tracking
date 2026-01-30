@@ -82,6 +82,7 @@ export const NEWS_CONFIG = [
       "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQAAFVmd6S-t44rMuDiKDX_gON-QIU_MDyVIQ&s",
     emoji: "🇨🇳",
     keywords: [
+      "จีน",
       "สี",
       "สีจิ้นผิง",
       "ผิง",
@@ -89,7 +90,6 @@ export const NEWS_CONFIG = [
       "xi",
       "xi jinping",
       "president xi",
-      "จีน",
     ],
   },
 ];
