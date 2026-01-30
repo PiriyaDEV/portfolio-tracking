@@ -44,10 +44,14 @@ export default function NewsScreen() {
 
     // เช็คตาม priority จากบนลงล่าง (array order)
     for (const config of NEWS_CONFIG) {
-      // เช็ค keywords
-      const hasKeyword = config.keywords.some((keyword) =>
-        lower.includes(keyword.toLowerCase()),
-      );
+      const hasKeyword = config.keywords.some((keyword) => {
+        const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+        // ไม่ให้มีอักษรไทยก่อนหรือหลังคำ
+        const regex = new RegExp(`(^|[^ก-๙])${escaped}([^ก-๙]|$)`, "i");
+
+        return regex.test(lower);
+      });
 
       if (hasKeyword) {
         return config;
