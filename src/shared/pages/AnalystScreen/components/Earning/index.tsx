@@ -134,25 +134,46 @@ const EpsExplain = ({
     );
   }
 
-  if (eps > 0) {
+  // 🔥 ดีมาก
+  if (eps >= 5) {
+    return (
+      <div className="text-xs text-green-600 mt-2 font-bold">
+        🚀 คาดว่าดีมาก (EPS +{eps})
+      </div>
+    );
+  }
+
+  // 🙂 ดี
+  if (eps >= 0.3) {
     return (
       <div className="text-xs text-green-500 mt-2 font-bold">
-        📈 คาดว่ากำไรดี (EPS +{eps})
+        📈 คาดว่าดี (EPS +{eps})
       </div>
     );
   }
 
-  if (eps === 0) {
+  // 😐 เฉยๆ (ไม่ต้อง = 0 เป๊ะ)
+  if (eps > -0.3 && eps < 0.3) {
     return (
       <div className="text-xs text-yellow-500 mt-2 font-bold">
-        😐 กำไรทรงตัว
+        😐 คาดว่าเฉยๆ (EPS {eps})
       </div>
     );
   }
 
+  // 😕 แย่
+  if (eps > -5) {
+    return (
+      <div className="text-xs text-orange-500 mt-2 font-bold">
+        📉 คาดว่าแย่ (EPS {eps})
+      </div>
+    );
+  }
+
+  // 💀 แย่มาก
   return (
-    <div className="text-xs text-red-500 mt-2 font-bold">
-      📉 คาดว่าขาดทุน (EPS {eps})
+    <div className="text-xs text-red-600 mt-2 font-bold">
+      💀 คาดว่าแย่มาก (EPS {eps})
     </div>
   );
 };
