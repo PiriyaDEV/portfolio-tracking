@@ -139,7 +139,7 @@ export function GraphPrice({ graphs, assets, prices, previousPrice }: Props) {
         return (
           <div
             key={symbol}
-            className="w-full grid grid-cols-[2fr_1fr_1fr] gap-3 py-2"
+            className="w-full grid grid-cols-[2fr_1fr_1fr] gap-3 py-2 [&>*:first-child]:border-t-0"
           >
             {/* LEFT */}
             <div className="flex items-center gap-2">
