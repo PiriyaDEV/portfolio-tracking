@@ -246,6 +246,13 @@ export default function NewsScreen() {
           filteredMessages.map((msg) => {
             const newsType = detectNewsType(msg.text);
 
+            // ตรวจสอบว่าข่าวใหม่หรือไม่ (ห่างจากปัจจุบันไม่เกิน 30 นาที)
+            const messageDate = new Date(msg.date * 1000);
+            const now = new Date();
+            const diffMinutes =
+              (now.getTime() - messageDate.getTime()) / (1000 * 60);
+            const isNew = diffMinutes <= 30;
+
             return (
               <div
                 key={msg.id}
@@ -259,39 +266,47 @@ export default function NewsScreen() {
                   transition-shadow
                 "
               >
-                <div className="text-[14px] text-gray-500 mb-2 flex items-center gap-3 pb-2">
-                  <div className="relative w-12 h-12 shrink-0">
-                    <img
-                      src={newsType.image}
-                      alt="author"
-                      className="w-12 h-12 rounded-full object-cover border-[2px] border-accent-yellow"
-                    />
+                <div className="text-[14px] text-gray-500 mb-2 flex items-center justify-between pb-2">
+                  <div className="flex gap-3 items-center">
+                    <div className="relative w-12 h-12 shrink-0">
+                      <img
+                        src={newsType.image}
+                        alt="author"
+                        className="w-12 h-12 rounded-full object-cover border-[2px] border-accent-yellow"
+                      />
 
-                    {newsType.emoji && (
-                      <span className="absolute -right-1 -bottom-1 text-lg">
-                        {newsType.emoji}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="flex flex-col gap-1">
-                    <div className="font-semibold text-gray-800">
-                      {newsType.name}
+                      {newsType.emoji && (
+                        <span className="absolute -right-1 -bottom-1 text-lg">
+                          {newsType.emoji}
+                        </span>
+                      )}
                     </div>
-                    {new Date(msg.date * 1000).toLocaleString("th-TH", {
-                      year: "numeric",
-                      month: "2-digit",
-                      day: "2-digit",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                      hour12: false,
-                    })}{" "}
-                    น.
+
+                    <div className="flex flex-col gap-1">
+                      <div className="font-semibold text-gray-800">
+                        {newsType.name}
+                      </div>
+                      {new Date(msg.date * 1000).toLocaleString("th-TH", {
+                        year: "numeric",
+                        month: "2-digit",
+                        day: "2-digit",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        hour12: false,
+                      })}{" "}
+                      น.
+                    </div>
                   </div>
+
+                  {isNew && (
+                    <span className="!text-white inline-flex items-center gap-1 px-3 py-1 bg-gradient-to-r from-red-500 to-pink-500 text-white text-xs font-bold rounded-full shadow-sm animate-pulse">
+                      🔥 ข่าวใหม่
+                    </span>
+                  )}
                 </div>
 
                 <div className="text-[16px] text-gray-800 whitespace-pre-line leading-relaxed">
-                   {renderTextWithLinks(msg.text) || "-"}
+                  {renderTextWithLinks(msg.text) || "-"}
                 </div>
               </div>
             );
