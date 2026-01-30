@@ -36,6 +36,14 @@ export const NEWS_CONFIG = [
     keywords: ["hunterbrook"],
   },
   {
+    key: "cnbc",
+    name: "CNBC",
+    image:
+      "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQzVFHxyKkrB_a3RcLTjCgdLstYikghYURUTg&s",
+    emoji: "📰",
+    keywords: ["cnbc"],
+  },
+  {
     key: "theinformation",
     name: "The Information",
     image:

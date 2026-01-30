@@ -33,7 +33,7 @@ export default function NewsScreen() {
   function getTickerFromText(text?: string): string | null {
     if (!text) return null;
     const first50 = text.slice(0, 50);
-    const match = first50.match(/\b[A-Z]{4,5}\b/);
+    const match = first50.match(/\b[A-Z]{3,5}\b/);
     return match ? match[0] : null;
   }
 
