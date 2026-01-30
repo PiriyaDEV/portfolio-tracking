@@ -227,7 +227,7 @@ export default function NewsScreen() {
       <div className="space-y-3 pt-[30px]">
         {/* Loading */}
         {loading && (
-          <div className="pt-[50px]">
+          <div className="pt-[150px]">
             <CommonLoading isFullScreen={false} />
           </div>
         )}
