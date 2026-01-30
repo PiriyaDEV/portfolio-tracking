@@ -57,15 +57,15 @@ export const NEWS_CONFIG = [
     image:
       "https://upload.wikimedia.org/wikipedia/commons/thumb/1/16/Official_Presidential_Portrait_of_President_Donald_J._Trump_%282025%29.jpg/960px-Official_Presidential_Portrait_of_President_Donald_J._Trump_%282025%29.jpg",
     emoji: "😡",
-    keywords: ["ทรัมป์", "ประธานาธิบดี"],
+    keywords: ["ทรัมป์", "ประธานาธิบดี", "สหรัฐฯ"],
   },
   {
     key: "fed",
-    name: "เจอโรม พาวเวลล์",
+    name: "Federal Reserve (เฟด)",
     image:
-      "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f0/Jerome_H._Powell%2C_Federal_Reserve_Chair_%28cropped%29.jpg/250px-Jerome_H._Powell%2C_Federal_Reserve_Chair_%28cropped%29.jpg",
+      "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTBnruiz8XbbFLagRsTmMvlk40x5OLyM6j2ZA&s",
     emoji: "😢",
-    keywords: ["fomc", "เฟด", "พาวเวลล์"],
+    keywords: ["federal reserve", "federal", "fomc", "เฟด", "พาวเวลล์", "วอร์ช", "warsh"],
   },
   {
     key: "cathie",
