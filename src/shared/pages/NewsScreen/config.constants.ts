@@ -79,7 +79,7 @@ export const NEWS_CONFIG = [
     key: "xi",
     name: "สี จิ้นผิง",
     image:
-      "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQAAFVmd6S-t44rMuDiKDX_gON-QIU_MDyVIQ&s",
+      "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQFs-zgcaaY2BhP-auQ1oC7NXY3LlMf3mV9u9S2AACIb_V4o51C4_pEsGlNMo6nmqSjqCerEqnpFqfeJW4u8wa6RxucAPuTWqHbZ9ZJIncTQw&s=10",
     emoji: "🇨🇳",
     keywords: [
       "จีน",
