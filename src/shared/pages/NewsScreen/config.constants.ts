@@ -75,6 +75,23 @@ export const NEWS_CONFIG = [
     emoji: "🚀",
     keywords: ["มัสก์", "elon"],
   },
+  {
+    key: "xi",
+    name: "สี จิ้นผิง",
+    image:
+      "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQAAFVmd6S-t44rMuDiKDX_gON-QIU_MDyVIQ&s",
+    emoji: "🇨🇳",
+    keywords: [
+      "สี",
+      "สีจิ้นผิง",
+      "ผิง",
+      "ผิง",
+      "xi",
+      "xi jinping",
+      "president xi",
+      "จีน",
+    ],
+  },
 ];
 
 // Default author (ถ้าไม่เจอ keyword ไหนเลย)
