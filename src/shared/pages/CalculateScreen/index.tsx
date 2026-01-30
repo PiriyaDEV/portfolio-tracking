@@ -9,7 +9,6 @@ import {
   FaBullseye,
 } from "react-icons/fa6";
 import { fNumber, getLogo, getName } from "@/app/lib/utils";
-import { useMaskNumber } from "@/shared/hooks/useMaskNumber";
 
 export type Asset = {
   symbol: string;
@@ -40,7 +39,6 @@ export default function CalculatorScreen({
   const [newPrice, setNewPrice] = useState<string>("");
   const [estimatePrice, setEstimatePrice] = useState<string>("");
   const [newCostPerShare, setNewCostPerShare] = useState<number | null>(null);
-  const maskNumber = useMaskNumber();
 
   const [activeTab, setActiveTab] = useState<"calculator" | "estimate">(
     "calculator",
@@ -340,15 +338,13 @@ export default function CalculatorScreen({
 
             <div className="flex flex-col items-end whitespace-nowrap">
               <div className="font-bold text-[16px]">
-                {maskNumber(fNumber(marketValueThb))} THB
+                {fNumber(marketValueThb)} THB
               </div>
               <div className="text-[12px] text-gray-300">
                 ≈{" "}
-                {maskNumber(
-                  fNumber(
-                    isThai ? marketValueBase / currencyRate : marketValueBase,
-                  ),
-                )}{" "}
+                {fNumber(
+                  isThai ? marketValueBase / currencyRate : marketValueBase,
+                )}
                 USD
               </div>
             </div>
@@ -366,7 +362,7 @@ export default function CalculatorScreen({
               </div>
               <div className={`text-[12px] ${profitColor}`}>
                 ({profit > 0 ? "+" : ""}
-                {maskNumber(fNumber(profitThb))} บาท)
+                {fNumber(profitThb)} บาท)
               </div>
             </div>
           </div>
@@ -375,7 +371,7 @@ export default function CalculatorScreen({
             <div>
               จำนวนหุ้น:{" "}
               <span className="text-white">
-                {maskNumber(fNumber(asset.quantity, { decimalNumber: 7 }))}
+                {fNumber(asset.quantity, { decimalNumber: 7 })}
               </span>
             </div>
             <div>
@@ -386,13 +382,12 @@ export default function CalculatorScreen({
             <div>
               ต้นทุนต่อหุ้น:{" "}
               <span className="text-white">
-                {maskNumber(fNumber(asset.costPerShare, { decimalNumber: 4 }))}
+                {fNumber(asset.costPerShare, { decimalNumber: 4 })}
               </span>{" "}
               {currencyLabel}
             </div>
             <div>
-              ต้นทุนรวม:{" "}
-              <span className="text-white">{maskNumber(fNumber(cost))}</span>{" "}
+              ต้นทุนรวม: <span className="text-white">{fNumber(cost)}</span>{" "}
               {currencyLabel}
             </div>
           </div>
@@ -430,11 +425,11 @@ export default function CalculatorScreen({
 
               <div className="flex flex-col items-end whitespace-nowrap">
                 <div className="font-bold text-[16px]">
-                  {maskNumber(fNumber(afterData.marketValueThb))} THB
+                  {fNumber(afterData.marketValueThb)} THB
                 </div>
                 {!isThai && (
                   <div className="text-[12px] text-gray-300">
-                    ≈ {maskNumber(fNumber(afterData.marketValueBase))} USD
+                    ≈ {fNumber(afterData.marketValueBase)} USD
                   </div>
                 )}
               </div>
@@ -466,12 +461,8 @@ export default function CalculatorScreen({
                   }`}
                 >
                   ({afterData.profit > 0 ? "+" : ""}
-                  {maskNumber(
-                    fNumber(
-                      isThai
-                        ? afterData.profit
-                        : afterData.profit * currencyRate,
-                    ),
+                  {fNumber(
+                    isThai ? afterData.profit : afterData.profit * currencyRate,
                   )}{" "}
                   บาท)
                 </div>
@@ -482,9 +473,7 @@ export default function CalculatorScreen({
               <div>
                 จำนวนหุ้น:{" "}
                 <span className="text-white">
-                  {maskNumber(
-                    fNumber(afterData.quantity, { decimalNumber: 7 }),
-                  )}
+                  {fNumber(afterData.quantity, { decimalNumber: 7 })}
                 </span>
               </div>
               <div>
@@ -499,14 +488,14 @@ export default function CalculatorScreen({
               <div>
                 ต้นทุนต่อหุ้นใหม่:{" "}
                 <span className="text-white">
-                  {maskNumber(fNumber(afterData.costPerShare))}
+                  {fNumber(afterData.costPerShare)}
                 </span>{" "}
                 {currencyLabel}
               </div>
               <div>
                 ต้นทุนรวม:{" "}
                 <span className="text-white">
-                  {maskNumber(fNumber(afterData.totalCost))}
+                  {fNumber(afterData.totalCost)}
                 </span>{" "}
                 {currencyLabel}
               </div>
