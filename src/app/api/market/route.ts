@@ -7,7 +7,7 @@ const SYMBOLS = {
   sp500: "^GSPC",
   gold: "GC=F",
   set: "^SET.BK",
-  dollar: "DX-Y.NYB",
+  btc: "BTC-USD",
 };
 
 /* =======================
@@ -55,11 +55,11 @@ async function getMarketData(symbol: string) {
 ======================= */
 export async function GET() {
   try {
-    const [sp500, gold, set, dollar] = await Promise.all([
+    const [sp500, gold, set, btc] = await Promise.all([
       getMarketData(SYMBOLS.sp500),
       getMarketData(SYMBOLS.gold),
       getMarketData(SYMBOLS.set),
-      getMarketData(SYMBOLS.dollar),
+      getMarketData(SYMBOLS.btc),
     ]);
 
     return NextResponse.json({
@@ -68,7 +68,7 @@ export async function GET() {
         sp500,
         gold,
         set,
-        dollar,
+        btc,
       },
       timestamp: Date.now(),
     });

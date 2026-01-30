@@ -40,7 +40,7 @@ type MarketResponse = {
   sp500: MarketItem;
   gold: MarketItem;
   set: MarketItem;
-  dollar: MarketItem;
+  btc: MarketItem;
 };
 
 type SortBy = "holding" | "profit";
@@ -63,9 +63,9 @@ const MARKET_ITEMS = [
     img: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRe8tM3-t2BDnm-9vKA-mN5yEQci4cOHUBGrw&s",
   },
   {
-    key: "dollar",
-    label: "USD",
-    img: "https://cdn-icons-png.freepik.com/256/17415/17415406.png?semt=ais_white_label",
+    key: "btc",
+    label: "BTC",
+    img: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRxjVTE3M2v2tGkmuoZKAL7roppVSJuL9IN3w&s",
   },
 ] as const;
 

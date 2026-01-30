@@ -119,45 +119,60 @@ export default function SNPCompare({ assets }: { assets: Asset[] }) {
 
   const end = data.at(-1) ?? { portfolio: 0, snp500: 0 };
 
+  const getAdvice = (portfolio: number, snp500: number) => {
+    const diff = portfolio - snp500;
+
+    if (diff >= 0) {
+      return { level: "good", title: "🏎️ พอร์ตแซงตลาด!" };
+    }
+
+    if (diff > -5) {
+      return { level: "warn", title: "🚶 ตลาดวิ่ง เราเดิน" };
+    }
+
+    return { level: "bad", title: "😬 พอร์ตตามตลาดไม่ทัน" };
+  };
+
   /* =======================
      Render
   ======================= */
 
   return (
-    <div className="bg-black-lighter text-white p-4 rounded-lg min-h-[542px]">
-      {/* Header */}
-      <div className="flex justify-between mb-6">
-        <div className="flex gap-2 bg-black-lighter2 p-1 rounded-lg w-fit">
-          {TIME_RANGES.map((r) => (
-            <button
-              key={r}
-              onClick={() => setRange(r)}
-              className={`px-3 py-1 rounded text-sm ${
-                range === r
-                  ? "bg-yellow-500 text-black font-bold"
-                  : "text-gray-300"
-              }`}
-            >
-              {r}
+    <div>
+      <div className="bg-black-lighter text-white p-4 rounded-lg min-h-[542px]">
+        {/* Header */}
+        <div className="flex justify-between mb-6">
+          <div className="flex gap-2 bg-black-lighter2 p-1 rounded-lg w-fit">
+            {TIME_RANGES.map((r) => (
+              <button
+                key={r}
+                onClick={() => setRange(r)}
+                className={`px-3 py-1 rounded text-sm ${
+                  range === r
+                    ? "bg-yellow-500 text-black font-bold"
+                    : "text-gray-300"
+                }`}
+              >
+                {r}
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-3">
+            <button onClick={() => fetchData(true)} title="รีเฟรช">
+              <FaSync />
             </button>
-          ))}
+          </div>
         </div>
-        <div className="flex gap-3">
-          <button onClick={() => fetchData(true)} title="รีเฟรช">
-            <FaSync />
-          </button>
-        </div>
-      </div>
 
-      {/* Summary */}
-      <div className="grid grid-cols-2 gap-4 mb-6">
-        {[
-          ["พอร์ตของคุณ", end.portfolio],
-          ["S&P 500", end.snp500],
-        ].map(([label, val]: any) => (
-          <div
-            key={label}
-            className={`p-4 rounded
+        {/* Summary */}
+        <div className="grid grid-cols-2 gap-4 mb-6">
+          {[
+            ["พอร์ตของคุณ", end.portfolio],
+            ["S&P 500", end.snp500],
+          ].map(([label, val]: any) => (
+            <div
+              key={label}
+              className={`p-4 rounded
                 ${
                   val > 0
                     ? "bg-gradient-to-b from-green-500/25 via-green-400/10 to-transparent border border-green-400"
@@ -166,55 +181,77 @@ export default function SNPCompare({ assets }: { assets: Asset[] }) {
                       : "bg-gradient-to-b from-gray-400/20 to-transparent"
                 }
               `}
-          >
-            <p className="text-gray-400 text-sm">{label}</p>
-            <p
-              className={`text-2xl font-bold ${
-                val >= 0 ? "text-green-500" : "text-red-500"
-              }`}
             >
-              {`${val >= 0 ? "+" : ""}${val.toFixed(2)}%`}
-            </p>
+              <p className="text-gray-400 text-sm">{label}</p>
+              <p
+                className={`text-2xl font-bold ${
+                  val >= 0 ? "text-green-500" : "text-red-500"
+                }`}
+              >
+                {`${val >= 0 ? "+" : ""}${val.toFixed(2)}%`}
+              </p>
+            </div>
+          ))}
+        </div>
+
+        {/* Chart */}
+        {loading ? (
+          <div className="pt-[90px]">
+            <CommonLoading isFullScreen={false} />
           </div>
-        ))}
+        ) : (
+          <ResponsiveContainer width="100%" height={350}>
+            <LineChart data={data}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+              <XAxis dataKey="date" stroke="#9CA3AF" />
+              <YAxis tickFormatter={(v) => `${v.toFixed(1)}%`} />
+              <Legend
+                itemSorter={(item) => {
+                  if (item.dataKey === "portfolio") return 1;
+                  if (item.dataKey === "snp500") return 2;
+                  return 3;
+                }}
+              />
+
+              <Line
+                dataKey="portfolio"
+                name="พอร์ตของคุณ"
+                stroke="#EAB308"
+                strokeWidth={3}
+                dot={false}
+              />
+              <Line
+                dataKey="snp500"
+                name="S&P 500"
+                stroke="#3B82F6"
+                strokeWidth={3}
+                dot={false}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        )}
       </div>
 
-      {/* Chart */}
-      {loading ? (
-        <div className="pt-[90px]">
-          <CommonLoading isFullScreen={false} />
-        </div>
-      ) : (
-        <ResponsiveContainer width="100%" height={350}>
-          <LineChart data={data}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-            <XAxis dataKey="date" stroke="#9CA3AF" />
-            <YAxis tickFormatter={(v) => `${v.toFixed(1)}%`} />
-            <Legend
-              itemSorter={(item) => {
-                if (item.dataKey === "portfolio") return 1;
-                if (item.dataKey === "snp500") return 2;
-                return 3;
-              }}
-            />
+      {/* Portfolio Advice */}
+      {!loading &&
+        data.length > 0 &&
+        (() => {
+          const advice = getAdvice(end.portfolio, end.snp500);
 
-            <Line
-              dataKey="portfolio"
-              name="พอร์ตของคุณ"
-              stroke="#EAB308"
-              strokeWidth={3}
-              dot={false}
-            />
-            <Line
-              dataKey="snp500"
-              name="S&P 500"
-              stroke="#3B82F6"
-              strokeWidth={3}
-              dot={false}
-            />
-          </LineChart>
-        </ResponsiveContainer>
-      )}
+          const styleMap: Record<string, string> = {
+            good: "border-green-600 bg-gradient-to-b from-green-500/25 via-green-400/10",
+            warn: "border-yellow-600 bg-gradient-to-b from-yellow-500/25 via-yellow-400/10",
+            bad: "border-red-600 bg-gradient-to-b from-red-500/25 via-red-400/10",
+          };
+
+          return (
+            <div
+              className={`mt-3 p-2 rounded-lg border text-center font-bold ${styleMap[advice.level]}`}
+            >
+              {advice.title}
+            </div>
+          );
+        })()}
     </div>
   );
 }

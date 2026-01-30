@@ -9,7 +9,7 @@ import {
   FaArrowTrendUp as UpIcon,
   FaArrowTrendDown as DownIcon,
 } from "react-icons/fa6";
-import { FaEye as EyeIcon, FaEyeSlash as EyeSlashIcon } from "react-icons/fa";
+import { FaEye as EyeIcon, FaEyeSlash as EyeSlashIcon, FaPen } from "react-icons/fa";
 import { fNumber, getLogo, getName, getProfitColor } from "./lib/utils";
 import { Asset } from "./lib/interface";
 import ViewScreen, { StockResult } from "@/shared/pages/ViewScreen";
@@ -567,12 +567,12 @@ export default function StockPrice() {
       {/* Refresh Button */}
       {currentPage === "portfolio" && (
         <div className="fixed bg-black px-4 flex justify-between items-center w-full z-[99] sm:max-w-[450px] pb-5">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-6">
             <button
-              className="bg-accent-yellow text-black p-2 rounded text-[14px] flex items-center justify-center h-[40px]"
+              className="text-[20px] cursor-pointer"
               onClick={openEditModal}
             >
-              แก้ไขสินทรัพย์
+              <FaPen />
             </button>
             <button
               onClick={() => setIsNumbersHidden(!isNumbersHidden)}
@@ -621,7 +621,7 @@ export default function StockPrice() {
         )}
         {currentPage === "portfolio" && (
           <>
-            <div className="w-full grid grid-cols-[2fr_1fr_1fr] gap-3 px-4 py-2 cursor-pointer fixed top-[140px] z-[99] sm:max-w-[450px] bg-black border-b border-black-lighter2">
+            <div className="w-full grid grid-cols-[2fr_1fr_1fr] gap-3 px-4 py-2 cursor-pointer fixed top-[120px] z-[99] sm:max-w-[450px] bg-black border-b border-black-lighter2">
               <div
                 className="text-[12px] text-gray-400 flex items-center gap-1"
                 onClick={() => toggleSort("asset")}
@@ -645,7 +645,7 @@ export default function StockPrice() {
               </div>
             </div>
 
-            <div className="mt-[100px] mb-[50px] w-full">
+            <div className="mt-[80px] mb-[50px] w-full">
               {/* Portfolio Rows */}
               {sortedAssets.map((asset) => {
                 const isThai = isThaiStock(asset.symbol);
