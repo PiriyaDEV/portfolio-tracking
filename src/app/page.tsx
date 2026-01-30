@@ -610,6 +610,7 @@ export default function StockPrice() {
             dividend={dividend}
             graphs={graphs}
             previousPrice={previousPrice}
+            wishlist={wishlist}
           />
         )}
         {currentPage === "calculator" && (

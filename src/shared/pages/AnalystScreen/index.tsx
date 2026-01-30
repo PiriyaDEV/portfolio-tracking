@@ -17,6 +17,8 @@ import DividendSummary from "./components/Dividend";
 import { GraphPrice } from "./components/GraphPrice";
 import StockCard from "./components/StockCard";
 import NewsScreen from "../NewsScreen";
+import Earning from "./components/Earning";
+import { FaCalendarAlt } from "react-icons/fa";
 
 interface Props {
   advancedLevels: Record<string, AdvancedLevels>;
@@ -25,9 +27,10 @@ interface Props {
   dividend: any;
   graphs: any;
   previousPrice: any;
+  wishlist: any;
 }
 
-type TabKey = "graph" | "support" | "compare" | "dividend" | "news";
+type TabKey = "graph" | "support" | "compare" | "dividend" | "news" | "earning";
 
 export default function AnalystScreen({
   advancedLevels,
@@ -36,6 +39,7 @@ export default function AnalystScreen({
   dividend,
   graphs,
   previousPrice,
+  wishlist,
 }: Props) {
   const [activeTab, setActiveTab] = useState<TabKey>("graph");
 
@@ -66,6 +70,11 @@ export default function AnalystScreen({
       key: "support",
       label: "แนวรับ",
       icon: <FaLayerGroup size={22} />,
+    },
+    {
+      key: "earning",
+      label: "ไตรมาส",
+      icon: <FaCalendarAlt size={22} />,
     },
     {
       key: "compare",
@@ -145,6 +154,10 @@ export default function AnalystScreen({
             prices={prices}
             previousPrice={previousPrice}
           />
+        )}
+
+        {activeTab === "earning" && (
+          <Earning wishlist={wishlist} assets={assets} />
         )}
 
         {activeTab === "news" && <NewsScreen />}
