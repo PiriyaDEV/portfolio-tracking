@@ -72,14 +72,14 @@ export default function AnalystScreen({
       icon: <FaLayerGroup size={22} />,
     },
     {
-      key: "earning",
-      label: "ไตรมาส",
-      icon: <FaCalendarAlt size={22} />,
-    },
-    {
       key: "compare",
       label: "เทียบ S&P",
       icon: <FaChartBar size={22} />,
+    },
+    {
+      key: "earning",
+      label: "ไตรมาส",
+      icon: <FaCalendarAlt size={22} />,
     },
     {
       key: "dividend",
