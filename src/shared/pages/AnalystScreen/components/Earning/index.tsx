@@ -326,13 +326,30 @@ export default function EarningsPage({
     );
   };
 
+  const hasAnyData =
+    sections.today.length || sections.future.length || sections.past.length;
+
   return (
     <div className="min-h-screen bg-black text-gray-200">
       {!loading && (
         <div>
-          {renderSection("วันนี้", "🟡", sections.today)}
-          {renderSection("กำลังจะมา", "🟢", sections.future)}
-          {renderSection("ผ่านไปแล้ว", "⚪", sections.past)}
+          {!hasAnyData ? (
+            <div className="pt-[160px] flex flex-col items-center text-center text-gray-400">
+              <div className="text-5xl mb-4">📭</div>
+              <div className="text-lg font-semibold">
+                ยังไม่มี Earnings เร็วๆ นี้
+              </div>
+              <div className="text-sm mt-1">
+                รอติดตามงบประกาศรอบถัดไปได้เลย 👀
+              </div>
+            </div>
+          ) : (
+            <>
+              {renderSection("วันนี้", "🟡", sections.today)}
+              {renderSection("กำลังจะมา", "🟢", sections.future)}
+              {renderSection("ผ่านไปแล้ว", "⚪", sections.past)}
+            </>
+          )}
         </div>
       )}
     </div>
