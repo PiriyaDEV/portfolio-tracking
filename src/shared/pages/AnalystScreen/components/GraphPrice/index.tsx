@@ -250,7 +250,7 @@ export function GraphPrice({ graphs, assets, prices, previousPrice }: Props) {
                         Fear & Greed
                       </span>
                       <span
-                        className={`text-left w-fit text-xs font-bold !text-white capitalize py-[2px] rounded ${getFearGreedText(
+                        className={`text-left w-fit text-xs font-bold capitalize py-[2px] rounded ${getFearGreedText(
                           fg.value,
                         )}`}
                       >
