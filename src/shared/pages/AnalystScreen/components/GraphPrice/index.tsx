@@ -291,6 +291,8 @@ export function GraphPrice({ graphs, assets, prices, previousPrice }: Props) {
           const graph = graphs[symbol];
           if (!graph || graph.data.length <= 1) return null;
 
+          const { data } = graph;
+
           const currentPrice = prices?.[symbol];
           const prevPrice = previousPrice?.[symbol];
 
@@ -330,10 +332,29 @@ export function GraphPrice({ graphs, assets, prices, previousPrice }: Props) {
                 </div>
 
                 {/* GRAPH */}
-                <div className="w-full pointer-events-none rounded-md">
+                <div
+                  className={`w-full pointer-events-none rounded-md
+              ${
+                percentChange > 0
+                  ? "bg-gradient-to-b from-green-500/25 via-green-400/10 to-transparent"
+                  : percentChange < 0
+                    ? "bg-gradient-to-b from-red-500/25 via-red-400/10 to-transparent"
+                    : "bg-gradient-to-b from-gray-400/20 to-transparent"
+              }
+            `}
+                >
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={graph.data}>
-                      <YAxis hide />
+                    <LineChart
+                      data={data}
+                      margin={{ top: 2, right: 2, bottom: 2, left: 2 }}
+                    >
+                      <YAxis
+                        hide
+                        domain={[
+                          (min: number) => min * 0.995,
+                          (max: number) => max * 1.005,
+                        ]}
+                      />
                       <ReferenceLine
                         y={prevPrice || 0}
                         stroke="#777"
@@ -345,7 +366,9 @@ export function GraphPrice({ graphs, assets, prices, previousPrice }: Props) {
                         stroke={color}
                         strokeWidth={1}
                         dot={false}
+                        activeDot={false}
                         isAnimationActive={false}
+                        strokeLinecap="round"
                       />
                     </LineChart>
                   </ResponsiveContainer>
