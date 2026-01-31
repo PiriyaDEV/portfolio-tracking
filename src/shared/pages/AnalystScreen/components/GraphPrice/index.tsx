@@ -325,7 +325,7 @@ export function GraphPrice({ graphs, assets, prices, previousPrice }: Props) {
                     <div className="font-bold text-[16px]">
                       {getName(symbol)}
                     </div>
-                    <div className="font-normal text-[12px] max-w-[120px] truncate">
+                    <div className="font-normal text-gray-400 text-[12px] max-w-[120px] truncate">
                       {graph.shortName}
                     </div>
                   </div>

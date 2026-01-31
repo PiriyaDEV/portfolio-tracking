@@ -9,7 +9,11 @@ import {
   FaArrowTrendUp as UpIcon,
   FaArrowTrendDown as DownIcon,
 } from "react-icons/fa6";
-import { FaEye as EyeIcon, FaEyeSlash as EyeSlashIcon, FaPen } from "react-icons/fa";
+import {
+  FaEye as EyeIcon,
+  FaEyeSlash as EyeSlashIcon,
+  FaPen,
+} from "react-icons/fa";
 import { fNumber, getLogo, getName, getProfitColor } from "./lib/utils";
 import { Asset } from "./lib/interface";
 import ViewScreen, { StockResult } from "@/shared/pages/ViewScreen";
@@ -704,8 +708,13 @@ export default function StockPrice() {
                               backgroundImage: `url(${getLogo(asset.symbol)})`,
                             }}
                           />
-                          <div className="font-bold text-[16px]">
-                            {getName(asset.symbol)}
+                          <div>
+                            <div className="font-bold text-[16px]">
+                              {getName(asset.symbol)}
+                            </div>
+                            <div className="font-normal text-[12px] text-gray-400 max-w-[90px] truncate">
+                              {graphs[asset.symbol].shortName}
+                            </div>
                           </div>
                         </div>
                         <div className="text-[12px] flex items-center gap-1">
