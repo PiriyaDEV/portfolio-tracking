@@ -11,7 +11,7 @@ const SYMBOLS = {
 };
 
 /* =======================
-   Helper
+   Yahoo Helper
 ======================= */
 async function getMarketData(symbol: string) {
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(
@@ -19,7 +19,10 @@ async function getMarketData(symbol: string) {
   )}?interval=1d&range=2d`;
 
   const res = await fetch(url, {
-    headers: { "User-Agent": "Mozilla/5.0" },
+    headers: {
+      "User-Agent": "Mozilla/5.0",
+      Accept: "application/json",
+    },
     next: { revalidate: 60 },
   });
 
@@ -44,10 +47,44 @@ async function getMarketData(symbol: string) {
 
   return {
     price: currentPrice,
-    previousClose,
     changePercent:
       changePercent !== null ? Number(changePercent.toFixed(2)) : null,
   };
+}
+
+/* =======================
+   Fear & Greed Helper
+======================= */
+async function getFearAndGreed() {
+  try {
+    const res = await fetch(
+      "https://production.dataviz.cnn.io/index/fearandgreed/graphdata",
+      {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
+          Accept: "application/json",
+          Referer: "https://edition.cnn.com/",
+        },
+        next: { revalidate: 3600 }, // CNN updates daily
+      },
+    );
+
+    if (!res.ok) {
+      return { value: null, status: null };
+    }
+
+    const json = await res.json();
+    const fg = json?.fear_and_greed;
+
+    if (!fg) return { value: null, status: null };
+
+    return {
+      value: fg.score ?? null,
+      status: fg.rating ?? null,
+    };
+  } catch {
+    return { value: null, status: null };
+  }
 }
 
 /* =======================
@@ -55,11 +92,12 @@ async function getMarketData(symbol: string) {
 ======================= */
 export async function GET() {
   try {
-    const [sp500, gold, set, btc] = await Promise.all([
+    const [sp500, gold, set, btc, fearGreed] = await Promise.all([
       getMarketData(SYMBOLS.sp500),
       getMarketData(SYMBOLS.gold),
       getMarketData(SYMBOLS.set),
       getMarketData(SYMBOLS.btc),
+      getFearAndGreed(),
     ]);
 
     return NextResponse.json({
@@ -69,6 +107,7 @@ export async function GET() {
         gold,
         set,
         btc,
+        fearGreed,
       },
       timestamp: Date.now(),
     });

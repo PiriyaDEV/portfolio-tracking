@@ -43,19 +43,28 @@ export default function NewsScreen() {
     const lower = text.toLowerCase();
 
     // เช็คตาม priority จากบนลงล่าง (array order)
-    for (const config of NEWS_CONFIG) {
-      const hasKeyword = config.keywords.some((keyword) => {
-        const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    let matchedConfig: (typeof NEWS_CONFIG)[number] | null = null;
+    let earliestIndex = Infinity;
 
-        // ไม่ให้มีอักษรไทยก่อนหรือหลังคำ
+    for (const config of NEWS_CONFIG) {
+      for (const keyword of config.keywords) {
+        const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
         const regex = new RegExp(`(^|[^ก-๙])${escaped}([^ก-๙]|$)`, "i");
 
-        return regex.test(lower);
-      });
+        const result = regex.exec(lower);
+        if (result) {
+          const index = result.index + result[1].length;
 
-      if (hasKeyword) {
-        return config;
+          if (index < earliestIndex) {
+            earliestIndex = index;
+            matchedConfig = config;
+          }
+        }
       }
+    }
+
+    if (matchedConfig) {
+      return matchedConfig;
     }
 
     // ถ้าเจอ ticker ให้ใช้ logokit
@@ -175,7 +184,7 @@ export default function NewsScreen() {
       if (part.match(urlRegex)) {
         return (
           <a
-            key={index}
+            key={`link-${index}-${part.substring(0, 20)}`}
             href={part}
             target="_blank"
             rel="noopener noreferrer"
@@ -186,7 +195,7 @@ export default function NewsScreen() {
         );
       }
 
-      return part;
+      return <span key={`text-${index}`}>{part}</span>;
     });
   };
 
@@ -247,7 +256,7 @@ export default function NewsScreen() {
 
         {/* News list */}
         {!loading &&
-          filteredMessages.map((msg) => {
+          filteredMessages.map((msg, index) => {
             const newsType = detectNewsType(msg.text);
 
             // ตรวจสอบว่าข่าวใหม่หรือไม่ (ห่างจากปัจจุบันไม่เกิน 30 นาที)
@@ -259,7 +268,7 @@ export default function NewsScreen() {
 
             return (
               <div
-                key={msg.id}
+                key={`${msg.id}-${index}`}
                 className="
                   bg-gradient-to-b from-white via-white to-gray-50
                   rounded-2xl

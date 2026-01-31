@@ -13,6 +13,10 @@ import {
 import CommonLoading from "@/shared/components/common/CommonLoading";
 import React from "react";
 
+/* =======================
+   Types
+======================= */
+
 type GraphPoint = {
   time: number;
   price: number;
@@ -36,38 +40,90 @@ type MarketItem = {
   changePercent: number | null;
 };
 
+type FearGreedItem = {
+  value: number | null;
+  status: string | null;
+};
+
 type MarketResponse = {
   sp500: MarketItem;
   gold: MarketItem;
   set: MarketItem;
   btc: MarketItem;
+  fearGreed: FearGreedItem;
 };
 
 type SortBy = "holding" | "profit";
 type SortOrder = "asc" | "desc";
 
+/* =======================
+   Market Items
+======================= */
+
 const MARKET_ITEMS = [
+  {
+    key: "fearGreed",
+    label: "กลัว & โลภ",
+    img: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ98TsJWCyoL6U67OvJhl_xXMle-vnq7LCjmg&s",
+    type: "sentiment",
+  },
   {
     key: "sp500",
     label: "S&P 500",
     img: "https://cdn-icons-png.flaticon.com/512/3909/3909383.png",
+    type: "price",
   },
   {
     key: "gold",
     label: "Gold",
     img: "https://cdn-icons-png.flaticon.com/512/9590/9590147.png",
+    type: "price",
   },
   {
     key: "set",
     label: "SET",
     img: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRe8tM3-t2BDnm-9vKA-mN5yEQci4cOHUBGrw&s",
+    type: "price",
   },
   {
     key: "btc",
     label: "BTC",
     img: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRxjVTE3M2v2tGkmuoZKAL7roppVSJuL9IN3w&s",
+    type: "price",
   },
 ] as const;
+
+/* =======================
+   Helpers
+======================= */
+
+function mapFearGreed(value: number) {
+  if (value <= 24) return "😱 ตลาดกลัวขั้นสุด";
+  if (value <= 44) return "😟 ตลาดกลัว";
+  if (value <= 55) return "😐 ตลาดเป็นกลาง";
+  if (value <= 74) return "😊 ตลาดโลภ";
+  return "🤑 ตลาดโลภขั้นสุด";
+}
+
+const getFearGreedBg = (value: number) => {
+  if (value <= 24) return "!bg-red-100"; // Extreme Fear 😱
+  if (value <= 44) return "!bg-orange-100"; // Fear 😟
+  if (value <= 55) return "!bg-gray-100"; // Neutral 😐
+  if (value <= 74) return "!bg-green-100"; // Greed 😊
+  return "!bg-green-200 animate-pulse"; // Extreme Greed 🤑
+};
+
+const getFearGreedText = (value: number) => {
+  if (value <= 24) return "!text-red-800";
+  if (value <= 44) return "!text-orange-800";
+  if (value <= 55) return "!text-gray-700";
+  if (value <= 74) return "!text-green-800";
+  return "!text-green-900";
+};
+
+/* =======================
+   Component
+======================= */
 
 export function GraphPrice({ graphs, assets, prices, previousPrice }: Props) {
   const [sortBy, setSortBy] = useState<SortBy>("holding");
@@ -94,59 +150,39 @@ export function GraphPrice({ graphs, assets, prices, previousPrice }: Props) {
 
   if (!graphs || Object.keys(graphs).length === 0) return null;
 
-  /** =======================
-   * Helpers
-   ======================= */
-
   const getProfitPercent = (symbol: string) => {
     const currentPrice = prices?.[symbol];
     const prevPrice = previousPrice?.[symbol];
-
     if (!currentPrice || !prevPrice) return 0;
-
     return ((currentPrice - prevPrice) / prevPrice) * 100;
   };
 
-  /** =======================
-   * Sorting logic (3 states)
-   ======================= */
   const sortedAssets = useMemo(() => {
     const list = [...assets];
 
-    // DEFAULT: sort by holding value
     if (sortBy === "holding") {
       return list.sort(
         (a, b) => b.quantity * b.costPerShare - a.quantity * a.costPerShare,
       );
     }
 
-    // PROFIT sort
     return list.sort((a, b) => {
       const pa = getProfitPercent(a.symbol);
       const pb = getProfitPercent(b.symbol);
-
       return sortOrder === "asc" ? pa - pb : pb - pa;
     });
   }, [assets, prices, previousPrice, sortBy, sortOrder]);
 
-  /** =======================
-   * Toggle handler
-   ======================= */
   const toggleProfitSort = () => {
-    // 1️⃣ holding → profit desc
     if (sortBy === "holding") {
       setSortBy("profit");
       setSortOrder("desc");
       return;
     }
-
-    // 2️⃣ profit desc → profit asc
     if (sortOrder === "desc") {
       setSortOrder("asc");
       return;
     }
-
-    // 3️⃣ profit asc → holding (no sort)
     setSortBy("holding");
     setSortOrder("desc");
   };
@@ -159,36 +195,66 @@ export function GraphPrice({ graphs, assets, prices, previousPrice }: Props) {
           <div className="mt-[5px] overflow-x-auto">
             <div className="flex items-center gap-3 min-w-max">
               {MARKET_ITEMS.map((item) => {
-                const data = market[item.key as keyof MarketResponse];
-                if (!data?.price) return null;
+                if (item.type === "price") {
+                  const data = market[
+                    item.key as keyof MarketResponse
+                  ] as MarketItem;
+                  if (!data?.price) return null;
 
-                const isUp = (data.changePercent ?? 0) >= 0;
+                  const isUp = (data.changePercent ?? 0) >= 0;
+
+                  return (
+                    <div
+                      key={item.key}
+                      className="flex items-center gap-2 bg-white rounded-lg px-3 py-1 shadow-sm shrink-0"
+                    >
+                      <img
+                        src={item.img}
+                        alt={item.label}
+                        className="w-5 h-5 rounded-full object-cover border border-gray-500"
+                      />
+                      <div className="flex flex-col text-sm whitespace-nowrap">
+                        <span className="font-semibold !text-black">
+                          {fNumber(data.price)}
+                        </span>
+                        <span
+                          className={`text-xs font-medium ${
+                            isUp ? "!text-green-600" : "!text-red-600"
+                          }`}
+                        >
+                          {isUp ? "+" : ""}
+                          {fNumber(data.changePercent ?? 0)}%
+                        </span>
+                      </div>
+                    </div>
+                  );
+                }
+
+                const fg = market.fearGreed;
+                if (!fg?.value) return null;
 
                 return (
                   <div
                     key={item.key}
-                    className="flex items-center gap-2 bg-white rounded-lg px-3 py-1 shadow-sm shrink-0"
+                    className={`flex items-center gap-2 bg-white rounded-lg px-3 py-1 shadow-sm shrink-0 ${getFearGreedBg(
+                      fg.value,
+                    )}`}
                   >
-                    {/* image */}
                     <img
                       src={item.img}
                       alt={item.label}
                       className="w-5 h-5 rounded-full object-cover border border-gray-500"
                     />
-
-                    {/* price */}
                     <div className="flex flex-col text-sm whitespace-nowrap">
                       <span className="font-semibold !text-black">
-                        {fNumber(data.price)}
+                        Fear & Greed
                       </span>
-
                       <span
-                        className={`text-xs font-medium ${
-                          isUp ? "!text-green-600" : "!text-red-600"
-                        }`}
+                        className={`text-left w-fit text-xs font-bold !text-white capitalize py-[2px] rounded ${getFearGreedText(
+                          fg.value,
+                        )}`}
                       >
-                        {isUp ? "+" : ""}
-                        {fNumber(data.changePercent ?? 0)}%
+                        {mapFearGreed(fg.value)}
                       </span>
                     </div>
                   </div>
@@ -201,8 +267,6 @@ export function GraphPrice({ graphs, assets, prices, previousPrice }: Props) {
         <div className="mt-[15px] grid grid-cols-[2fr_1fr_1fr]">
           <div>สินทรัพย์</div>
           <div></div>
-
-          {/* CLICKABLE PROFIT HEADER */}
           <div
             onClick={toggleProfitSort}
             className="text-right cursor-pointer select-none flex justify-end gap-1"
@@ -227,7 +291,6 @@ export function GraphPrice({ graphs, assets, prices, previousPrice }: Props) {
           const graph = graphs[symbol];
           if (!graph || graph.data.length <= 1) return null;
 
-          const { data } = graph;
           const currentPrice = prices?.[symbol];
           const prevPrice = previousPrice?.[symbol];
 
@@ -267,29 +330,10 @@ export function GraphPrice({ graphs, assets, prices, previousPrice }: Props) {
                 </div>
 
                 {/* GRAPH */}
-                <div
-                  className={`w-full pointer-events-none rounded-md
-              ${
-                percentChange > 0
-                  ? "bg-gradient-to-b from-green-500/25 via-green-400/10 to-transparent"
-                  : percentChange < 0
-                    ? "bg-gradient-to-b from-red-500/25 via-red-400/10 to-transparent"
-                    : "bg-gradient-to-b from-gray-400/20 to-transparent"
-              }
-            `}
-                >
+                <div className="w-full pointer-events-none rounded-md">
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart
-                      data={data}
-                      margin={{ top: 2, right: 2, bottom: 2, left: 2 }}
-                    >
-                      <YAxis
-                        hide
-                        domain={[
-                          (min: number) => min * 0.995,
-                          (max: number) => max * 1.005,
-                        ]}
-                      />
+                    <LineChart data={graph.data}>
+                      <YAxis hide />
                       <ReferenceLine
                         y={prevPrice || 0}
                         stroke="#777"
@@ -301,16 +345,14 @@ export function GraphPrice({ graphs, assets, prices, previousPrice }: Props) {
                         stroke={color}
                         strokeWidth={1}
                         dot={false}
-                        activeDot={false}
                         isAnimationActive={false}
-                        strokeLinecap="round"
                       />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
 
                 {/* PROFIT */}
-                <div className="flex flex-col gap-2 items-end">
+                <div className="flex flex-col items-end">
                   <div
                     className={`font-bold text-[16px] text-white px-2 py-1 rounded ${
                       percentChange > 0
@@ -323,14 +365,12 @@ export function GraphPrice({ graphs, assets, prices, previousPrice }: Props) {
                     {percentChange > 0 && "+"}
                     {percentChange.toFixed(2)}%
                   </div>
-
-                  <div className="font-normal text-[12px] truncate text-end">
+                  <div className="font-normal text-[12px]">
                     ราคา: {fNumber(currentPrice) ?? "-"}
                   </div>
                 </div>
               </div>
 
-              {/* DIVIDER (except last) */}
               {!isLast && (
                 <div className="border-b border-white opacity-10 mx-4 my-2" />
               )}

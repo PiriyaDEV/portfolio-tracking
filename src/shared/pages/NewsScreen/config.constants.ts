@@ -28,20 +28,36 @@ export const NEWS_CONFIG = [
     keywords: ["hunterbrook"],
   },
   {
-    key: "hunterbrook",
-    name: "Hunterbrook",
-    image:
-      "https://hntrbrk.com/wp-content/uploads/2024/04/hunterbrook_avatar_W_H20.png",
-    emoji: "📰",
-    keywords: ["hunterbrook"],
-  },
-  {
     key: "cnbc",
     name: "CNBC",
     image:
       "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQzVFHxyKkrB_a3RcLTjCgdLstYikghYURUTg&s",
     emoji: "📰",
     keywords: ["cnbc"],
+  },
+  {
+    key: "nbc",
+    name: "NBC News",
+    image:
+      "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQhLT7ebpJvx2FqU2pc-6mBb9XxeKa3nJaMow&s",
+    emoji: "📰",
+    keywords: ["nbc"],
+  },
+  {
+    key: "reuters",
+    name: "Reuters",
+    image:
+      "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQL2xX825O1IfxVAiRnHr3cXun3wcAIMWIzuQ&s",
+    emoji: "🌍",
+    keywords: ["รอยเตอร์", "reuters", "reuters news"],
+  },
+  {
+    key: "wsj",
+    name: "The Wall Street Journal",
+    image:
+      "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQbNv0jp5KD0lyXJisV7qWwB3lKsFEdPBzO6Q&s",
+    emoji: "📰",
+    keywords: ["wsj"],
   },
   {
     key: "theinformation",
@@ -57,15 +73,34 @@ export const NEWS_CONFIG = [
     image:
       "https://upload.wikimedia.org/wikipedia/commons/thumb/1/16/Official_Presidential_Portrait_of_President_Donald_J._Trump_%282025%29.jpg/960px-Official_Presidential_Portrait_of_President_Donald_J._Trump_%282025%29.jpg",
     emoji: "😡",
-    keywords: ["ทรัมป์", "ประธานาธิบดี", "สหรัฐฯ"],
+    keywords: ["ทรัมป์", "ประธานาธิบดี", "ประธานาธิบดีทรัมป์", "สหรัฐฯ"],
   },
+  // Kevin Warsh
+  {
+    key: "warsh",
+    name: "Kevin Warsh (วอร์ช)",
+    image:
+      "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRrM4y4hNfkis8uXb5TmWsFR8sLEMNkHoopnA&s",
+    emoji: "🦅",
+    keywords: ["kevin warsh", "warsh", "วอร์ช"],
+  },
+  // Jerome Powell
+  {
+    key: "powell",
+    name: "Jerome Powell (พาวเวลล์)",
+    image:
+      "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQuGRCYL2CeLcFUeFzv5snasM7qlQPxT54WIg&s",
+    emoji: "😐",
+    keywords: ["jerome powell", "powell", "พาวเวลล์", "jerome"],
+  },
+  // Federal Reserve (องค์กร)
   {
     key: "fed",
     name: "Federal Reserve (เฟด)",
     image:
       "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTBnruiz8XbbFLagRsTmMvlk40x5OLyM6j2ZA&s",
-    emoji: "😢",
-    keywords: ["federal reserve", "federal", "fomc", "เฟด", "พาวเวลล์", "วอร์ช", "warsh"],
+    emoji: "🏦",
+    keywords: ["federal reserve", "federal", "fed", "fomc", "เฟด"],
   },
   {
     key: "cathie",
@@ -99,6 +134,14 @@ export const NEWS_CONFIG = [
       "xi jinping",
       "president xi",
     ],
+  },
+  {
+    key: "citi",
+    name: "Citibank",
+    image:
+      "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTfhtjN-cwXRBBuKq-2ax_kBf0A6X4Duptw2A&s",
+    emoji: "🏦",
+    keywords: ["citi"],
   },
 ];
 
