@@ -40,25 +40,42 @@ export default function NewsScreen() {
   function detectNewsType(text?: string) {
     if (!text) return DEFAULT_AUTHOR;
 
-    const lower = text.toLowerCase();
+    // normalize ป้องกัน Unicode เพี้ยน
+    const lower = text.normalize("NFC").toLowerCase();
 
-    // เช็คตาม priority จากบนลงล่าง (array order)
+    // ✔ เฉพาะ "ตัวอักษรไทยหลัก" เท่านั้น
+    function isThaiLetter(c?: string) {
+      if (!c) return false;
+      const code = c.charCodeAt(0);
+
+      // ก-ฮ
+      if (code >= 0x0e01 && code <= 0x0e2e) return true;
+      if (code >= 0x0e2f && code <= 0x0e5b) return true;
+
+      return false;
+    }
+
     let matchedConfig: (typeof NEWS_CONFIG)[number] | null = null;
     let earliestIndex = Infinity;
 
     for (const config of NEWS_CONFIG) {
       for (const keyword of config.keywords) {
-        const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        const regex = new RegExp(`(^|[^ก-๙])${escaped}([^ก-๙]|$)`, "i");
+        const key = keyword.normalize("NFC").toLowerCase();
+        const index = lower.indexOf(key);
 
-        const result = regex.exec(lower);
-        if (result) {
-          const index = result.index + result[1].length;
+        if (index === -1) continue;
 
-          if (index < earliestIndex) {
-            earliestIndex = index;
-            matchedConfig = config;
-          }
+        const before = lower[index - 1];
+        const after = lower[index + key.length];
+
+        // ❗ block เฉพาะกรณีติด "ตัวอักษรไทยหลัก"
+        if (isThaiLetter(before) || isThaiLetter(after)) {
+          continue;
+        }
+
+        if (index < earliestIndex) {
+          earliestIndex = index;
+          matchedConfig = config;
         }
       }
     }
@@ -67,7 +84,7 @@ export default function NewsScreen() {
       return matchedConfig;
     }
 
-    // ถ้าเจอ ticker ให้ใช้ logokit
+    // fallback: ticker
     const ticker = getTickerFromText(text);
     if (ticker) {
       const token = process.env.NEXT_PUBLIC_LOGOKIT_TOKEN;
@@ -82,7 +99,6 @@ export default function NewsScreen() {
       };
     }
 
-    // ถ้าไม่เจออะไรเลย ใช้ default
     return DEFAULT_AUTHOR;
   }
 

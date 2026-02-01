@@ -143,6 +143,22 @@ export const NEWS_CONFIG = [
     emoji: "🏦",
     keywords: ["citi"],
   },
+  {
+    key: "iran",
+    name: "อิหร่าน",
+    image:
+      "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTcHjuJwQinnq7yrEdYTZNb6xYpuKE2zdRCXg&s",
+    emoji: "🇮🇷",
+    keywords: ["อิหร่าน"],
+  },
+  {
+    key: "us",
+    name: "สหรัฐอเมริกา",
+    image:
+      "https://upload.wikimedia.org/wikipedia/en/thumb/a/a4/Flag_of_the_United_States.svg/440px-Flag_of_the_United_States.svg.png",
+    emoji: "🇺🇸",
+    keywords: ["PPI"],
+  },
 ];
 
 // Default author (ถ้าไม่เจอ keyword ไหนเลย)
