@@ -13,10 +13,21 @@ const SYMBOLS = {
 /* =======================
    Yahoo Helper
 ======================= */
-async function getMarketData(symbol: string) {
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(
-    symbol,
-  )}?interval=1d&range=2d`;
+type MarketMode = "dailyMeta" | "intraday" | "rolling24h";
+
+async function getMarketData(symbol: string, mode: MarketMode = "dailyMeta") {
+  const url =
+    mode === "rolling24h"
+      ? `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(
+          symbol,
+        )}?interval=1h&range=2d`
+      : mode === "intraday"
+        ? `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(
+            symbol,
+          )}?interval=1m&range=1d`
+        : `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(
+            symbol,
+          )}?interval=1d&range=2d`;
 
   const res = await fetch(url, {
     headers: {
@@ -34,15 +45,61 @@ async function getMarketData(symbol: string) {
 
   const meta = result.meta;
   const quote = result.indicators?.quote?.[0];
+  const closes = quote?.close?.filter((v: number | null) => v != null);
 
-  const currentPrice = meta?.regularMarketPrice ?? quote?.close?.at(-1) ?? null;
+  let currentPrice: number | null = null;
+  let previousPrice: number | null = null;
 
-  const previousClose = meta?.previousClose ?? quote?.close?.at(-2) ?? null;
+  if (mode === "rolling24h") {
+    const timestamps: number[] = result.timestamp;
+    const closesRaw: (number | null)[] = quote?.close ?? [];
+
+    if (!timestamps || !closesRaw.length) return null;
+
+    const validCloses = closesRaw.filter(
+      (v): v is number => typeof v === "number",
+    );
+
+    if (!validCloses.length) return null;
+
+    const nowTs = timestamps[timestamps.length - 1];
+    const targetTs = nowTs - 24 * 60 * 60;
+
+    let closestIndex = -1;
+    let minDiff = Infinity;
+
+    timestamps.forEach((ts, i) => {
+      if (closesRaw[i] == null) return;
+      const diff = Math.abs(ts - targetTs);
+      if (diff < minDiff) {
+        minDiff = diff;
+        closestIndex = i;
+      }
+    });
+
+    const currentPrice = validCloses.at(-1) ?? null;
+    const previousPrice = closestIndex !== -1 ? closesRaw[closestIndex] : null;
+
+    if (!currentPrice || !previousPrice) return null;
+
+    const changePercent =
+      ((currentPrice - previousPrice) / previousPrice) * 100;
+
+    return {
+      price: currentPrice,
+      changePercent: Number(changePercent.toFixed(2)),
+    };
+  } else if (mode === "intraday") {
+    currentPrice = closes?.at(-1) ?? null;
+    previousPrice = closes?.[0] ?? null;
+  } else {
+    currentPrice = meta?.regularMarketPrice ?? closes?.at(-1) ?? null;
+    previousPrice = meta?.previousClose ?? closes?.at(-2) ?? null;
+  }
 
   let changePercent: number | null = null;
-
-  if (currentPrice && previousClose) {
-    changePercent = ((currentPrice - previousClose) / previousClose) * 100;
+  if (currentPrice && previousPrice) {
+    changePercent = ((currentPrice - previousPrice) / previousPrice) * 100;
   }
 
   return {
@@ -93,10 +150,10 @@ async function getFearAndGreed() {
 export async function GET() {
   try {
     const [sp500, gold, set, btc, fearGreed] = await Promise.all([
-      getMarketData(SYMBOLS.sp500),
-      getMarketData(SYMBOLS.gold),
-      getMarketData(SYMBOLS.set),
-      getMarketData(SYMBOLS.btc),
+      getMarketData(SYMBOLS.sp500), // daily
+      getMarketData(SYMBOLS.gold, "rolling24h"), // ✅ 24h
+      getMarketData(SYMBOLS.set), // daily
+      getMarketData(SYMBOLS.btc, "rolling24h"), // ✅ 24h
       getFearAndGreed(),
     ]);
 

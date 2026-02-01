@@ -80,15 +80,15 @@ const MARKET_ITEMS = [
     type: "price",
   },
   {
-    key: "set",
-    label: "SET",
-    img: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRe8tM3-t2BDnm-9vKA-mN5yEQci4cOHUBGrw&s",
-    type: "price",
-  },
-  {
     key: "btc",
     label: "BTC",
     img: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRxjVTE3M2v2tGkmuoZKAL7roppVSJuL9IN3w&s",
+    type: "price",
+  },
+  {
+    key: "set",
+    label: "SET",
+    img: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRe8tM3-t2BDnm-9vKA-mN5yEQci4cOHUBGrw&s",
     type: "price",
   },
 ] as const;
