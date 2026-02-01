@@ -713,7 +713,7 @@ export default function StockPrice() {
                               {getName(asset.symbol)}
                             </div>
                             <div className="font-normal text-[12px] text-gray-400 max-w-[90px] truncate">
-                              {graphs[asset.symbol].shortName}
+                              {graphs[asset.symbol]?.shortName ?? ''}
                             </div>
                           </div>
                         </div>
