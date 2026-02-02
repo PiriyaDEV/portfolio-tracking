@@ -12,6 +12,7 @@ import {
 } from "recharts";
 import { FaSync } from "react-icons/fa";
 import CommonLoading from "@/shared/components/common/CommonLoading";
+import { isCash } from "@/app/lib/utils";
 
 /* =======================
    Types & constants
@@ -90,7 +91,7 @@ export default function SNPCompare({ assets }: { assets: Asset[] }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          assets,
+          assets: assets.filter((a) => !isCash(a.symbol)),
           range: RANGE_MAP[range],
         }),
       });

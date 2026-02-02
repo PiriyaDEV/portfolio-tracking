@@ -14,7 +14,14 @@ import {
   FaEyeSlash as EyeSlashIcon,
   FaPen,
 } from "react-icons/fa";
-import { fNumber, getLogo, getName, getProfitColor } from "./lib/utils";
+import {
+  fNumber,
+  getLogo,
+  getName,
+  getProfitColor,
+  isCash,
+  isThaiStock,
+} from "./lib/utils";
 import { Asset } from "./lib/interface";
 import ViewScreen, { StockResult } from "@/shared/pages/ViewScreen";
 import AnalystScreen from "@/shared/pages/AnalystScreen";
@@ -58,11 +65,6 @@ interface SessionData {
   userColId: string;
   expiresAt: number;
 }
-
-// Helper function to check if stock is Thai
-const isThaiStock = (symbol: string): boolean => {
-  return symbol.toUpperCase().endsWith(".BK");
-};
 
 export default function StockPrice() {
   const [prices, setPrices] = useState<Record<string, number | null>>({});
@@ -665,11 +667,13 @@ export default function StockPrice() {
                   : marketValueBase * currencyRate;
 
                 // Calculate profit in original currency first
-                const profitBase =
-                  currentPrice > 0 ? marketValueBase - cost : 0;
-                const profitThb = isThai
-                  ? profitBase
-                  : profitBase * currencyRate;
+                let profitBase = currentPrice > 0 ? marketValueBase - cost : 0;
+                let profitThb = isThai ? profitBase : profitBase * currencyRate;
+
+                if (isCash(asset.symbol)) {
+                  profitBase = 0;
+                  profitThb = 0;
+                }
 
                 const profitPercent =
                   currentPrice > 0 && cost > 0 ? (profitBase / cost) * 100 : 0;
@@ -713,7 +717,7 @@ export default function StockPrice() {
                               {getName(asset.symbol)}
                             </div>
                             <div className="font-normal text-[12px] text-gray-400 max-w-[90px] truncate">
-                              {graphs[asset.symbol]?.shortName ?? ''}
+                              {graphs[asset.symbol]?.shortName ?? ""}
                             </div>
                           </div>
                         </div>

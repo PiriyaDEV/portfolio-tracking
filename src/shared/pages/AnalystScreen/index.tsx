@@ -19,6 +19,7 @@ import StockCard from "./components/StockCard";
 import NewsScreen from "../NewsScreen";
 import Earning from "./components/Earning";
 import { FaCalendarAlt } from "react-icons/fa";
+import { isCash } from "@/app/lib/utils";
 
 interface Props {
   advancedLevels: Record<string, AdvancedLevels>;
@@ -44,7 +45,10 @@ export default function AnalystScreen({
   const [activeTab, setActiveTab] = useState<TabKey>("graph");
 
   const sortedSymbols = Object.keys(advancedLevels)
-    .filter((s) => advancedLevels[s]?.currentPrice > 0)
+    .filter((symbol) => {
+      const level = advancedLevels[symbol];
+      return level?.currentPrice > 0 && !isCash(symbol);
+    })
     .sort((a, b) => {
       const sa = getSignal(prices[a], advancedLevels[a]);
       const sb = getSignal(prices[b], advancedLevels[b]);

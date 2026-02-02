@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { fNumber } from "@/app/lib/utils";
+import { fNumber, isThaiStock } from "@/app/lib/utils";
 import {
   FaArrowTrendUp as UpIcon,
   FaArrowTrendDown as DownIcon,
@@ -22,11 +22,6 @@ type Props = {
   formattedDate: string;
   getProfitColor: (value: number) => string;
   isNumbersHidden?: boolean;
-};
-
-// Helper function to check if stock is Thai
-const isThaiStock = (symbol: string): boolean => {
-  return symbol.toUpperCase().endsWith(".BK");
 };
 
 export default function FooterPortfolio({

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdvancedLevels } from "./support.function";
 import { getRecommendation } from "./recommendation.function";
+import { isThaiStock } from "@/app/lib/utils";
 
 const API_KEY = process.env.FINNHUB_API_KEY || "";
 
@@ -21,12 +22,6 @@ type DividendAssetResult = {
   annualDividendBase: number | null;
   dividendYieldPercent: number | null;
 };
-
-/* =======================
-   Utils
-======================= */
-
-const isThaiStock = (symbol: string) => symbol.toUpperCase().endsWith(".BK");
 
 /* =======================
    FX Rate
@@ -56,6 +51,8 @@ function normalizeYahooSymbol(raw: string): string {
   const symbol = raw.trim().toUpperCase();
 
   switch (symbol) {
+    case "TISCO-PVD":
+      return "THB=X";
     case "BTC-USD":
       return "BTC-USD";
     case "GOLD-USD":

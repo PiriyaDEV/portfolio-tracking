@@ -1,3 +1,4 @@
+import { isThaiStock } from "@/app/lib/utils";
 import { NextRequest, NextResponse } from "next/server";
 
 /* =======================
@@ -15,10 +16,6 @@ type Range = "1d" | "5d" | "1m" | "6m" | "1y";
 /* =======================
    Currency helpers
 ======================= */
-
-function isThaiStock(symbol: string): boolean {
-  return symbol.toUpperCase().endsWith(".BK");
-}
 
 /**
  * USDTHB=X = THB per 1 USD
@@ -48,6 +45,8 @@ function normalizeYahooSymbol(raw: string): string {
   const symbol = raw.trim().toUpperCase();
 
   switch (symbol) {
+    case "TISCO-PVD":
+      return "THB=X";
     case "BTC-USD":
       return "BTC-USD";
     case "GOLD-USD":

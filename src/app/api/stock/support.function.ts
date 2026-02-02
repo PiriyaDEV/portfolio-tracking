@@ -30,6 +30,7 @@ export async function getAdvancedLevels(
   symbol: string = "TSLA",
 ): Promise<AdvancedLevels> {
   if (symbol === "GOLD-USD") symbol = "GC=F";
+  if (symbol === "TISCO-PVD") symbol = "THB=X";
 
   try {
     const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1mo`;

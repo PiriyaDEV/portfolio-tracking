@@ -178,6 +178,8 @@ const DEFAULT_CRYPTO_LOGO =
   "https://upload.wikimedia.org/wikipedia/commons/thumb/4/46/Bitcoin.svg/1200px-Bitcoin.svg.png";
 const DEFAULT_GOLD_LOGO =
   "https://media.istockphoto.com/id/1185640227/vector/gold-bars-or-ingot-flat-style-isometric-illustration.jpg?s=612x612&w=0&k=20&c=UchT_VVWg0C1pYQppe4IkvD15bt61XGESS-bq4GiixQ=";
+const DEFAULT_PVD_LOGO =
+  "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQiz97SSXXGQFeyG7trM62emx0p3HtM73cjPg&s";
 
 export function getLogo(symbol: string): string {
   if (!symbol) return DEFAULT_STOCK_LOGO;
@@ -185,6 +187,9 @@ export function getLogo(symbol: string): string {
   // Special crypto case
   if (symbol === "BTC-USD") {
     return DEFAULT_CRYPTO_LOGO;
+  }
+  if (symbol === "TISCO-PVD") {
+    return DEFAULT_PVD_LOGO;
   } else if (symbol === "GOLD-USD") {
     return DEFAULT_GOLD_LOGO;
   }
@@ -200,6 +205,7 @@ export function getLogo(symbol: string): string {
 export function getName(symbol: string) {
   if (symbol === "BTC-USD") return "BTC";
   else if (symbol === "GOLD-USD") return "GOLD";
+  else if (symbol === "TISCO-PVD") return "TISCO-PVD";
   return symbol;
 }
 
@@ -208,3 +214,12 @@ export function getProfitColor(profit: number): string {
   if (profit < 0) return "!text-red-500";
   return "!text-gray-500";
 }
+
+// Helper function to check if stock is Thai
+export const isThaiStock = (symbol: string): boolean => {
+  return symbol.toUpperCase().endsWith(".BK") || symbol === "THB=X";
+};
+
+export const isCash = (symbol: string): boolean => {
+  return symbol === "THB=X" || symbol === "TISCO-PVD";
+};

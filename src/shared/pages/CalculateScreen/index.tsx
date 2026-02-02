@@ -8,7 +8,7 @@ import {
   FaCalculator,
   FaBullseye,
 } from "react-icons/fa6";
-import { fNumber, getLogo, getName } from "@/app/lib/utils";
+import { fNumber, getLogo, getName, isCash, isThaiStock } from "@/app/lib/utils";
 
 export type Asset = {
   symbol: string;
@@ -20,11 +20,6 @@ type CalculatorScreenProps = {
   assets: Asset[];
   prices: any; // current price (THB for Thai stocks, USD for US stocks)
   currencyRate: number; // USD -> THB
-};
-
-// Helper function to check if stock is Thai
-const isThaiStock = (symbol: string): boolean => {
-  return symbol.toUpperCase().endsWith(".BK");
 };
 
 export default function CalculatorScreen({
@@ -237,11 +232,13 @@ export default function CalculatorScreen({
           }}
           className="p-2 rounded bg-black-lighter2 text-white w-full"
         >
-          {assets.map((a) => (
-            <option key={a.symbol} value={a.symbol}>
-              {getName(a.symbol)}
-            </option>
-          ))}
+          {assets
+            .filter((a) => !isCash(a.symbol))
+            .map((a) => (
+              <option key={a.symbol} value={a.symbol}>
+                {getName(a.symbol)}
+              </option>
+            ))}
         </select>
 
         <div>
