@@ -97,29 +97,74 @@ const MARKET_ITEMS = [
    Helpers
 ======================= */
 
-function mapFearGreed(value: number) {
-  if (value <= 24) return "😱 ตลาดกลัวขั้นสุด";
-  if (value <= 44) return "😟 ตลาดกลัว";
-  if (value <= 55) return "😐 ตลาดเป็นกลาง";
-  if (value <= 74) return "😊 ตลาดโลภ";
-  return "🤑 ตลาดโลภขั้นสุด";
+type FearGreedConfig = {
+  min: number;
+  max: number;
+  label: string;
+  emoji: string;
+  bg: string;
+  text: string;
+};
+
+const FEAR_GREED_MAP: FearGreedConfig[] = [
+  {
+    min: 0,
+    max: 25,
+    label: "กลัวขั้นสุด",
+    emoji: "😱",
+    bg: "!bg-red-100",
+    text: "!text-red-800",
+  },
+  {
+    min: 25,
+    max: 45,
+    label: "กลัว",
+    emoji: "😟",
+    bg: "!bg-orange-100",
+    text: "!text-orange-800",
+  },
+  {
+    min: 45,
+    max: 55,
+    label: "เป็นกลาง",
+    emoji: "😐",
+    bg: "!bg-gray-100",
+    text: "!text-gray-700",
+  },
+  {
+    min: 55,
+    max: 75,
+    label: "โลภ",
+    emoji: "😊",
+    bg: "!bg-green-100",
+    text: "!text-green-800",
+  },
+  {
+    min: 75,
+    max: 101, // covers 100
+    label: "โลภขั้นสุด",
+    emoji: "🤑",
+    bg: "!bg-green-200 animate-pulse",
+    text: "!text-green-900",
+  },
+];
+
+function getFearGreedConfig(value: number): FearGreedConfig {
+  return (
+    FEAR_GREED_MAP.find((r) => value >= r.min && value < r.max) ??
+    FEAR_GREED_MAP[0]
+  );
 }
 
-const getFearGreedBg = (value: number) => {
-  if (value <= 24) return "!bg-red-100"; // Extreme Fear 😱
-  if (value <= 44) return "!bg-orange-100"; // Fear 😟
-  if (value <= 55) return "!bg-gray-100"; // Neutral 😐
-  if (value <= 74) return "!bg-green-100"; // Greed 😊
-  return "!bg-green-200 animate-pulse"; // Extreme Greed 🤑
-};
+export function mapFearGreed(value: number) {
+  const { emoji, label } = getFearGreedConfig(value);
+  return `${emoji} ${label} (${fNumber(value, { decimalNumber: 0})})`;
+}
 
-const getFearGreedText = (value: number) => {
-  if (value <= 24) return "!text-red-800";
-  if (value <= 44) return "!text-orange-800";
-  if (value <= 55) return "!text-gray-700";
-  if (value <= 74) return "!text-green-800";
-  return "!text-green-900";
-};
+export const getFearGreedBg = (value: number) => getFearGreedConfig(value).bg;
+
+export const getFearGreedText = (value: number) =>
+  getFearGreedConfig(value).text;
 
 /* =======================
    Component
