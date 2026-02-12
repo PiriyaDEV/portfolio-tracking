@@ -164,9 +164,9 @@ export const NEWS_CONFIG = [
 // Default author (ถ้าไม่เจอ keyword ไหนเลย)
 export const DEFAULT_AUTHOR = {
   key: "default",
-  name: "คุณ จาง",
+  name: "จาง (วงใน)",
   image:
-    "https://scontent.fbkk29-8.fna.fbcdn.net/v/t39.30808-6/485042252_629097329913075_3057198464528152612_n.jpg?_nc_cat=102&ccb=1-7&_nc_sid=6ee11a&_nc_ohc=3kqRyClMuaMQ7kNvwH8qIVv&_nc_oc=AdnDOw7o5Rfjcbnn-WZNAFB6n_Bm4Z5COeStq4sGK8RC_xtZUiGgzKslb0uDVqj2TjI&_nc_zt=23&_nc_ht=scontent.fbkk29-8.fna&_nc_gid=3b1unHQ-T78qtNBBjcoSLA&oh=00_AfpHFu4ZhnBxVfKDYV7e3FGBlialSyzrSXwnOsz6mMzU7w&oe=69811CEA",
+    "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRn7p7pMMHspGbtZwGm6GWDBcXC8LkX73h1iGalFYgv-mf6F-L9",
   emoji: null,
   keywords: [],
 };
