@@ -8,6 +8,30 @@ const LIMIT_PER_DAY = 1;
 const COL_RECOMMEND = "F";
 const COL_LAST_USED = "G";
 
+export const STOCK_CATEGORIES = [
+  { id: "tech", label: "หุ้นเทคโนโลยี" },
+  { id: "pharma", label: "หุ้นยา / สุขภาพ" },
+  { id: "defense", label: "หุ้นกลาโหม" },
+  { id: "banking", label: "หุ้นการเงิน / ธนาคาร" },
+  { id: "large_cap", label: "หุ้นใหญ่" },
+  { id: "small_cap", label: "หุ้นเล็ก" },
+  { id: "dividend", label: "หุ้นปันผล" },
+  { id: "growth", label: "หุ้นเติบโต" },
+  { id: "value", label: "หุ้น Value" },
+];
+
+export const RISK_LEVELS = [
+  { id: "low", label: "ต่ำ" },
+  { id: "medium", label: "กลาง" },
+  { id: "high", label: "สูง" },
+];
+
+export const MARKETS = [
+  { id: "th", label: "ไทย" },
+  { id: "us", label: "US" },
+  { id: "both", label: "ทั้งคู่" },
+];
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type StockRecommendation = {
@@ -28,9 +52,9 @@ export type RecommendResponse = {
   summary: string;
   generatedAt: string;
   cached?: boolean;
-  lastUsed?: string | null; // ISO — when Gemini was last called
-  nextAvailableAt?: string | null; // ISO — when user can call again
-  canResearch: boolean; // true if 1-day window has passed
+  lastUsed?: string | null;
+  nextAvailableAt?: string | null;
+  canResearch: boolean;
 };
 
 // ─── Google Sheets ────────────────────────────────────────────────────────────
@@ -137,6 +161,78 @@ function isQuotaError(err: unknown): boolean {
   );
 }
 
+// ─── Yahoo Finance ────────────────────────────────────────────────────────────
+
+/**
+ * Fetch currentPrice and return1M for a single ticker from Yahoo Finance.
+ * Returns null values if the request fails so the caller can fall back gracefully.
+ */
+async function fetchYahooPriceData(
+  ticker: string,
+): Promise<{ currentPrice: number | null; return1M: number | null }> {
+  try {
+    // "1mo" range with "1d" interval gives us ~22 daily closes
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(
+      ticker,
+    )}?range=1mo&interval=1d`;
+
+    const res = await fetch(url, {
+      headers: { "User-Agent": "Mozilla/5.0" },
+      cache: "no-store",
+    });
+
+    if (!res.ok) {
+      console.warn(`Yahoo Finance ${ticker}: HTTP ${res.status}`);
+      return { currentPrice: null, return1M: null };
+    }
+
+    const json = await res.json();
+    const result = json?.chart?.result?.[0];
+    if (!result) return { currentPrice: null, return1M: null };
+
+    const closes: number[] = result.indicators?.quote?.[0]?.close ?? [];
+    const validCloses = closes.filter((c) => c != null && !isNaN(c));
+
+    if (validCloses.length === 0) return { currentPrice: null, return1M: null };
+
+    const currentPrice = validCloses[validCloses.length - 1];
+    const firstPrice = validCloses[0];
+
+    const return1M =
+      firstPrice > 0
+        ? Math.round(((currentPrice - firstPrice) / firstPrice) * 1000) / 10 // one decimal
+        : null;
+
+    return { currentPrice: Math.round(currentPrice * 100) / 100, return1M };
+  } catch (err) {
+    console.warn(`Yahoo Finance fetch failed for ${ticker}:`, err);
+    return { currentPrice: null, return1M: null };
+  }
+}
+
+/**
+ * Enrich all recommendations with live price data from Yahoo Finance.
+ * Fetches all tickers in parallel; falls back to Gemini values on failure.
+ */
+async function enrichWithYahooPrices<
+  T extends { ticker: string; currentPrice: number; return1M: number },
+>(items: T[]): Promise<T[]> {
+  const priceResults = await Promise.all(
+    items.map((item) => fetchYahooPriceData(item.ticker)),
+  );
+
+  return items.map((item, i) => {
+    const { currentPrice, return1M } = priceResults[i];
+    return {
+      ...item,
+      currentPrice: currentPrice ?? item.currentPrice, // fall back to Gemini value
+      return1M: return1M ?? item.return1M,
+    };
+  });
+}
+
+// ─── Prompt ───────────────────────────────────────────────────────────────────
+
 function buildPrompt(payload: {
   investmentAmount: number;
   categories: string[];
@@ -179,22 +275,20 @@ Each item must have exactly these fields:
 {
   "ticker": "string (e.g. NVDA or AOT.BK)",
   "name": "string (full company name)",
-  "currentPrice": number (realistic current price),
   "currency": "USD" or "THB",
-  "return1M": number (1-month return %, can be negative, e.g. 8.5 or -3.2),
   "upside": number (projected upside % for next 3 months, e.g. 12.0),
   "reason": "string (2-3 sentence Thai explanation why this stock is recommended)",
   "market": "US" or "TH"
 }
+
+Note: Do NOT include currentPrice or return1M — those will be fetched from live data.
 
 Example output:
 [
   {
     "ticker": "NVDA",
     "name": "NVIDIA Corporation",
-    "currentPrice": 875.4,
     "currency": "USD",
-    "return1M": 18.3,
     "upside": 12.5,
     "reason": "ผู้นำตลาด AI chip มีดีมานด์สูงจาก Data Center และ Blackwell GPU รุ่นใหม่กำลังส่งมอบ",
     "market": "US"
@@ -234,7 +328,6 @@ export async function GET(req: NextRequest) {
     const { cachedData, lastUsed } = userData;
     const canResearch = !lastUsed || !isWithinOneDay(lastUsed);
 
-    // No data yet — tell the client there's nothing to show
     if (!cachedData) {
       return NextResponse.json({
         recommendations: null,
@@ -260,7 +353,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// ─── POST — call Gemini and save ─────────────────────────────────────────────
+// ─── POST — call Gemini → enrich with Yahoo Finance → save ───────────────────
 
 export async function POST(req: NextRequest) {
   try {
@@ -306,7 +399,6 @@ export async function POST(req: NextRequest) {
 
     // ── Block if still within rate limit window ───────────────────────────────
     if (lastUsed && isWithinOneDay(lastUsed)) {
-      // Return cached data with rate-limit info (don't call Gemini)
       return NextResponse.json(
         {
           error: "RATE_LIMITED",
@@ -314,14 +406,13 @@ export async function POST(req: NextRequest) {
           lastUsed: lastUsed.toISOString(),
           nextAvailableAt: calcNextAvailable(lastUsed),
           canResearch: false,
-          // Still send the cached result so UI can display it
           ...(cachedData ?? {}),
         },
         { status: 429 },
       );
     }
 
-    // ── Call Gemini ───────────────────────────────────────────────────────────
+    // ── Call Gemini (no currentPrice / return1M requested) ────────────────────
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
@@ -352,11 +443,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ── Parse ─────────────────────────────────────────────────────────────────
-    let rawItems: Omit<
+    // ── Parse Gemini response ─────────────────────────────────────────────────
+    type GeminiItem = Omit<
       StockRecommendation,
-      "allocateBaht" | "allocatePercent"
-    >[];
+      "allocateBaht" | "allocatePercent" | "currentPrice" | "return1M"
+    >;
+
+    let rawItems: GeminiItem[];
     try {
       const cleaned = rawText.replace(/```json|```/g, "").trim();
       rawItems = JSON.parse(cleaned);
@@ -373,27 +466,54 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const count = rawItems.length;
+    // ── Fetch live prices from Yahoo Finance (parallel) ───────────────────────
+    const itemsWithPlaceholders = rawItems.map((item) => ({
+      ...item,
+      currentPrice: 0, // placeholder — will be overwritten
+      return1M: 0, // placeholder — will be overwritten
+    }));
+
+    const enrichedItems = await enrichWithYahooPrices(itemsWithPlaceholders);
+
+    // ── Build final recommendations ───────────────────────────────────────────
+    const count = enrichedItems.length;
     const perStock = investmentAmount / count;
 
-    const recommendations: StockRecommendation[] = rawItems.map((item) => ({
-      ticker: item.ticker,
-      name: item.name,
-      currentPrice: item.currentPrice,
-      currency: item.currency,
-      return1M: item.return1M,
-      upside: item.upside,
-      reason: item.reason,
-      market: item.market,
-      allocateBaht: Math.round(perStock),
-      allocatePercent: Math.round((100 / count) * 10) / 10,
-    }));
+    const recommendations: StockRecommendation[] = enrichedItems.map(
+      (item) => ({
+        ticker: item.ticker,
+        name: item.name,
+        currentPrice: item.currentPrice,
+        currency: item.currency,
+        return1M: item.return1M,
+        upside: item.upside,
+        reason: item.reason,
+        market: item.market,
+        allocateBaht: Math.round(perStock),
+        allocatePercent: Math.round((100 / count) * 10) / 10,
+      }),
+    );
 
     const now = new Date();
 
+    const mappedCategories = categories
+      .map((id: any) => {
+        const found = STOCK_CATEGORIES.find((c) => c.id === id);
+        return found ? found.label : id;
+      })
+      .join(", ");
+
+    const mappedRisk =
+      RISK_LEVELS.find((r) => r.id === riskLevel)?.label || riskLevel;
+
+    const mappedMarket = MARKETS.find((m) => m.id === market)?.label || market;
+
     const response: RecommendResponse = {
       recommendations,
-      summary: `AI แนะนำ ${count} หุ้น จากงบ ${investmentAmount.toLocaleString()} บาท (categories: ${categories}) (risk: ${riskLevel}) (market: ${market})`,
+      summary: `AI แนะนำ ${count} หุ้น จากงบ ${investmentAmount.toLocaleString()} บาท 
+(หมวด: ${mappedCategories}) 
+(ความเสี่ยง: ${mappedRisk}) 
+(ตลาด: ${mappedMarket})`,
       generatedAt: now.toISOString(),
       canResearch: false,
     };

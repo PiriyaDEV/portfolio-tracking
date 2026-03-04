@@ -16,6 +16,7 @@ import { FaSeedling, FaShieldAlt, FaUniversity } from "react-icons/fa";
 import { TbMoneybag } from "react-icons/tb";
 import { GiGoldBar } from "react-icons/gi";
 import { getLogo } from "@/app/lib/utils";
+import CommonLoading from "@/shared/components/common/CommonLoading";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -119,16 +120,6 @@ const STOCK_CATEGORIES: StockCategory[] = [
     color: "text-orange-400",
     borderColor: "border-orange-500",
     bgColor: "bg-orange-500/10",
-  },
-  {
-    id: "gold",
-    label: "ทอง / สินทรัพย์แข็ง",
-    labelEn: "Gold & Commodities",
-    icon: <GiGoldBar />,
-    description: "Gold, Silver, ETF",
-    color: "text-yellow-400",
-    borderColor: "border-yellow-500",
-    bgColor: "bg-yellow-500/10",
   },
   {
     id: "dividend",
@@ -387,10 +378,10 @@ function StockCard({
         </div>
         <div className="bg-[#111] px-3 py-2.5">
           <p className="text-gray-500 text-[10px]">แนวโน้มขึ้น</p>
-          <div className="flex items-center gap-1 font-black text-sm mt-0.5 text-yellow-400">
+          <div className="flex items-center gap-1 font-black text-sm mt-0.5 text-green-400">
             <UpIcon className="text-[10px]" />+{rec.upside}%
           </div>
-          <MiniBar value={rec.upside} max={30} color="bg-yellow-400" />
+          <MiniBar value={rec.upside} max={30} color="bg-green-400" />
         </div>
       </div>
 
@@ -456,7 +447,7 @@ export default function StockRecommendScreen({
   const [investmentAmount, setInvestmentAmount] = useState<string>("");
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [riskLevel, setRiskLevel] = useState<RiskLevel>("medium");
-  const [market, setMarket] = useState<Market>("both");
+  const [market, setMarket] = useState<Market>("us");
 
   // Separate loading states
   const [isFetching, setIsFetching] = useState(true); // GET on mount
@@ -582,9 +573,8 @@ export default function StockRecommendScreen({
       <div className="pt-[64px] flex flex-col gap-6">
         {/* Loading skeleton on initial fetch */}
         {isFetching && (
-          <div className="flex flex-col items-center gap-3 py-10 text-gray-600">
-            <SpinnerIcon size="w-6 h-6" />
-            <span className="text-xs">กำลังโหลดข้อมูล...</span>
+          <div className="flex flex-col items-center mt-[200px]">
+            <CommonLoading isFullScreen={false}/>
           </div>
         )}
 
@@ -600,7 +590,7 @@ export default function StockRecommendScreen({
             )}
 
             {canResearch && (
-              <div>
+              <div className="flex flex-col gap-5">
                 {/* Investment Amount */}
                 <div className="flex flex-col gap-2">
                   <label className="text-white text-sm font-semibold">
