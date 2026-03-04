@@ -181,7 +181,7 @@ async function fetchYahooPriceData(ticker: string): Promise<{
   try {
     const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(
       ticker,
-    )}?range=1mo&interval=1d`;
+    )}?range=1mo&interval=1d&events=div`;
 
     const res = await fetch(url, {
       headers: { "User-Agent": "Mozilla/5.0" },
@@ -212,9 +212,12 @@ async function fetchYahooPriceData(ticker: string): Promise<{
         ? Math.round(((currentPrice - firstPrice) / firstPrice) * 1000) / 10
         : null;
 
-    // ── Dividend Yield ────────────────────────────────────────────────────────
-    const dividendPerShare: number | null =
-      result.meta?.trailingAnnualDividendRate ?? null;
+    const dividends = result.events?.dividends ?? null;
+
+    const dividendPerShare = Object.values(dividends).reduce(
+      (sum: number, d: any) => sum + (d.amount || 0),
+      0,
+    );
 
     const dividendYield =
       dividendPerShare != null && currentPrice != null && currentPrice > 0
