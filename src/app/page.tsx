@@ -34,6 +34,10 @@ import CommonLoading from "@/shared/components/common/CommonLoading";
 import LoginModal from "@/shared/components/modal/LoginModal";
 import FooterPortfolio from "@/shared/components/common/Footer";
 import BottomNavbar from "@/shared/components/common/Navbar";
+import {
+  EditProfileModal,
+  ProfileAvatar,
+} from "@/shared/components/modal/EditProfileModal";
 
 const now = new Date();
 const thaiMonths = [
@@ -66,29 +70,6 @@ interface SessionData {
   expiresAt: number;
 }
 
-// ─── Profile Avatar ────────────────────────────────────────────────────────────
-function ProfileAvatar({ userId }: { userId: string }) {
-  const initials = userId?.slice(0, 2).toUpperCase() || "?";
-  const colors = [
-    "#FFD700",
-    "#FF6B6B",
-    "#4ECDC4",
-    "#45B7D1",
-    "#96CEB4",
-    "#DDA0DD",
-  ];
-  const color = colors[userId.charCodeAt(0) % colors.length];
-
-  return (
-    <div
-      className="w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm text-black shrink-0"
-      style={{ background: color, boxShadow: `0 0 12px ${color}55` }}
-    >
-      {initials}
-    </div>
-  );
-}
-
 export default function StockPrice() {
   const [prices, setPrices] = useState<Record<string, number | null>>({});
   const [previousPrice, setPreviousPrice] = useState<
@@ -109,6 +90,8 @@ export default function StockPrice() {
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editAssets, setEditAssets] = useState<Asset[]>([]);
+  const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
+  const [profileImage, setProfileImage] = useState<string | null>(null);
   const maskNumber = useMaskNumber();
 
   const [sortBy, setSortBy] = useState<"asset" | "value" | "profit">("value");
@@ -136,6 +119,23 @@ export default function StockPrice() {
       }
     };
     loadWishlist();
+  }, [isLoggedIn, userColId]);
+
+  // Load profile image from storage on login
+  useEffect(() => {
+    if (!isLoggedIn || !userColId) return;
+    const loadProfile = async () => {
+      try {
+        const res = await fetch(`/api/profile/${userColId}`);
+        if (res.ok) {
+          const json = await res.json();
+          if (json.imageUrl) setProfileImage(json.imageUrl);
+        }
+      } catch (err) {
+        console.error("Failed to load profile", err);
+      }
+    };
+    loadProfile();
   }, [isLoggedIn, userColId]);
 
   const MAX_PINS = 12;
@@ -417,6 +417,42 @@ export default function StockPrice() {
     }
   }
 
+  // ─── Save Profile ─────────────────────────────────────────────────────────────
+  const handleSaveProfile = async ({
+    newUsername,
+    newPassword,
+    imageUrl,
+  }: {
+    newUsername: string;
+    newPassword: string;
+    imageUrl: string | null;
+  }) => {
+    const payload: any = {};
+    if (newUsername !== userId) payload.newUsername = newUsername;
+    if (newPassword) payload.newPassword = newPassword;
+    if (imageUrl !== profileImage) payload.imageUrl = imageUrl;
+
+    const res = await fetch(`/api/profile/${userColId}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.message || "บันทึกไม่สำเร็จ");
+    }
+
+    // Update local state
+    if (newUsername !== userId) {
+      setUserId(newUsername);
+      saveSession(newUsername, userColId);
+    }
+    if (imageUrl !== profileImage) {
+      setProfileImage(imageUrl);
+    }
+  };
+
   const saveAssets = async () => {
     try {
       for (const a of editAssets) {
@@ -526,13 +562,26 @@ export default function StockPrice() {
         />
       )}
 
+      {/* ── Edit Profile Modal ──────────────────────────────────── */}
+      {isEditProfileOpen && (
+        <EditProfileModal
+          userId={userId}
+          profileImage={profileImage}
+          onClose={() => setIsEditProfileOpen(false)}
+          onSave={handleSaveProfile}
+        />
+      )}
+
       {/* ── Top Bar ────────────────────────────────────────────── */}
       {currentPage === "portfolio" && (
         <div className="fixed top-[67px] left-0 right-0 bg-black z-[99] sm:max-w-[450px] mx-auto">
           {/* Profile Row */}
           <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-accent-yellow/10">
-            <div className="flex items-center gap-3">
-              <ProfileAvatar userId={userId} />
+            <div
+              className="flex items-center gap-3"
+              onClick={() => setIsEditProfileOpen(true)}
+            >
+              <ProfileAvatar userId={userId} imageUrl={profileImage} />
               <div>
                 <p className="text-white font-semibold text-sm leading-tight">
                   {userId}
@@ -682,7 +731,6 @@ export default function StockPrice() {
                     {/* Col 1: Logo + Name */}
                     <div className="flex flex-col gap-1">
                       <div className="flex items-center gap-2">
-                        {/* Logo */}
                         <div
                           className={`w-[32px] h-[32px] rounded-full bg-cover bg-center border border-white/10 shrink-0 ${logoUrl ? "" : "bg-white"}`}
                           style={{ backgroundImage: `url(${logoUrl})` }}
@@ -747,7 +795,6 @@ export default function StockPrice() {
                   {/* ── Expanded Detail ── */}
                   {isExpanded && (
                     <div className="bg-black-lighter border-y border-accent-yellow/10 text-[12px] grid grid-cols-2 gap-x-4 gap-y-2 px-4 py-3">
-                      {/* Daily change badge */}
                       <div className="col-span-2 flex items-center gap-2 mb-1">
                         <span className="text-gray-500 text-[11px]">
                           เปลี่ยนแปลงวันนี้
@@ -764,7 +811,6 @@ export default function StockPrice() {
                           {fNumber(percentChange)}%
                         </span>
                       </div>
-
                       <div className="text-gray-400">
                         จำนวนหุ้น{" "}
                         <span className="text-white font-medium">

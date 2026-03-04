@@ -33,20 +33,8 @@ const BackgroundLayout: FC<BackgroundLayoutProps> = ({ children }) => {
       <body className="antialiased font-sarabun">
         <div className="bg-black min-h-screen flex flex-col items-center">
           {/* ── App Bar ─────────────────────────────────────────── */}
-          <header
-            className="fixed top-0 w-full sm:max-w-[450px] z-[98] overflow-hidden"
-            style={{ background: "#0a0a0a" }}
-          >
-            {/* Top glow line */}
-            <div
-              className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-px"
-              style={{
-                background:
-                  "linear-gradient(90deg, transparent, rgba(255,215,0,0.6), transparent)",
-              }}
-            />
-
-            <div className="relative flex items-center px-4 py-3 gap-3">
+          <header className="fixed top-0 w-full sm:max-w-[450px] z-[98] overflow-hidden">
+            <div className="relative flex items-center px-4 py-4 gap-3 bg-black">
               {/* Logo with glow */}
               <div className="relative shrink-0">
                 <div
@@ -90,11 +78,11 @@ const BackgroundLayout: FC<BackgroundLayoutProps> = ({ children }) => {
                       "_blank",
                     )
                   }
-                  className="flex items-center gap-1 px-2 py-1 rounded-lg transition-all hover:opacity-80 active:scale-95"
-                  style={{
-                    background: "rgba(255,215,0,0.08)",
-                    border: "1px solid rgba(255,215,0,0.22)",
-                  }}
+                  className="flex items-center gap-1 rounded-lg transition-all hover:opacity-80 active:scale-95"
+                  // style={{
+                  //   background: "rgba(255,215,0,0.08)",
+                  //   border: "1px solid rgba(255,215,0,0.22)",
+                  // }}
                 >
                   <span className="text-[11px] font-bold text-accent-yellow">
                     @pd.piriya
@@ -103,15 +91,6 @@ const BackgroundLayout: FC<BackgroundLayoutProps> = ({ children }) => {
                 </button>
               </div>
             </div>
-
-            {/* Bottom gold shimmer line */}
-            <div
-              className="h-px w-full"
-              style={{
-                background:
-                  "linear-gradient(90deg, transparent 0%, rgba(255,215,0,0.5) 35%, rgba(255,180,0,0.85) 50%, rgba(255,215,0,0.5) 65%, transparent 100%)",
-              }}
-            />
           </header>
 
           {/* ── Content ─────────────────────────────────────────── */}
