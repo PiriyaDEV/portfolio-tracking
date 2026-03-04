@@ -181,7 +181,7 @@ async function fetchYahooPriceData(ticker: string): Promise<{
   try {
     const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(
       ticker,
-    )}?range=1mo&interval=1d&events=div`;
+    )}?range=1y&interval=1d&events=div`;
 
     const res = await fetch(url, {
       headers: { "User-Agent": "Mozilla/5.0" },
@@ -205,22 +205,31 @@ async function fetchYahooPriceData(ticker: string): Promise<{
       return { currentPrice: null, return1M: null, dividendYield: null };
 
     const currentPrice = validCloses[validCloses.length - 1];
-    const firstPrice = validCloses[0];
+
+    // Take ~30 trading days back for 1M return (instead of first close of range)
+    const monthAgoClose = validCloses[Math.max(0, validCloses.length - 30)];
 
     const return1M =
-      firstPrice > 0
-        ? Math.round(((currentPrice - firstPrice) / firstPrice) * 1000) / 10
+      monthAgoClose > 0
+        ? Math.round(((currentPrice - monthAgoClose) / monthAgoClose) * 1000) /
+          10
         : null;
+
+    // ── Dividend Yield ────────────────────────────────────────────────────────
 
     const dividends = result.events?.dividends ?? null;
 
-    const dividendPerShare = Object.values(dividends).reduce(
-      (sum: number, d: any) => sum + (d.amount || 0),
-      0,
-    );
+    const dividendPerShare =
+      dividends &&
+      typeof dividends === "object" &&
+      Object.keys(dividends).length > 0
+        ? Object.values(dividends).reduce((sum: number, d: any) => {
+            return sum + (d?.amount || 0);
+          }, 0)
+        : null;
 
     const dividendYield =
-      dividendPerShare != null && currentPrice != null && currentPrice > 0
+      dividendPerShare != null && dividendPerShare > 0 && currentPrice > 0
         ? Math.round((dividendPerShare / currentPrice) * 1000) / 10
         : null;
 

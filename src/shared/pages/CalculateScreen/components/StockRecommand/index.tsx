@@ -197,10 +197,10 @@ const MARKETS: { id: Market; label: string; flag: string }[] = [
 // ─── Rating config ─────────────────────────────────────────────────────────────
 
 const RATING_CONFIG = [
-  { key: "growth" as const, label: "Growth", emoji: "📈", color: "bg-cyan-400" },
-  { key: "dividend" as const, label: "Dividend", emoji: "💰", color: "bg-pink-400" },
-  { key: "profitability" as const, label: "Profit", emoji: "💎", color: "bg-purple-400" },
-  { key: "intrinsicValue" as const, label: "Value", emoji: "🎯", color: "bg-amber-400" },
+  { key: "growth" as const, label: "การเติบโต", emoji: "📈", color: "bg-cyan-400" },
+  { key: "dividend" as const, label: "เงินปันผล", emoji: "💰", color: "bg-pink-400" },
+  { key: "profitability" as const, label: "กำไร", emoji: "💎", color: "bg-purple-400" },
+  { key: "intrinsicValue" as const, label: "มูลค่าเหมาะสม", emoji: "🎯", color: "bg-amber-400" },
 ];
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -274,7 +274,7 @@ function RatingsRow({ ratings }: { ratings: StockRatings }) {
           key={key}
           className="flex flex-col items-center gap-1 bg-gray-900/60 rounded-lg py-2 px-1"
         >
-          <span className="text-[10px] text-gray-500 leading-none mb-1">{emoji} {label}</span>
+          <span className="text-[8px] text-gray-500 leading-none mb-1">{emoji} {label}</span>
           <RatingDots value={ratings[key]} color={color} />
         </div>
       ))}
@@ -453,11 +453,11 @@ function StockCard({
 
         {/* Upside */}
         <div className="bg-[#111] px-2 py-2.5">
-          <p className="text-gray-500 text-[10px]">Upside</p>
-          <div className="flex items-center gap-1 font-black text-sm mt-0.5 text-green-400">
+          <p className="text-gray-500 text-[10px]">โอกาสกำไร</p>
+          <div className="flex items-center gap-1 font-black text-sm mt-0.5 text-yellow-400">
             <UpIcon className="text-[10px]" />+{rec.upside}%
           </div>
-          <MiniBar value={rec.upside} max={30} color="bg-green-400" />
+          <MiniBar value={rec.upside} max={30} color="bg-yellow-400" />
         </div>
 
         {/* ปันผล */}
@@ -651,7 +651,7 @@ export default function StockRecommendScreen({
     parseFloat(investmentAmount) > 0 && selectedCategories.length > 0;
 
   return (
-    <div className="p-4 w-full pb-[120px]">
+    <div className="p-4 w-full pb-[70px]">
       {/* Sticky header */}
       <div className="fixed top-[67px] left-1/2 -translate-x-1/2 max-w-[450px] w-full bg-black py-3 px-5 border-b border-gray-800 z-10">
         <div className="flex items-center gap-2">
