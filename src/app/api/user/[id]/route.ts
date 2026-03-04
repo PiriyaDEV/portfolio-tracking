@@ -31,7 +31,7 @@ export async function GET(req: Request, context: any) {
         {
           status: 400,
           headers: { "Content-Type": "application/json" },
-        }
+        },
       );
     }
 
@@ -40,7 +40,7 @@ export async function GET(req: Request, context: any) {
     // Read all rows from the sheet
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId,
-      range: "Sheet1!A:D", // Adjust sheet name if needed
+      range: "Sheet1!A:E", // Adjust sheet name if needed
     });
 
     const rows = response.data.values;
@@ -60,7 +60,7 @@ export async function GET(req: Request, context: any) {
       console.log("Looking for ID:", id);
       console.log(
         "Available IDs:",
-        rows.slice(1).map((r) => r[0])
+        rows.slice(1).map((r) => r[0]),
       );
       return new Response(JSON.stringify({ error: "User not found" }), {
         status: 404,
@@ -85,18 +85,20 @@ export async function GET(req: Request, context: any) {
     }
 
     // Parse the JSON data from column D
-    const username = userRow[3] ? userRow[3] : '';
+    const username = userRow[3] ? userRow[3] : "";
+    const image = userRow[4] ? userRow[4] : "";
 
     return new Response(
       JSON.stringify({
         userId: id,
         username: username,
         assets: userData,
+        image: image
       }),
       {
         status: 200,
         headers: { "Content-Type": "application/json" },
-      }
+      },
     );
   } catch (error: any) {
     console.error("GET Error details:", error);
@@ -110,7 +112,7 @@ export async function GET(req: Request, context: any) {
       {
         status: 500,
         headers: { "Content-Type": "application/json" },
-      }
+      },
     );
   }
 }
@@ -130,7 +132,7 @@ export async function POST(req: Request, context: any) {
         {
           status: 400,
           headers: { "Content-Type": "application/json" },
-        }
+        },
       );
     }
 
@@ -158,7 +160,7 @@ export async function POST(req: Request, context: any) {
     // Skip header row when searching (slice(1)), but remember actual position
     const dataRows = rows.slice(1);
     const userRowIndex = dataRows.findIndex(
-      (row) => row[0] && row[0].toString() === id.toString()
+      (row) => row[0] && row[0].toString() === id.toString(),
     );
 
     if (userRowIndex === -1) {
@@ -192,7 +194,7 @@ export async function POST(req: Request, context: any) {
       {
         status: 200,
         headers: { "Content-Type": "application/json" },
-      }
+      },
     );
   } catch (error: any) {
     console.error("POST Error details:", error);
@@ -206,7 +208,7 @@ export async function POST(req: Request, context: any) {
       {
         status: 500,
         headers: { "Content-Type": "application/json" },
-      }
+      },
     );
   }
 }

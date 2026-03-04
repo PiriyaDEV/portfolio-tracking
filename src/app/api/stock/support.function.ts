@@ -9,7 +9,7 @@ export interface AdvancedLevels {
   stopLoss: number;
   resistance: number;
   trend: "UP" | "DOWN" | "SIDEWAYS";
-  recommendation?: any
+  recommendation?: any;
 }
 
 const INITIAL_LEVELS = (symbol: string): AdvancedLevels => ({
@@ -23,7 +23,7 @@ const INITIAL_LEVELS = (symbol: string): AdvancedLevels => ({
   stopLoss: 0,
   resistance: 0,
   trend: "SIDEWAYS",
-  recommendation: ''
+  recommendation: "",
 });
 
 export async function getAdvancedLevels(
@@ -33,7 +33,7 @@ export async function getAdvancedLevels(
   if (symbol === "TISCO-PVD") symbol = "THB=X";
 
   try {
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1mo`;
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=3mo`;
     const response = await fetch(url);
 
     if (!response.ok) return INITIAL_LEVELS(symbol);
@@ -45,6 +45,7 @@ export async function getAdvancedLevels(
     if (!quotes) return INITIAL_LEVELS(symbol);
 
     const closes = (quotes.close ?? []).filter((v: number) => v != null);
+    const stableCloses = closes.slice(0, -1);
     const highs = (quotes.high ?? []).filter((v: number) => v != null);
     const lows = (quotes.low ?? []).filter((v: number) => v != null);
 
@@ -53,13 +54,13 @@ export async function getAdvancedLevels(
     }
 
     const meta = result.meta;
-    const currentPrice = meta?.regularMarketPrice ?? closes[closes.length - 1];
+    const currentPrice = closes[closes.length - 1];
     const previousClose = meta?.previousClose ?? closes[closes.length - 2];
 
     /* ================= EMA ================= */
     const ema = (period: number) => {
-      const p = Math.min(period, closes.length);
-      return closes.slice(-p).reduce((a: any, b: any) => a + b, 0) / p;
+      const p = Math.min(period, stableCloses.length);
+      return stableCloses.slice(-p).reduce((a: any, b: any) => a + b, 0) / p;
     };
 
     const ema20 = ema(20);

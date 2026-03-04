@@ -85,7 +85,7 @@ export default function StockPrice() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loginError, setLoginError] = useState("");
   const [userId, setUserId] = useState("");
-  const [username, setUsername] = useState("");
+  const [username, setUsername] = useState<any>("");
   const [assets, setAssets] = useState<Asset[] | null>(null);
   const [userColId, setUserColId] = useState("");
   const [isInitialLoad, setIsInitialLoad] = useState(true);
@@ -101,7 +101,6 @@ export default function StockPrice() {
     "portfolio" | "market" | "calculator" | "view"
   >("portfolio");
 
-  const WISHLIST_KEY = "stock-wishlist";
   const [wishlist, setWishlist] = useState<string[]>([]);
   const [data, setData] = useState<StockResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -279,6 +278,7 @@ export default function StockPrice() {
     let parsedAssets: Asset[];
     let parsedUserId: string;
     let parsedUsername: string;
+    let parsedUserImage: string | null;
 
     try {
       const responseText = await response.text();
@@ -315,6 +315,15 @@ export default function StockPrice() {
         typeof data.username === "string" && data.username.startsWith('"')
           ? JSON.parse(data.username)
           : data.username || targetUserId;
+      if (typeof data.image === "string" && data.image.trim() !== "") {
+        try {
+          parsedUserImage = JSON.parse(data.image);
+        } catch {
+          parsedUserImage = data.image;
+        }
+      } else {
+        parsedUserImage = null;
+      }
     } catch (err) {
       console.error("Parse error:", err);
       throw new Error("ไม่สามารถอ่านข้อมูลผู้ใช้งาน");
@@ -324,6 +333,7 @@ export default function StockPrice() {
       setAssets([]);
       setUserColId(parsedUserId);
       setUsername(parsedUsername);
+      setProfileImage(parsedUserImage);
       setIsLoggedIn(true);
       saveSession(targetUserId, parsedUserId);
       return;
@@ -331,6 +341,7 @@ export default function StockPrice() {
 
     setAssets(parsedAssets);
     setUserColId(parsedUserId);
+    setProfileImage(parsedUserImage);
     setUsername(parsedUsername);
     setIsLoggedIn(true);
     saveSession(targetUserId, parsedUserId);
@@ -409,16 +420,15 @@ export default function StockPrice() {
     imageUrl: string | null;
   }) => {
     const payload: any = {
-      oldPassword: userId, // current password (Column A)
-      username: newUsername, // Column D
-      image: imageUrl, // Column E
+      oldPassword: userId,
+      username: newUsername,
+      image: imageUrl,
     };
 
-    // Only send newPassword if user changed it
     if (newPassword && newPassword !== userId) {
       payload.newPassword = newPassword;
     } else {
-      payload.newPassword = userId; // keep same password
+      payload.newPassword = userId;
     }
 
     const res = await fetch(`/api/profile/${userColId}`, {
@@ -434,7 +444,6 @@ export default function StockPrice() {
 
     const result = await res.json();
 
-    // ✅ Update local state properly
     if (newPassword && newPassword !== userId) {
       setUserId(newPassword);
       saveSession(newPassword, userColId);
@@ -478,6 +487,49 @@ export default function StockPrice() {
     }
   };
 
+  // ─── Shared Profile Header ────────────────────────────────────────────────────
+  const ProfileHeader = ({ showActions = true }: { showActions?: boolean }) => (
+    <div className="fixed top-[67px] left-0 right-0 bg-black z-[99] sm:max-w-[450px] mx-auto">
+      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-accent-yellow/10">
+        <div
+          className="flex items-center gap-3 cursor-pointer"
+          onClick={() => setIsEditProfileOpen(true)}
+        >
+          <ProfileAvatar username={username} imageUrl={profileImage} />
+          <div>
+            <p className="text-white font-semibold text-sm leading-tight">
+              {username}'s
+            </p>
+            <p className="text-accent-yellow/50 text-[11px]">พอร์ตโฟลิโอ</p>
+          </div>
+        </div>
+        {showActions && (
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setIsNumbersHidden(!isNumbersHidden)}
+              className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-white bg-black-lighter border border-white/10 transition-all text-[14px]"
+              aria-label={isNumbersHidden ? "Show numbers" : "Hide numbers"}
+            >
+              {isNumbersHidden ? <EyeSlashIcon /> : <EyeIcon />}
+            </button>
+            <button
+              className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-accent-yellow bg-black-lighter border border-white/10 transition-all text-[13px]"
+              onClick={openEditModal}
+            >
+              <FaPen />
+            </button>
+            <button
+              onClick={loadData}
+              className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-white bg-black-lighter border border-white/10 transition-all text-[18px]"
+            >
+              <RefreshIcon />
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
   if (isLoading) return <CommonLoading />;
   if (!isLoggedIn) {
     return (
@@ -494,17 +546,43 @@ export default function StockPrice() {
   if (assets === null) return <CommonLoading />;
   if (assets?.length === 0) {
     return (
-      <NoItem
-        onAddClick={openEditModal}
-        isEditOpen={isEditOpen}
-        editAssets={editAssets}
-        setEditAssets={setEditAssets}
-        addNewAsset={addNewAsset}
-        removeAsset={removeAsset}
-        saveAssets={saveAssets}
-        setIsEditOpen={setIsEditOpen}
-        EditModal={EditModal}
-      />
+      <div className="mt-[81px]">
+        {isEditOpen && (
+          <EditModal
+            editAssets={editAssets}
+            setEditAssets={setEditAssets}
+            addNewAsset={addNewAsset}
+            removeAsset={removeAsset}
+            saveAssets={saveAssets}
+            setIsEditOpen={setIsEditOpen}
+          />
+        )}
+        {isEditProfileOpen && (
+          <EditProfileModal
+            username={username}
+            userId={userId}
+            profileImage={profileImage}
+            onClose={() => setIsEditProfileOpen(false)}
+            onSave={handleSaveProfile}
+          />
+        )}
+        <ProfileHeader showActions={false} />
+        <NoItem
+          onAddClick={openEditModal}
+          isEditOpen={isEditOpen}
+          editAssets={editAssets}
+          setEditAssets={setEditAssets}
+          addNewAsset={addNewAsset}
+          removeAsset={removeAsset}
+          saveAssets={saveAssets}
+          setIsEditOpen={setIsEditOpen}
+          EditModal={EditModal}
+        />
+        <BottomNavbar
+          currentPage={currentPage}
+          setCurrentPage={setCurrentPage}
+        />
+      </div>
     );
   }
 
@@ -553,7 +631,6 @@ export default function StockPrice() {
         />
       )}
 
-      {/* ── Edit Profile Modal ──────────────────────────────────── */}
       {isEditProfileOpen && (
         <EditProfileModal
           username={username}
@@ -567,45 +644,10 @@ export default function StockPrice() {
       {/* ── Top Bar ────────────────────────────────────────────── */}
       {currentPage === "portfolio" && (
         <div className="fixed top-[67px] left-0 right-0 bg-black z-[99] sm:max-w-[450px] mx-auto">
-          {/* Profile Row */}
-          <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-accent-yellow/10">
-            <div
-              className="flex items-center gap-3"
-              onClick={() => setIsEditProfileOpen(true)}
-            >
-              <ProfileAvatar username={username} imageUrl={profileImage} />
-              <div>
-                <p className="text-white font-semibold text-sm leading-tight">
-                  {username}'s
-                </p>
-                <p className="text-accent-yellow/50 text-[11px]">พอร์ตโฟลิโอ</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setIsNumbersHidden(!isNumbersHidden)}
-                className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-white bg-black-lighter border border-white/10 transition-all text-[14px]"
-                aria-label={isNumbersHidden ? "Show numbers" : "Hide numbers"}
-              >
-                {isNumbersHidden ? <EyeSlashIcon /> : <EyeIcon />}
-              </button>
-              <button
-                className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-accent-yellow bg-black-lighter border border-white/10 transition-all text-[13px]"
-                onClick={openEditModal}
-              >
-                <FaPen />
-              </button>
-              <button
-                onClick={loadData}
-                className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-white bg-black-lighter border border-white/10 transition-all text-[18px]"
-              >
-                <RefreshIcon />
-              </button>
-            </div>
-          </div>
+          <ProfileHeader showActions={true} />
 
           {/* Sort Header */}
-          <div className="grid grid-cols-[2fr_1fr_1fr] gap-3 px-4 py-2 bg-black border-b border-black-lighter">
+          <div className="mt-[68px] grid grid-cols-[2fr_1fr_1fr] gap-3 px-4 py-2 bg-black border-b border-black-lighter">
             <div
               className="text-[11px] text-gray-500 flex items-center gap-1 cursor-pointer hover:text-gray-300 transition-colors select-none"
               onClick={() => toggleSort("asset")}
