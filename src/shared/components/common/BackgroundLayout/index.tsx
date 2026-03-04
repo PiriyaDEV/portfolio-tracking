@@ -16,7 +16,7 @@ const sarabun = Sarabun({
 });
 
 export const metadata: Metadata = {
-  title: "P'tracker",
+  title: "P'Tracker",
   description: "Portfolio Tracking",
   themeColor: '#171616ff',
   openGraph: {
@@ -30,7 +30,7 @@ const BackgroundLayout: FC<BackgroundLayoutProps> = ({ children }) => {
       <body className="antialiased font-sarabun">
         <div className="bg-cover bg-center flex flex-col items-center bg-black bg-opacity-70 min-h-screen">
           <div className="fixed top-0 w-full sm:max-w-[450px] bg-black z-[98] text-center font-bold py-4 text-[22px] text-white">
-            P'tracker
+            P'Tracker
             <div className="text-xs text-center text-text-light">
               Made by{" "}
               <span

@@ -58,12 +58,35 @@ const minutes = now.getMinutes().toString().padStart(2, "0");
 
 const isMock = false;
 const SESSION_KEY = "portfolio_session";
-const SESSION_DURATION = 60 * 60 * 1000; // 1 hour in milliseconds
+const SESSION_DURATION = 60 * 60 * 1000;
 
 interface SessionData {
   userId: string;
   userColId: string;
   expiresAt: number;
+}
+
+// ─── Profile Avatar ────────────────────────────────────────────────────────────
+function ProfileAvatar({ userId }: { userId: string }) {
+  const initials = userId?.slice(0, 2).toUpperCase() || "?";
+  const colors = [
+    "#FFD700",
+    "#FF6B6B",
+    "#4ECDC4",
+    "#45B7D1",
+    "#96CEB4",
+    "#DDA0DD",
+  ];
+  const color = colors[userId.charCodeAt(0) % colors.length];
+
+  return (
+    <div
+      className="w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm text-black shrink-0"
+      style={{ background: color, boxShadow: `0 0 12px ${color}55` }}
+    >
+      {initials}
+    </div>
+  );
 }
 
 export default function StockPrice() {
@@ -84,33 +107,24 @@ export default function StockPrice() {
   const [assets, setAssets] = useState<Asset[] | null>(null);
   const [userColId, setUserColId] = useState("");
   const [isInitialLoad, setIsInitialLoad] = useState(true);
-
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editAssets, setEditAssets] = useState<Asset[]>([]);
   const maskNumber = useMaskNumber();
 
-  // Sorting state
   const [sortBy, setSortBy] = useState<"asset" | "value" | "profit">("value");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
-  // Page state for bottom navbar
   const [currentPage, setCurrentPage] = useState<
     "portfolio" | "market" | "calculator" | "view"
   >("portfolio");
 
-  // ===== SEARCH
-
   const WISHLIST_KEY = "stock-wishlist";
-
   const [wishlist, setWishlist] = useState<string[]>([]);
   const [data, setData] = useState<StockResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchedSymbol, setSearchedSymbol] = useState<string | null>(null);
 
-  /* -------------------- Wishlist -------------------- */
-
   useEffect(() => {
     if (!isLoggedIn || !userColId) return;
-
     const loadWishlist = async () => {
       try {
         const res = await fetch(`/api/wishlist/${userColId}`);
@@ -121,7 +135,6 @@ export default function StockPrice() {
         setWishlist([]);
       }
     };
-
     loadWishlist();
   }, [isLoggedIn, userColId]);
 
@@ -130,37 +143,25 @@ export default function StockPrice() {
   const togglePin = (symbol: string) => {
     setWishlist((prev) => {
       const isPinned = prev.includes(symbol);
-
-      // ❌ Unpin
       let next = isPinned
         ? prev.filter((s) => s !== symbol)
         : prev.length < MAX_PINS
           ? [...prev, symbol]
           : prev;
-
-      // 🔥 If pinning searched item → remove from search
       if (!isPinned) {
         setSearchedSymbol((current) => (current === symbol ? null : current));
       }
-
-      // 🔁 Persist to API (column C)
       fetch(`/api/wishlist/${userColId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ wishlist: next }),
-      }).catch((err) => {
-        console.error("Wishlist sync failed", err);
-      });
-
+      }).catch((err) => console.error("Wishlist sync failed", err));
       return next;
     });
   };
 
-  /* -------------------- Bulk Fetch -------------------- */
-
   const fetchSymbols = async (symbols: string[]) => {
     if (!symbols.length) return;
-
     setLoading(true);
     try {
       const res = await fetch("/api/view-bulk", {
@@ -168,7 +169,6 @@ export default function StockPrice() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ symbols }),
       });
-
       const json = await res.json();
       setData(json.data);
     } finally {
@@ -176,19 +176,15 @@ export default function StockPrice() {
     }
   };
 
-  /* -------------------- Effects -------------------- */
-
   useEffect(() => {
     const symbols = Array.from(
       new Set([...(searchedSymbol ? [searchedSymbol] : []), ...wishlist]),
     );
-
     fetchSymbols(symbols);
   }, [searchedSymbol, wishlist]);
 
   const { isNumbersHidden, setIsNumbersHidden } = useNumbersHidden();
 
-  // Session Storage Functions
   const saveSession = (userId: string, userColId: string) => {
     const sessionData: SessionData = {
       userId,
@@ -202,15 +198,11 @@ export default function StockPrice() {
     try {
       const data = sessionStorage.getItem(SESSION_KEY);
       if (!data) return null;
-
       const session: SessionData = JSON.parse(data);
-
-      // Check if session expired
       if (Date.now() > session.expiresAt) {
         sessionStorage.removeItem(SESSION_KEY);
         return null;
       }
-
       return session;
     } catch (error) {
       console.error("Error reading session:", error);
@@ -218,11 +210,8 @@ export default function StockPrice() {
     }
   };
 
-  const clearSession = () => {
-    sessionStorage.removeItem(SESSION_KEY);
-  };
+  const clearSession = () => sessionStorage.removeItem(SESSION_KEY);
 
-  // Check for existing session on mount
   useEffect(() => {
     const checkSession = async () => {
       const session = getSession();
@@ -232,7 +221,6 @@ export default function StockPrice() {
         setIsLoading(true);
         try {
           await fetchUserData(session.userId);
-          // Don't set loading false here - let the data loading effect handle it
         } catch (error) {
           console.error("Session restore failed:", error);
           clearSession();
@@ -244,12 +232,11 @@ export default function StockPrice() {
         setIsInitialLoad(false);
       }
     };
-
     checkSession();
   }, []);
 
   const openEditModal = () => {
-    setEditAssets(JSON.parse(JSON.stringify(assets))); // Deep copy
+    setEditAssets(JSON.parse(JSON.stringify(assets)));
     setIsEditOpen(true);
   };
 
@@ -274,17 +261,14 @@ export default function StockPrice() {
     setEditAssets(updated);
   };
 
-  // Format date every render
   useEffect(() => {
     setFormattedDate(`${day} ${month} ${year} ${hours}:${minutes} น.`);
   }, [isLoggedIn]);
 
-  // Load data when assets are available - FIXED VERSION
   useEffect(() => {
     if (assets && assets.length > 0 && isLoggedIn) {
       loadData();
     } else if (assets !== null && assets.length === 0 && isLoggedIn) {
-      // Empty assets case - finish loading immediately
       setIsLoading(false);
       setIsInitialLoad(false);
     }
@@ -301,10 +285,8 @@ export default function StockPrice() {
     }
     setIsLoading(true);
     setLoginError("");
-
     try {
       await fetchUserData(userId);
-      // Don't set loading false here - let the data loading effect handle it
     } catch (err: any) {
       console.error(err);
       setLoginError(err.message || "ไม่เจอผู้ใช้งาน");
@@ -375,16 +357,9 @@ export default function StockPrice() {
 
   async function loadData() {
     if (!assets || assets.length === 0) return;
-
-    // Only show loading spinner on manual refresh, not initial load
-    if (!isInitialLoad) {
-      setIsLoading(true);
-    }
-
+    if (!isInitialLoad) setIsLoading(true);
     try {
-      // Wait for ALL data to load using Promise.all
       await Promise.all([fetchFinancialData(), fetchFxRate()]);
-
       const now = new Date();
       const day = now.getDate();
       const month = thaiMonths[now.getMonth()];
@@ -395,7 +370,6 @@ export default function StockPrice() {
     } catch (err) {
       console.error(err);
     } finally {
-      // Only set loading false after ALL data is loaded
       setIsLoading(false);
       setIsInitialLoad(false);
     }
@@ -403,10 +377,8 @@ export default function StockPrice() {
 
   async function fetchFinancialData() {
     if (!assets || assets.length === 0) return;
-
     try {
       let data: any;
-
       if (!isMock) {
         const res = await fetch("/api/stock", {
           method: "POST",
@@ -424,7 +396,6 @@ export default function StockPrice() {
         }
         data = { prices: mockPrices, assets: validAssets };
       }
-
       setPrices(data.prices || {});
       setAdvancedLevels(data.advancedLevels || {});
       setPreviousPrice(data.previousPrice || {});
@@ -462,13 +433,11 @@ export default function StockPrice() {
           return;
         }
       }
-
       const res = await fetch(`/api/user/${userColId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ assets: editAssets, isMock }),
       });
-
       const data = await res.json();
       if (!res.ok) {
         alert("Error saving assets: " + JSON.stringify(data));
@@ -482,9 +451,7 @@ export default function StockPrice() {
     }
   };
 
-  // Loading state
   if (isLoading) return <CommonLoading />;
-
   if (!isLoggedIn) {
     return (
       <LoginModal
@@ -497,9 +464,7 @@ export default function StockPrice() {
       />
     );
   }
-
   if (assets === null) return <CommonLoading />;
-
   if (assets?.length === 0) {
     return (
       <NoItem
@@ -516,15 +481,11 @@ export default function StockPrice() {
     );
   }
 
-  // Sorting function
   const sortedAssets = [...assets].sort((a, b) => {
     const priceA = prices[a.symbol] ?? 0;
     const priceB = prices[b.symbol] ?? 0;
-
-    // Check if stocks are Thai to determine correct currency
     const isThaiA = isThaiStock(a.symbol);
     const isThaiB = isThaiStock(b.symbol);
-
     const valueA = isThaiA
       ? priceA * a.quantity
       : priceA * a.quantity * currencyRate;
@@ -535,12 +496,10 @@ export default function StockPrice() {
       valueA - a.costPerShare * a.quantity * (isThaiA ? 1 : currencyRate);
     const profitB =
       valueB - b.costPerShare * b.quantity * (isThaiB ? 1 : currencyRate);
-
     let compare = 0;
     if (sortBy === "asset") compare = a.symbol.localeCompare(b.symbol);
     else if (sortBy === "value") compare = valueA - valueB;
     else if (sortBy === "profit") compare = profitA - profitB;
-
     return sortOrder === "asc" ? compare : -compare;
   });
 
@@ -548,10 +507,7 @@ export default function StockPrice() {
     if (sortBy === column) setSortOrder(sortOrder === "asc" ? "desc" : "asc");
     else {
       setSortBy(column);
-      // Default order based on column
-      if (column === "asset")
-        setSortOrder("asc"); // asset default asc
-      else setSortOrder("desc"); // value and profit default desc
+      setSortOrder(column === "asset" ? "asc" : "desc");
     }
   };
 
@@ -570,33 +526,83 @@ export default function StockPrice() {
         />
       )}
 
-      {/* Refresh Button */}
+      {/* ── Top Bar ────────────────────────────────────────────── */}
       {currentPage === "portfolio" && (
-        <div className="fixed bg-black px-4 flex justify-between items-center w-full z-[99] sm:max-w-[450px] pb-5">
-          <div className="flex items-center gap-6">
-            <button
-              className="text-[20px] cursor-pointer"
-              onClick={openEditModal}
-            >
-              <FaPen />
-            </button>
-            <button
-              onClick={() => setIsNumbersHidden(!isNumbersHidden)}
-              className="text-[24px] cursor-pointer"
-              aria-label={isNumbersHidden ? "Show numbers" : "Hide numbers"}
-            >
-              {isNumbersHidden ? <EyeSlashIcon /> : <EyeIcon />}
-            </button>
+        <div className="fixed top-[80px] left-0 right-0 bg-black z-[99] sm:max-w-[450px] mx-auto">
+          {/* Profile Row */}
+          <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-accent-yellow/10">
+            <div className="flex items-center gap-3">
+              <ProfileAvatar userId={userId} />
+              <div>
+                <p className="text-white font-semibold text-sm leading-tight">
+                  {userId}
+                </p>
+                <p className="text-accent-yellow/50 text-[11px]">พอร์ตโฟลิโอ</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setIsNumbersHidden(!isNumbersHidden)}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-white bg-black-lighter border border-white/10 transition-all text-[14px]"
+                aria-label={isNumbersHidden ? "Show numbers" : "Hide numbers"}
+              >
+                {isNumbersHidden ? <EyeSlashIcon /> : <EyeIcon />}
+              </button>
+              <button
+                className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-accent-yellow bg-black-lighter border border-white/10 transition-all text-[13px]"
+                onClick={openEditModal}
+              >
+                <FaPen />
+              </button>
+              <button
+                onClick={loadData}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-white bg-black-lighter border border-white/10 transition-all text-[18px]"
+              >
+                <RefreshIcon />
+              </button>
+            </div>
           </div>
 
-          <RefreshIcon
-            className="cursor-pointer text-[30px]"
-            onClick={loadData}
-          />
+          {/* Sort Header */}
+          <div className="grid grid-cols-[2fr_1fr_1fr] gap-3 px-4 py-2 bg-black border-b border-black-lighter">
+            <div
+              className="text-[11px] text-gray-500 flex items-center gap-1 cursor-pointer hover:text-gray-300 transition-colors select-none"
+              onClick={() => toggleSort("asset")}
+            >
+              สินทรัพย์{" "}
+              {sortBy === "asset" && (
+                <span className="text-accent-yellow">
+                  {sortOrder === "asc" ? "▲" : "▼"}
+                </span>
+              )}
+            </div>
+            <div
+              className="text-[11px] text-gray-500 text-right flex items-center justify-end gap-1 cursor-pointer hover:text-gray-300 transition-colors select-none"
+              onClick={() => toggleSort("value")}
+            >
+              มูลค่า (THB){" "}
+              {sortBy === "value" && (
+                <span className="text-accent-yellow">
+                  {sortOrder === "asc" ? "▲" : "▼"}
+                </span>
+              )}
+            </div>
+            <div
+              className="text-[11px] text-gray-500 text-right flex items-center justify-end gap-1 cursor-pointer hover:text-gray-300 transition-colors select-none"
+              onClick={() => toggleSort("profit")}
+            >
+              % กำไร{" "}
+              {sortBy === "profit" && (
+                <span className="text-accent-yellow">
+                  {sortOrder === "asc" ? "▲" : "▼"}
+                </span>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
-      {/* Portfolio Header */}
+      {/* ── Page Content ───────────────────────────────────────── */}
       <div className="flex flex-wrap w-full">
         {currentPage === "view" && (
           <ViewScreen
@@ -626,202 +632,176 @@ export default function StockPrice() {
             currencyRate={currencyRate}
           />
         )}
+
         {currentPage === "portfolio" && (
-          <>
-            <div className="w-full grid grid-cols-[2fr_1fr_1fr] gap-3 px-4 py-2 cursor-pointer fixed top-[120px] z-[99] sm:max-w-[450px] bg-black border-b border-black-lighter2">
-              <div
-                className="text-[12px] text-gray-400 flex items-center gap-1"
-                onClick={() => toggleSort("asset")}
-              >
-                สินทรัพย์{" "}
-                {sortBy === "asset" && (sortOrder === "asc" ? "▲" : "▼")}
-              </div>
-              <div
-                className="text-[12px] text-gray-400 text-right flex items-center justify-end gap-1"
-                onClick={() => toggleSort("value")}
-              >
-                มูลค่า (THB){" "}
-                {sortBy === "value" && (sortOrder === "asc" ? "▲" : "▼")}
-              </div>
-              <div
-                className="text-[12px] text-gray-400 text-right flex items-center justify-end gap-1"
-                onClick={() => toggleSort("profit")}
-              >
-                % กำไร{" "}
-                {sortBy === "profit" && (sortOrder === "asc" ? "▲" : "▼")}
-              </div>
-            </div>
+          <div className="mt-[100px] mb-[50px] w-full">
+            {sortedAssets.map((asset) => {
+              const isThai = isThaiStock(asset.symbol);
+              const currentPrice = prices[asset.symbol] ?? 0;
+              const cost = asset.costPerShare * asset.quantity;
+              const marketValueBase = currentPrice * asset.quantity;
+              const marketValueThb = isThai
+                ? marketValueBase
+                : marketValueBase * currencyRate;
 
-            <div className="mt-[80px] mb-[50px] w-full">
-              {/* Portfolio Rows */}
-              {sortedAssets.map((asset) => {
-                const isThai = isThaiStock(asset.symbol);
-                const currentPrice = prices[asset.symbol] ?? 0;
-                const cost = asset.costPerShare * asset.quantity;
+              let profitBase = currentPrice > 0 ? marketValueBase - cost : 0;
+              let profitThb = isThai ? profitBase : profitBase * currencyRate;
 
-                // For Thai stocks, price is already in THB, no conversion needed
-                // For US stocks, price is in USD, needs conversion to THB
-                const marketValueBase = currentPrice * asset.quantity; // In original currency
-                const marketValueThb = isThai
-                  ? marketValueBase
-                  : marketValueBase * currencyRate;
+              if (isCash(asset.symbol)) {
+                profitBase = 0;
+                profitThb = 0;
+              }
 
-                // Calculate profit in original currency first
-                let profitBase = currentPrice > 0 ? marketValueBase - cost : 0;
-                let profitThb = isThai ? profitBase : profitBase * currencyRate;
+              const profitPercent =
+                currentPrice > 0 && cost > 0 ? (profitBase / cost) * 100 : 0;
+              const profitColor = getProfitColor(profitBase);
+              const isExpanded = !!expanded[asset.symbol];
 
-                if (isCash(asset.symbol)) {
-                  profitBase = 0;
-                  profitThb = 0;
-                }
+              const portfolioValueThb = assets.reduce((sum, a) => {
+                const price = prices[a.symbol] ?? 0;
+                const isThaiAsset = isThaiStock(a.symbol);
+                const value = price * a.quantity;
+                return sum + (isThaiAsset ? value : value * currencyRate);
+              }, 0);
 
-                const profitPercent =
-                  currentPrice > 0 && cost > 0 ? (profitBase / cost) * 100 : 0;
-                const profitColor = getProfitColor(profitBase);
-                const isExpanded = !!expanded[asset.symbol];
+              const previousClose = previousPrice[asset.symbol] ?? 0;
+              const percentChange =
+                previousClose > 0
+                  ? ((currentPrice - previousClose) / previousClose) * 100
+                  : 0;
+              const currencyLabel = isThai ? "THB" : "USD";
+              const logoUrl = getLogo(asset.symbol);
 
-                // Calculate total portfolio value in THB for percentage
-                const portfolioValueThb = assets.reduce((sum, a) => {
-                  const price = prices[a.symbol] ?? 0;
-                  const isThaiAsset = isThaiStock(a.symbol);
-                  const value = price * a.quantity;
-                  return sum + (isThaiAsset ? value : value * currencyRate);
-                }, 0);
-
-                const previousClose = previousPrice[asset.symbol] ?? 0;
-                const percentChange =
-                  previousClose > 0
-                    ? ((currentPrice - previousClose) / previousClose) * 100
-                    : 0;
-
-                const currencyLabel = isThai ? "THB" : "USD";
-
-                return (
-                  <div key={asset.symbol} className="w-full shadow-sm">
-                    <div
-                      className="w-full grid grid-cols-[2fr_1fr_1fr] gap-3 px-4 py-2 cursor-pointer"
-                      onClick={() => toggleExpand(asset.symbol)}
-                    >
-                      <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-2">
-                          <div
-                            className={`w-[30px] h-[30px] rounded-full bg-cover bg-center border border-gray-600 ${
-                              getLogo(asset.symbol) ? "" : "bg-white"
-                            }`}
-                            style={{
-                              backgroundImage: `url(${getLogo(asset.symbol)})`,
-                            }}
-                          />
-                          <div>
-                            <div className="font-bold text-[16px]">
-                              {getName(asset.symbol)}
-                            </div>
-                            <div className="font-normal text-[12px] text-gray-400 max-w-[90px] truncate">
-                              {graphs[asset.symbol]?.shortName ?? ""}
-                            </div>
+              return (
+                <div key={asset.symbol} className="w-full">
+                  {/* ── Asset Row ── */}
+                  <div
+                    className="w-full grid grid-cols-[2fr_1fr_1fr] gap-3 px-4 py-3 cursor-pointer hover:bg-black-lighter/40 transition-colors"
+                    onClick={() => toggleExpand(asset.symbol)}
+                  >
+                    {/* Col 1: Logo + Name */}
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-2">
+                        {/* Logo */}
+                        <div
+                          className={`w-[32px] h-[32px] rounded-full bg-cover bg-center border border-white/10 shrink-0 ${logoUrl ? "" : "bg-white"}`}
+                          style={{ backgroundImage: `url(${logoUrl})` }}
+                        />
+                        <div>
+                          <div className="font-bold text-[15px] text-white leading-tight">
+                            {getName(asset.symbol)}
+                          </div>
+                          <div className="font-normal text-[11px] text-gray-500 max-w-[90px] truncate">
+                            {graphs[asset.symbol]?.shortName ?? ""}
                           </div>
                         </div>
-                        <div className="text-[12px] flex items-center gap-1">
-                          <ChartIcon />
-                          {portfolioValueThb > 0
-                            ? `${fNumber(
-                                (marketValueThb / portfolioValueThb) * 100,
-                              )}%`
-                            : "0.00%"}
-                        </div>
                       </div>
-                      <div className="flex flex-col items-end whitespace-nowrap">
-                        <div className="font-bold text-[16px]">
-                          {maskNumber(fNumber(marketValueThb))} THB
-                        </div>
-                        <div className="text-[12px] text-gray-300">
-                          ≈{" "}
-                          {maskNumber(
-                            fNumber(
-                              isThai
-                                ? marketValueBase / currencyRate
-                                : marketValueBase,
-                            ),
-                          )}{" "}
-                          USD
-                        </div>
-                      </div>
-                      <div className="flex flex-col items-end text-right">
-                        <div
-                          className={`font-bold text-[16px] flex items-center gap-1 ${profitColor}`}
-                        >
-                          {profitBase > 0 ? (
-                            <UpIcon className="text-[12px]" />
-                          ) : profitBase < 0 ? (
-                            <DownIcon className="text-[12px]" />
-                          ) : null}
-                          {fNumber(profitPercent)}%
-                        </div>
-                        <div className={`text-[12px] ${profitColor}`}>
-                          ({profitBase > 0 ? "+" : ""}
-                          {maskNumber(fNumber(profitThb))} บาท)
-                        </div>
+                      <div className="text-[11px] text-gray-500 flex items-center gap-1">
+                        <ChartIcon className="text-accent-yellow/60" />
+                        {portfolioValueThb > 0
+                          ? `${fNumber((marketValueThb / portfolioValueThb) * 100)}%`
+                          : "0.00%"}
                       </div>
                     </div>
 
-                    {isExpanded && (
-                      <div className="mt-2 bg-black-lighter text-[12px] grid grid-cols-2 gap-2 px-4 py-2 text-gray-300">
-                        <div>
-                          จำนวนหุ้น:{" "}
-                          <span className="text-white">
-                            {maskNumber(
-                              fNumber(asset.quantity, { decimalNumber: 7 }),
-                            )}
-                          </span>
-                        </div>
-                        <div className="flex flex-col items-start gap-1">
-                          <div className="flex items-center gap-1">
-                            ราคาปัจจุบัน:{" "}
-                            <span className="text-white">
-                              {fNumber(currentPrice)} {currencyLabel}
-                            </span>
-                          </div>
-                          <div className="flex flex-col items-end text-right">
-                            <div
-                              className={`font-bold flex items-center gap-1 ${getProfitColor(
-                                percentChange,
-                              )}`}
-                            >
-                              {percentChange > 0 ? (
-                                <UpIcon className="text-[12px]" />
-                              ) : percentChange < 0 ? (
-                                <DownIcon className="text-[12px]" />
-                              ) : null}
-                              {percentChange > 0 ? "+" : ""}{" "}
-                              {fNumber(percentChange)}%
-                            </div>
-                          </div>
-                        </div>
-                        <div>
-                          ต้นทุนต่อหุ้น:{" "}
-                          <span className="text-white">
-                            {maskNumber(
-                              fNumber(asset.costPerShare, { decimalNumber: 4 }),
-                            )}{" "}
-                            {currencyLabel}
-                          </span>
-                        </div>
-                        <div>
-                          ต้นทุนรวม:{" "}
-                          <span className="text-white">
-                            {maskNumber(fNumber(cost))}
-                          </span>{" "}
-                          {currencyLabel}
-                        </div>
+                    {/* Col 2: Value */}
+                    <div className="flex flex-col items-end whitespace-nowrap">
+                      <div className="font-bold text-[15px] text-white">
+                        {maskNumber(fNumber(marketValueThb))}
+                        <span className="text-[10px] text-gray-500 ml-1">
+                          THB
+                        </span>
                       </div>
-                    )}
+                      <div className="text-[11px] text-gray-500">
+                        ≈{" "}
+                        {maskNumber(
+                          fNumber(
+                            isThai
+                              ? marketValueBase / currencyRate
+                              : marketValueBase,
+                          ),
+                        )}
+                        <span className="ml-1">USD</span>
+                      </div>
+                    </div>
 
-                    <div className="border-b border-white opacity-10 mx-4 my-2"></div>
+                    {/* Col 3: Profit */}
+                    <div className="flex flex-col items-end text-right">
+                      <div
+                        className={`font-bold text-[15px] flex items-center gap-1 ${profitColor}`}
+                      >
+                        {profitBase > 0 ? (
+                          <UpIcon className="text-[11px]" />
+                        ) : profitBase < 0 ? (
+                          <DownIcon className="text-[11px]" />
+                        ) : null}
+                        {fNumber(profitPercent)}%
+                      </div>
+                      <div className={`text-[11px] ${profitColor}`}>
+                        ({profitBase > 0 ? "+" : ""}
+                        {maskNumber(fNumber(profitThb))} บาท)
+                      </div>
+                    </div>
                   </div>
-                );
-              })}
-            </div>
-          </>
+
+                  {/* ── Expanded Detail ── */}
+                  {isExpanded && (
+                    <div className="bg-black-lighter border-y border-accent-yellow/10 text-[12px] grid grid-cols-2 gap-x-4 gap-y-2 px-4 py-3">
+                      {/* Daily change badge */}
+                      <div className="col-span-2 flex items-center gap-2 mb-1">
+                        <span className="text-gray-500 text-[11px]">
+                          เปลี่ยนแปลงวันนี้
+                        </span>
+                        <span
+                          className={`flex items-center gap-1 font-bold text-[12px] px-2 py-0.5 rounded-full ${getProfitColor(percentChange)} bg-black/40`}
+                        >
+                          {percentChange > 0 ? (
+                            <UpIcon className="text-[10px]" />
+                          ) : percentChange < 0 ? (
+                            <DownIcon className="text-[10px]" />
+                          ) : null}
+                          {percentChange > 0 ? "+" : ""}
+                          {fNumber(percentChange)}%
+                        </span>
+                      </div>
+
+                      <div className="text-gray-400">
+                        จำนวนหุ้น{" "}
+                        <span className="text-white font-medium">
+                          {maskNumber(
+                            fNumber(asset.quantity, { decimalNumber: 7 }),
+                          )}
+                        </span>
+                      </div>
+                      <div className="text-gray-400">
+                        ราคาปัจจุบัน{" "}
+                        <span className="text-white font-medium">
+                          {fNumber(currentPrice)} {currencyLabel}
+                        </span>
+                      </div>
+                      <div className="text-gray-400">
+                        ต้นทุน/หุ้น{" "}
+                        <span className="text-white font-medium">
+                          {maskNumber(
+                            fNumber(asset.costPerShare, { decimalNumber: 4 }),
+                          )}{" "}
+                          {currencyLabel}
+                        </span>
+                      </div>
+                      <div className="text-gray-400">
+                        ต้นทุนรวม{" "}
+                        <span className="text-white font-medium">
+                          {maskNumber(fNumber(cost))} {currencyLabel}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="border-b border-white/5 mx-4" />
+                </div>
+              );
+            })}
+          </div>
         )}
       </div>
 
@@ -837,7 +817,6 @@ export default function StockPrice() {
         />
       )}
 
-      {/* Bottom Navbar */}
       <BottomNavbar currentPage={currentPage} setCurrentPage={setCurrentPage} />
     </div>
   );

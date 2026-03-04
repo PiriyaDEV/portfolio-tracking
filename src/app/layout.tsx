@@ -4,7 +4,7 @@ import "./globals.css";
 import BackgroundLayout from "@/shared/components/common/BackgroundLayout";
 
 export const metadata: Metadata = {
-  title: "P'tracker",
+  title: "P'Tracker",
   description: "Portfolio Tracking",
   themeColor: '#171616ff',
   openGraph: {

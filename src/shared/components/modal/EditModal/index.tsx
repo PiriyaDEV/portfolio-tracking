@@ -96,13 +96,12 @@ const EditModal = ({
                     {/* Logo */}
                     <div className="w-8 h-8 rounded-full bg-black-lighter border border-accent-yellow border-opacity-20 overflow-hidden flex items-center justify-center shrink-0">
                       {logoUrl ? (
-                        <img
-                          src={logoUrl}
-                          alt={asset.symbol}
-                          className="w-full h-full object-contain"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).style.display =
-                              "none";
+                        <div
+                          className={`w-[30px] h-[30px] rounded-full bg-cover bg-center border border-gray-600 ${
+                            getLogo(asset.symbol) ? "" : "bg-white"
+                          }`}
+                          style={{
+                            backgroundImage: `url(${getLogo(asset.symbol)})`,
                           }}
                         />
                       ) : (

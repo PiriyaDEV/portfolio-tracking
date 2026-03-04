@@ -10,7 +10,7 @@
 body {
   /* color: var(--foreground);
   background: var(--background); */
-  background: #171616;
+  background: #171616ff;
   font-family: "Sarabun", sans-serif;
 }
 
@@ -44,6 +44,10 @@ html,
 body {
   height: 100%;
   overflow: hidden;
+}
+
+html {
+  background-color: #171616ff !important;
 }
 
 body {
