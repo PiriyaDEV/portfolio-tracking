@@ -712,6 +712,7 @@ export default function StockPrice() {
           <CalculateScreen
             assets={assets}
             prices={prices}
+            userId={userId}
             currencyRate={currencyRate}
           />
         )}

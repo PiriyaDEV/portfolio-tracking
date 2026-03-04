@@ -7,8 +7,16 @@ import {
   FaArrowTrendDown as DownIcon,
   FaCalculator,
   FaBullseye,
+  FaChartLine,
 } from "react-icons/fa6";
-import { fNumber, getLogo, getName, isCash, isThaiStock } from "@/app/lib/utils";
+import {
+  fNumber,
+  getLogo,
+  getName,
+  isCash,
+  isThaiStock,
+} from "@/app/lib/utils";
+import StockRecommendScreen from "./components/StockRecommand";
 
 export type Asset = {
   symbol: string;
@@ -20,12 +28,14 @@ type CalculatorScreenProps = {
   assets: Asset[];
   prices: any; // current price (THB for Thai stocks, USD for US stocks)
   currencyRate: number; // USD -> THB
+  userId: string;
 };
 
 export default function CalculatorScreen({
   assets,
   prices,
   currencyRate,
+  userId
 }: CalculatorScreenProps) {
   const [selectedSymbol, setSelectedSymbol] = useState<string>(
     assets.length > 0 ? assets[0].symbol : "",
@@ -35,9 +45,9 @@ export default function CalculatorScreen({
   const [estimatePrice, setEstimatePrice] = useState<string>("");
   const [newCostPerShare, setNewCostPerShare] = useState<number | null>(null);
 
-  const [activeTab, setActiveTab] = useState<"calculator" | "estimate">(
-    "calculator",
-  );
+  const [activeTab, setActiveTab] = useState<
+    "calculator" | "estimate" | "recommend"
+  >("calculator");
 
   const [afterData, setAfterData] = useState<{
     quantity: number;
@@ -164,12 +174,13 @@ export default function CalculatorScreen({
       label: "คำนวณเป้าหมาย",
       icon: <FaBullseye />, // change icon as needed
     },
+    { key: "recommend", label: "แนะนำหุ้น", icon: <FaChartLine /> },
   ];
 
   return (
     <div className="p-4 w-full pb-[100px]">
       {/* Tabs mapping */}
-      <div className="fixed top-[67px] left-1/2 -translate-x-1/2 max-w-[450px] w-full bg-black w-full py-3 px-5 px-1 border-b border-black-lighter2">
+      <div className="fixed top-[67px] left-1/2 -translate-x-1/2 max-w-[450px] w-full bg-black w-full py-3 px-5 px-1 border-b border-black-lighter2 z-[99]">
         <div className="flex justify-start gap-[35px]">
           {tabs.map((tab) => {
             const isActive = activeTab === tab.key;
@@ -180,7 +191,9 @@ export default function CalculatorScreen({
               <button
                 key={tab.key}
                 onClick={() => {
-                  setActiveTab(tab.key as "calculator" | "estimate");
+                  setActiveTab(
+                    tab.key as "calculator" | "estimate" | "recommend",
+                  );
 
                   // Clear all data on tab change
                   setAfterData(null);
@@ -217,39 +230,41 @@ export default function CalculatorScreen({
       </div>
 
       {/* Asset selector */}
-      <div className="pt-[85px] mb-6 flex flex-col gap-2">
-        <label className="text-white text-sm">เลือกหุ้น</label>
-        <select
-          value={selectedSymbol}
-          onChange={(e) => {
-            setSelectedSymbol(e.target.value);
-            // Clear all input and output data when changing asset
-            setAfterData(null);
-            setNewInvestment("");
-            setNewPrice("");
-            setEstimatePrice("");
-            setNewCostPerShare(null);
-          }}
-          className="p-2 rounded bg-black-lighter2 text-white w-full"
-        >
-          {assets
-            .filter((a) => !isCash(a.symbol))
-            .map((a) => (
-              <option key={a.symbol} value={a.symbol}>
-                {getName(a.symbol)}
-              </option>
-            ))}
-        </select>
+      {activeTab !== "recommend" && (
+        <div className="pt-[85px] mb-6 flex flex-col gap-2">
+          <label className="text-white text-sm">เลือกหุ้น</label>
+          <select
+            value={selectedSymbol}
+            onChange={(e) => {
+              setSelectedSymbol(e.target.value);
+              // Clear all input and output data when changing asset
+              setAfterData(null);
+              setNewInvestment("");
+              setNewPrice("");
+              setEstimatePrice("");
+              setNewCostPerShare(null);
+            }}
+            className="p-2 rounded bg-black-lighter2 text-white w-full"
+          >
+            {assets
+              .filter((a) => !isCash(a.symbol))
+              .map((a) => (
+                <option key={a.symbol} value={a.symbol}>
+                  {getName(a.symbol)}
+                </option>
+              ))}
+          </select>
 
-        <div>
-          <label className="text-white text-sm">
-            ราคาตอนนี้:{" "}
-            <span className="font-bold">
-              ({currentPrice} {currencyLabel})
-            </span>
-          </label>
+          <div>
+            <label className="text-white text-sm">
+              ราคาตอนนี้:{" "}
+              <span className="font-bold">
+                ({currentPrice} {currencyLabel})
+              </span>
+            </label>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Inputs column */}
 
@@ -311,97 +326,15 @@ export default function CalculatorScreen({
           </button>
         </div>
       )}
+
+      {activeTab === "recommend" && <StockRecommendScreen userId={userId}/>}
       {/* Show before/after cards */}
-      <div className="grid grid-cols-1 gap-4">
-        {/* Before card */}
-        <div className="w-full shadow-sm">
-          <div className="text-white font-bold px-4 py-1 bg-gray-700">ก่อน</div>
-          <div className="w-full grid grid-cols-[2fr_1fr_1fr] gap-3 px-4 py-2 bg-black-lighter">
-            <div className="flex flex-col gap-1">
-              <div className="flex items-center gap-2">
-                <div
-                  className={`w-[30px] h-[30px] rounded-full bg-cover bg-center border border-gray-600 ${
-                    getLogo(asset.symbol) ? "" : "bg-white"
-                  }`}
-                  style={{
-                    backgroundImage: `url(${getLogo(asset.symbol)})`,
-                  }}
-                />
-                <div className="font-bold text-[16px]">
-                  {getName(asset.symbol)}
-                </div>
-              </div>
-            </div>
-
-            <div className="flex flex-col items-end whitespace-nowrap">
-              <div className="font-bold text-[16px]">
-                {fNumber(marketValueThb)} THB
-              </div>
-              <div className="text-[12px] text-gray-300">
-                ≈{" "}
-                {fNumber(
-                  isThai ? marketValueBase / currencyRate : marketValueBase,
-                )}
-                USD
-              </div>
-            </div>
-
-            <div className="flex flex-col items-end text-right">
-              <div
-                className={`font-bold text-[16px] flex items-center gap-1 ${profitColor}`}
-              >
-                {profit > 0 ? (
-                  <UpIcon className="text-[12px]" />
-                ) : profit < 0 ? (
-                  <DownIcon className="text-[12px]" />
-                ) : null}
-                {fNumber(profitPercent)}%
-              </div>
-              <div className={`text-[12px] ${profitColor}`}>
-                ({profit > 0 ? "+" : ""}
-                {fNumber(profitThb)} บาท)
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-2 bg-black-lighter text-[12px] grid grid-cols-2 gap-1 px-4 py-2 text-gray-300">
-            <div>
-              จำนวนหุ้น:{" "}
-              <span className="text-white">
-                {fNumber(asset.quantity, { decimalNumber: 7 })}
-              </span>
-            </div>
-            <div>
-              ราคาปัจจุบัน:{" "}
-              <span className="text-white">{fNumber(currentPrice)}</span>{" "}
-              {currencyLabel}
-            </div>
-            <div>
-              ต้นทุนต่อหุ้น:{" "}
-              <span className="text-white">
-                {fNumber(asset.costPerShare, { decimalNumber: 4 })}
-              </span>{" "}
-              {currencyLabel}
-            </div>
-            <div>
-              ต้นทุนรวม: <span className="text-white">{fNumber(cost)}</span>{" "}
-              {currencyLabel}
-            </div>
-          </div>
-        </div>
-
-        {/* After card */}
-        {afterData && (
+      {activeTab !== "recommend" && (
+        <div className="grid grid-cols-1 gap-4">
+          {/* Before card */}
           <div className="w-full shadow-sm">
             <div className="text-white font-bold px-4 py-1 bg-gray-700">
-              หลัง{" "}
-              {activeTab === "calculator" && afterData
-                ? `(ต้นทุนใหม่: ${fNumber(afterData.costPerShare, {
-                    decimalNumber: 4,
-                  })} ${currencyLabel})`
-                : activeTab === "estimate" && afterData.estimateCost
-                  ? `(ที่ราคา: ${afterData.estimateCost} ${currencyLabel})`
-                  : ""}
+              ก่อน
             </div>
             <div className="w-full grid grid-cols-[2fr_1fr_1fr] gap-3 px-4 py-2 bg-black-lighter">
               <div className="flex flex-col gap-1">
@@ -422,46 +355,31 @@ export default function CalculatorScreen({
 
               <div className="flex flex-col items-end whitespace-nowrap">
                 <div className="font-bold text-[16px]">
-                  {fNumber(afterData.marketValueThb)} THB
+                  {fNumber(marketValueThb)} THB
                 </div>
-                {!isThai && (
-                  <div className="text-[12px] text-gray-300">
-                    ≈ {fNumber(afterData.marketValueBase)} USD
-                  </div>
-                )}
+                <div className="text-[12px] text-gray-300">
+                  ≈{" "}
+                  {fNumber(
+                    isThai ? marketValueBase / currencyRate : marketValueBase,
+                  )}
+                  USD
+                </div>
               </div>
 
               <div className="flex flex-col items-end text-right">
                 <div
-                  className={`font-bold text-[16px] flex items-center gap-1 ${
-                    afterData.profit > 0
-                      ? "text-green-500"
-                      : afterData.profit < 0
-                        ? "text-red-500"
-                        : "text-white"
-                  }`}
+                  className={`font-bold text-[16px] flex items-center gap-1 ${profitColor}`}
                 >
-                  {afterData.profit > 0 ? (
+                  {profit > 0 ? (
                     <UpIcon className="text-[12px]" />
-                  ) : afterData.profit < 0 ? (
+                  ) : profit < 0 ? (
                     <DownIcon className="text-[12px]" />
                   ) : null}
-                  {fNumber(afterData.profitPercent)}%
+                  {fNumber(profitPercent)}%
                 </div>
-                <div
-                  className={`text-[12px] ${
-                    afterData.profit > 0
-                      ? "text-green-500"
-                      : afterData.profit < 0
-                        ? "text-red-500"
-                        : "text-white"
-                  }`}
-                >
-                  ({afterData.profit > 0 ? "+" : ""}
-                  {fNumber(
-                    isThai ? afterData.profit : afterData.profit * currencyRate,
-                  )}{" "}
-                  บาท)
+                <div className={`text-[12px] ${profitColor}`}>
+                  ({profit > 0 ? "+" : ""}
+                  {fNumber(profitThb)} บาท)
                 </div>
               </div>
             </div>
@@ -470,36 +388,141 @@ export default function CalculatorScreen({
               <div>
                 จำนวนหุ้น:{" "}
                 <span className="text-white">
-                  {fNumber(afterData.quantity, { decimalNumber: 7 })}
+                  {fNumber(asset.quantity, { decimalNumber: 7 })}
                 </span>
               </div>
               <div>
                 ราคาปัจจุบัน:{" "}
-                <span className="text-white">
-                  {activeTab === "estimate" && afterData.estimateCost
-                    ? `${fNumber(afterData.estimateCost)} ${currencyLabel}`
-                    : `${fNumber(currentPrice)} ${currencyLabel}`}
-                </span>
+                <span className="text-white">{fNumber(currentPrice)}</span>{" "}
+                {currencyLabel}
               </div>
-
               <div>
-                ต้นทุนต่อหุ้นใหม่:{" "}
+                ต้นทุนต่อหุ้น:{" "}
                 <span className="text-white">
-                  {fNumber(afterData.costPerShare)}
+                  {fNumber(asset.costPerShare, { decimalNumber: 4 })}
                 </span>{" "}
                 {currencyLabel}
               </div>
               <div>
-                ต้นทุนรวม:{" "}
-                <span className="text-white">
-                  {fNumber(afterData.totalCost)}
-                </span>{" "}
+                ต้นทุนรวม: <span className="text-white">{fNumber(cost)}</span>{" "}
                 {currencyLabel}
               </div>
             </div>
           </div>
-        )}
-      </div>
+
+          {/* After card */}
+          {afterData && (
+            <div className="w-full shadow-sm">
+              <div className="text-white font-bold px-4 py-1 bg-gray-700">
+                หลัง{" "}
+                {activeTab === "calculator" && afterData
+                  ? `(ต้นทุนใหม่: ${fNumber(afterData.costPerShare, {
+                      decimalNumber: 4,
+                    })} ${currencyLabel})`
+                  : activeTab === "estimate" && afterData.estimateCost
+                    ? `(ที่ราคา: ${afterData.estimateCost} ${currencyLabel})`
+                    : ""}
+              </div>
+              <div className="w-full grid grid-cols-[2fr_1fr_1fr] gap-3 px-4 py-2 bg-black-lighter">
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center gap-2">
+                    <div
+                      className={`w-[30px] h-[30px] rounded-full bg-cover bg-center border border-gray-600 ${
+                        getLogo(asset.symbol) ? "" : "bg-white"
+                      }`}
+                      style={{
+                        backgroundImage: `url(${getLogo(asset.symbol)})`,
+                      }}
+                    />
+                    <div className="font-bold text-[16px]">
+                      {getName(asset.symbol)}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-col items-end whitespace-nowrap">
+                  <div className="font-bold text-[16px]">
+                    {fNumber(afterData.marketValueThb)} THB
+                  </div>
+                  {!isThai && (
+                    <div className="text-[12px] text-gray-300">
+                      ≈ {fNumber(afterData.marketValueBase)} USD
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex flex-col items-end text-right">
+                  <div
+                    className={`font-bold text-[16px] flex items-center gap-1 ${
+                      afterData.profit > 0
+                        ? "text-green-500"
+                        : afterData.profit < 0
+                          ? "text-red-500"
+                          : "text-white"
+                    }`}
+                  >
+                    {afterData.profit > 0 ? (
+                      <UpIcon className="text-[12px]" />
+                    ) : afterData.profit < 0 ? (
+                      <DownIcon className="text-[12px]" />
+                    ) : null}
+                    {fNumber(afterData.profitPercent)}%
+                  </div>
+                  <div
+                    className={`text-[12px] ${
+                      afterData.profit > 0
+                        ? "text-green-500"
+                        : afterData.profit < 0
+                          ? "text-red-500"
+                          : "text-white"
+                    }`}
+                  >
+                    ({afterData.profit > 0 ? "+" : ""}
+                    {fNumber(
+                      isThai
+                        ? afterData.profit
+                        : afterData.profit * currencyRate,
+                    )}{" "}
+                    บาท)
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-2 bg-black-lighter text-[12px] grid grid-cols-2 gap-1 px-4 py-2 text-gray-300">
+                <div>
+                  จำนวนหุ้น:{" "}
+                  <span className="text-white">
+                    {fNumber(afterData.quantity, { decimalNumber: 7 })}
+                  </span>
+                </div>
+                <div>
+                  ราคาปัจจุบัน:{" "}
+                  <span className="text-white">
+                    {activeTab === "estimate" && afterData.estimateCost
+                      ? `${fNumber(afterData.estimateCost)} ${currencyLabel}`
+                      : `${fNumber(currentPrice)} ${currencyLabel}`}
+                  </span>
+                </div>
+
+                <div>
+                  ต้นทุนต่อหุ้นใหม่:{" "}
+                  <span className="text-white">
+                    {fNumber(afterData.costPerShare)}
+                  </span>{" "}
+                  {currencyLabel}
+                </div>
+                <div>
+                  ต้นทุนรวม:{" "}
+                  <span className="text-white">
+                    {fNumber(afterData.totalCost)}
+                  </span>{" "}
+                  {currencyLabel}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
