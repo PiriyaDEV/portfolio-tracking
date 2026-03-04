@@ -668,7 +668,7 @@ export default function StockRecommendScreen({
     parseFloat(investmentAmount) > 0 && selectedCategories.length > 0;
 
   return (
-    <div className="p-4 w-full pb-[70px]">
+    <div className="pt-4 w-full pb-[20px]">
       <div className="pt-[64px] flex flex-col gap-6">
         {/* Loading skeleton on initial fetch */}
         {isFetching && (
