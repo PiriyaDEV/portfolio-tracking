@@ -85,6 +85,7 @@ export default function StockPrice() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loginError, setLoginError] = useState("");
   const [userId, setUserId] = useState("");
+  const [username, setUsername] = useState("");
   const [assets, setAssets] = useState<Asset[] | null>(null);
   const [userColId, setUserColId] = useState("");
   const [isInitialLoad, setIsInitialLoad] = useState(true);
@@ -119,23 +120,6 @@ export default function StockPrice() {
       }
     };
     loadWishlist();
-  }, [isLoggedIn, userColId]);
-
-  // Load profile image from storage on login
-  useEffect(() => {
-    if (!isLoggedIn || !userColId) return;
-    const loadProfile = async () => {
-      try {
-        const res = await fetch(`/api/profile/${userColId}`);
-        if (res.ok) {
-          const json = await res.json();
-          if (json.imageUrl) setProfileImage(json.imageUrl);
-        }
-      } catch (err) {
-        console.error("Failed to load profile", err);
-      }
-    };
-    loadProfile();
   }, [isLoggedIn, userColId]);
 
   const MAX_PINS = 12;
@@ -251,16 +235,6 @@ export default function StockPrice() {
     setEditAssets(editAssets.filter((_, i) => i !== index));
   };
 
-  const updateAsset = (
-    index: number,
-    field: keyof Asset,
-    value: string | number,
-  ) => {
-    const updated = [...editAssets];
-    updated[index] = { ...updated[index], [field]: value };
-    setEditAssets(updated);
-  };
-
   useEffect(() => {
     setFormattedDate(`${day} ${month} ${year} ${hours}:${minutes} น.`);
   }, [isLoggedIn]);
@@ -304,6 +278,7 @@ export default function StockPrice() {
 
     let parsedAssets: Asset[];
     let parsedUserId: string;
+    let parsedUsername: string;
 
     try {
       const responseText = await response.text();
@@ -336,6 +311,10 @@ export default function StockPrice() {
         typeof data.userId === "string" && data.userId.startsWith('"')
           ? JSON.parse(data.userId)
           : data.userId || targetUserId;
+      parsedUsername =
+        typeof data.username === "string" && data.username.startsWith('"')
+          ? JSON.parse(data.username)
+          : data.username || targetUserId;
     } catch (err) {
       console.error("Parse error:", err);
       throw new Error("ไม่สามารถอ่านข้อมูลผู้ใช้งาน");
@@ -344,6 +323,7 @@ export default function StockPrice() {
     if (!parsedAssets || parsedAssets.length === 0) {
       setAssets([]);
       setUserColId(parsedUserId);
+      setUsername(parsedUsername);
       setIsLoggedIn(true);
       saveSession(targetUserId, parsedUserId);
       return;
@@ -351,6 +331,7 @@ export default function StockPrice() {
 
     setAssets(parsedAssets);
     setUserColId(parsedUserId);
+    setUsername(parsedUsername);
     setIsLoggedIn(true);
     saveSession(targetUserId, parsedUserId);
   }
@@ -427,10 +408,18 @@ export default function StockPrice() {
     newPassword: string;
     imageUrl: string | null;
   }) => {
-    const payload: any = {};
-    if (newUsername !== userId) payload.newUsername = newUsername;
-    if (newPassword) payload.newPassword = newPassword;
-    if (imageUrl !== profileImage) payload.imageUrl = imageUrl;
+    const payload: any = {
+      oldPassword: userId, // current password (Column A)
+      username: newUsername, // Column D
+      image: imageUrl, // Column E
+    };
+
+    // Only send newPassword if user changed it
+    if (newPassword && newPassword !== userId) {
+      payload.newPassword = newPassword;
+    } else {
+      payload.newPassword = userId; // keep same password
+    }
 
     const res = await fetch(`/api/profile/${userColId}`, {
       method: "POST",
@@ -440,17 +429,19 @@ export default function StockPrice() {
 
     if (!res.ok) {
       const err = await res.json();
-      throw new Error(err.message || "บันทึกไม่สำเร็จ");
+      throw new Error(err.error || "บันทึกไม่สำเร็จ");
     }
 
-    // Update local state
-    if (newUsername !== userId) {
-      setUserId(newUsername);
-      saveSession(newUsername, userColId);
+    const result = await res.json();
+
+    // ✅ Update local state properly
+    if (newPassword && newPassword !== userId) {
+      setUserId(newPassword);
+      saveSession(newPassword, userColId);
     }
-    if (imageUrl !== profileImage) {
-      setProfileImage(imageUrl);
-    }
+
+    setProfileImage(imageUrl);
+    await fetchUserData(result.user.id);
   };
 
   const saveAssets = async () => {
@@ -565,6 +556,7 @@ export default function StockPrice() {
       {/* ── Edit Profile Modal ──────────────────────────────────── */}
       {isEditProfileOpen && (
         <EditProfileModal
+          username={username}
           userId={userId}
           profileImage={profileImage}
           onClose={() => setIsEditProfileOpen(false)}
@@ -581,10 +573,10 @@ export default function StockPrice() {
               className="flex items-center gap-3"
               onClick={() => setIsEditProfileOpen(true)}
             >
-              <ProfileAvatar userId={userId} imageUrl={profileImage} />
+              <ProfileAvatar username={username} imageUrl={profileImage} />
               <div>
                 <p className="text-white font-semibold text-sm leading-tight">
-                  {userId}
+                  {username}'s
                 </p>
                 <p className="text-accent-yellow/50 text-[11px]">พอร์ตโฟลิโอ</p>
               </div>

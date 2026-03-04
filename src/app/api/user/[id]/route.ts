@@ -39,7 +39,7 @@ export async function GET(req: Request, context: any) {
     // Read all rows from the sheet
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId,
-      range: "Sheet1!A:B", // Adjust sheet name if needed
+      range: "Sheet1!A:D", // Adjust sheet name if needed
     });
 
     const rows = response.data.values;
@@ -70,9 +70,13 @@ export async function GET(req: Request, context: any) {
     // Parse the JSON data from column B
     const userData = userRow[1] ? JSON.parse(userRow[1]) : [];
 
+    // Parse the JSON data from column D
+    const username = userRow[3] ? userRow[3] : '';
+
     return new Response(
       JSON.stringify({
         userId: id,
+        username: username,
         assets: userData,
       }),
       {

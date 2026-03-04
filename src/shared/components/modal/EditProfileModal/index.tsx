@@ -5,12 +5,14 @@ import { FaCamera, FaCheck, FaUser } from "react-icons/fa6";
 // ─── Edit Profile Modal ────────────────────────────────────────────────────────
 export function EditProfileModal({
   userId,
+  username,
   profileImage,
   onClose,
   onSave,
 }: {
   userId: string;
   profileImage: string | null;
+  username: string;
   onClose: () => void;
   onSave: (data: {
     newUsername: string;
@@ -18,7 +20,7 @@ export function EditProfileModal({
     imageUrl: string | null;
   }) => Promise<void>;
 }) {
-  const [newUsername, setNewUsername] = useState(userId);
+  const [newUsername, setNewUsername] = useState(username);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [imagePreview, setImagePreview] = useState<string | null>(profileImage);
@@ -86,7 +88,7 @@ export function EditProfileModal({
           <div className="flex flex-col items-center gap-3">
             <div className="relative">
               <ProfileAvatar
-                userId={newUsername || userId}
+                username={username || userId}
                 imageUrl={imagePreview}
                 size="lg"
               />
@@ -146,6 +148,9 @@ export function EditProfileModal({
             <input
               type="password"
               value={newPassword}
+              inputMode="numeric"
+              pattern="[0-9]*"
+              maxLength={4}
               onChange={(e) => setNewPassword(e.target.value)}
               className="w-full bg-black border border-white/10 rounded-xl px-3 py-2.5 text-white text-[13px] outline-none focus:border-accent-yellow/50 transition-colors placeholder-gray-600"
               placeholder="เว้นว่างถ้าไม่ต้องการเปลี่ยน"
@@ -161,6 +166,9 @@ export function EditProfileModal({
               <div className="relative">
                 <input
                   type="password"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={4}
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   className="w-full bg-black border border-white/10 rounded-xl px-3 py-2.5 text-white text-[13px] outline-none focus:border-accent-yellow/50 transition-colors placeholder-gray-600 pr-9"
@@ -212,15 +220,15 @@ export function EditProfileModal({
 
 // ─── Profile Avatar ────────────────────────────────────────────────────────────
 export function ProfileAvatar({
-  userId,
+  username,
   imageUrl,
   size = "md",
 }: {
-  userId: string;
+  username: string;
   imageUrl?: string | null;
   size?: "sm" | "md" | "lg";
 }) {
-  const initials = userId?.slice(0, 2).toUpperCase() || "?";
+  const initials = username?.slice(0, 2).toUpperCase() || "?";
   const colors = [
     "#FFD700",
     "#FF6B6B",
@@ -229,7 +237,7 @@ export function ProfileAvatar({
     "#96CEB4",
     "#DDA0DD",
   ];
-  const color = colors[userId.charCodeAt(0) % colors.length];
+  const color = colors[username.charCodeAt(0) % colors.length];
   const sizeClass =
     size === "lg"
       ? "w-16 h-16 text-xl"
@@ -245,7 +253,7 @@ export function ProfileAvatar({
       >
         <img
           src={imageUrl}
-          alt={userId}
+          alt={username}
           className="w-full h-full object-cover"
         />
       </div>
