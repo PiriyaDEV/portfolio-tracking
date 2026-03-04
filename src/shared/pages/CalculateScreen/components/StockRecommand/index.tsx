@@ -15,7 +15,6 @@ import {
 } from "react-icons/fa6";
 import { FaSeedling, FaShieldAlt, FaUniversity } from "react-icons/fa";
 import { TbMoneybag } from "react-icons/tb";
-import { GiGoldBar } from "react-icons/gi";
 import { getLogo } from "@/app/lib/utils";
 import CommonLoading from "@/shared/components/common/CommonLoading";
 
@@ -36,6 +35,13 @@ type RiskLevel = "low" | "medium" | "high";
 type Market = "th" | "us" | "both";
 type ApiErrorCode = "QUOTA_EXCEEDED" | "RATE_LIMITED" | "AI_ERROR" | "GENERIC";
 
+export type StockRatings = {
+  growth: number;
+  dividend: number;
+  profitability: number;
+  intrinsicValue: number;
+};
+
 export type StockRecommendation = {
   ticker: string;
   name: string;
@@ -45,6 +51,8 @@ export type StockRecommendation = {
   currency: "THB" | "USD";
   return1M: number;
   upside: number;
+  dividendYield: number | null;
+  ratings: StockRatings;
   reason: string;
   market: "TH" | "US";
 };
@@ -186,6 +194,15 @@ const MARKETS: { id: Market; label: string; flag: string }[] = [
   { id: "both", label: "ทั้งคู่", flag: "🌐" },
 ];
 
+// ─── Rating config ─────────────────────────────────────────────────────────────
+
+const RATING_CONFIG = [
+  { key: "growth" as const, label: "Growth", emoji: "📈", color: "bg-cyan-400" },
+  { key: "dividend" as const, label: "Dividend", emoji: "💰", color: "bg-pink-400" },
+  { key: "profitability" as const, label: "Profit", emoji: "💎", color: "bg-purple-400" },
+  { key: "intrinsicValue" as const, label: "Value", emoji: "🎯", color: "bg-amber-400" },
+];
+
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function SpinnerIcon({ size = "w-4 h-4" }: { size?: string }) {
@@ -224,6 +241,43 @@ function MiniBar({
         className={`h-full rounded-full transition-all duration-700 ${color}`}
         style={{ width: `${pct}%` }}
       />
+    </div>
+  );
+}
+
+function RatingDots({
+  value,
+  color,
+}: {
+  value: number;
+  color: string;
+}) {
+  return (
+    <div className="flex gap-[3px] items-center">
+      {[1, 2, 3, 4, 5].map((i) => (
+        <div
+          key={i}
+          className={`w-2 h-2 rounded-full transition-all duration-300 ${
+            i <= value ? color : "bg-gray-700"
+          }`}
+        />
+      ))}
+    </div>
+  );
+}
+
+function RatingsRow({ ratings }: { ratings: StockRatings }) {
+  return (
+    <div className="grid grid-cols-4 gap-1.5 px-4 pb-3">
+      {RATING_CONFIG.map(({ key, label, emoji, color }) => (
+        <div
+          key={key}
+          className="flex flex-col items-center gap-1 bg-gray-900/60 rounded-lg py-2 px-1"
+        >
+          <span className="text-[10px] text-gray-500 leading-none mb-1">{emoji} {label}</span>
+          <RatingDots value={ratings[key]} color={color} />
+        </div>
+      ))}
     </div>
   );
 }
@@ -314,15 +368,14 @@ function StockCard({
 
   return (
     <div className="bg-black-lighter rounded-2xl overflow-hidden border border-gray-800">
+      {/* ── Header ── */}
       <div className="flex items-center justify-between px-4 pt-4 pb-3">
         <div className="flex items-center gap-3">
           <div
             className={`w-[30px] h-[30px] rounded-full bg-cover bg-center border border-gray-600 ${
               getLogo(rec.ticker) ? "" : "bg-white"
             }`}
-            style={{
-              backgroundImage: `url(${getLogo(rec.ticker)})`,
-            }}
+            style={{ backgroundImage: `url(${getLogo(rec.ticker)})` }}
           />
           <div>
             <div className="flex items-center gap-2">
@@ -330,7 +383,11 @@ function StockCard({
                 {rec.ticker}
               </span>
               <span
-                className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${rec.market === "US" ? "bg-blue-500/20 text-blue-400" : "bg-purple-500/20 text-purple-400"}`}
+                className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
+                  rec.market === "US"
+                    ? "bg-blue-500/20 text-blue-400"
+                    : "bg-purple-500/20 text-purple-400"
+                }`}
               >
                 {rec.market}
               </span>
@@ -350,9 +407,11 @@ function StockCard({
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-[1px] bg-gray-800/60 mx-4 rounded-xl overflow-hidden mb-3">
-        <div className="bg-[#111] px-3 py-2.5">
-          <p className="text-gray-500 text-[10px]">ราคาปัจจุบัน</p>
+      {/* ── Stats grid (4 cols) ── */}
+      <div className="grid grid-cols-4 gap-[1px] bg-gray-800/60 mx-4 rounded-xl overflow-hidden mb-3">
+        {/* ราคา */}
+        <div className="bg-[#111] px-2 py-2.5">
+          <p className="text-gray-500 text-[10px]">ราคา</p>
           <p className="text-white text-xs font-bold mt-0.5">
             {rec.currentPrice.toLocaleString("en-US", {
               maximumFractionDigits: 2,
@@ -363,13 +422,17 @@ function StockCard({
           </p>
           {rec.currency === "USD" && (
             <p className="text-gray-600 text-[10px]">
-              ≈฿
-              {priceInThb.toLocaleString("th-TH", { maximumFractionDigits: 0 })}
+              ≈
+              {priceInThb.toLocaleString("th-TH", {
+                maximumFractionDigits: 0,
+              })} บาท
             </p>
           )}
         </div>
-        <div className="bg-[#111] px-3 py-2.5">
-          <p className="text-gray-500 text-[10px]">ย้อนหลัง 1 เดือน</p>
+
+        {/* 1 เดือน */}
+        <div className="bg-[#111] px-2 py-2.5">
+          <p className="text-gray-500 text-[10px]">1 เดือน</p>
           <div
             className={`flex items-center gap-1 font-black text-sm mt-0.5 ${return1MColor}`}
           >
@@ -387,20 +450,43 @@ function StockCard({
             color={isPositive1M ? "bg-green-400" : "bg-red-400"}
           />
         </div>
-        <div className="bg-[#111] px-3 py-2.5">
-          <p className="text-gray-500 text-[10px]">แนวโน้มขึ้น</p>
+
+        {/* Upside */}
+        <div className="bg-[#111] px-2 py-2.5">
+          <p className="text-gray-500 text-[10px]">Upside</p>
           <div className="flex items-center gap-1 font-black text-sm mt-0.5 text-green-400">
             <UpIcon className="text-[10px]" />+{rec.upside}%
           </div>
           <MiniBar value={rec.upside} max={30} color="bg-green-400" />
         </div>
+
+        {/* ปันผล */}
+        <div className="bg-[#111] px-2 py-2.5">
+          <p className="text-gray-500 text-[10px]">ปันผล</p>
+          {rec.dividendYield != null && rec.dividendYield > 0 ? (
+            <>
+              <div className="flex items-center gap-0.5 font-black text-sm mt-0.5 text-pink-400">
+                🌸 {rec.dividendYield}%
+              </div>
+              <MiniBar value={rec.dividendYield} max={10} color="bg-pink-400" />
+            </>
+          ) : (
+            <p className="text-gray-600 text-[10px] mt-1.5 leading-tight">
+              ไม่ปันผล
+            </p>
+          )}
+        </div>
       </div>
 
-      <div className="px-4 pb-4">
+      {/* ── Reason ── */}
+      <div className="px-4 pb-3">
         <p className="text-gray-400 text-[11px] leading-relaxed border-l-2 border-yellow-500/50 pl-2.5">
           {rec.reason}
         </p>
       </div>
+
+      {/* ── Ratings ── */}
+      {rec.ratings && <RatingsRow ratings={rec.ratings} />}
     </div>
   );
 }
@@ -460,9 +546,8 @@ export default function StockRecommendScreen({
   const [riskLevel, setRiskLevel] = useState<RiskLevel>("medium");
   const [market, setMarket] = useState<Market>("us");
 
-  // Separate loading states
-  const [isFetching, setIsFetching] = useState(true); // GET on mount
-  const [isSubmitting, setIsSubmitting] = useState(false); // POST on submit
+  const [isFetching, setIsFetching] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [result, setResult] = useState<RecommendResponse | null>(null);
   const [errorCode, setErrorCode] = useState<ApiErrorCode | null>(null);
@@ -484,7 +569,7 @@ export default function StockRecommendScreen({
           setResult(data as RecommendResponse);
         }
       } catch {
-        // silently ignore — user just won't see cached data
+        // silently ignore
       } finally {
         setIsFetching(false);
       }
@@ -539,7 +624,6 @@ export default function StockRecommendScreen({
         );
         setErrorNextAvailable(data.nextAvailableAt);
 
-        // Even on RATE_LIMITED the API sends back the cached result — show it
         if (data.recommendations) {
           setResult(data as RecommendResponse);
         }

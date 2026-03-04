@@ -35,6 +35,13 @@ export const MARKETS = [
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+export type StockRatings = {
+  growth: number;
+  dividend: number;
+  profitability: number;
+  intrinsicValue: number;
+};
+
 export type StockRecommendation = {
   ticker: string;
   name: string;
@@ -44,6 +51,8 @@ export type StockRecommendation = {
   currency: "THB" | "USD";
   return1M: number;
   upside: number;
+  dividendYield: number | null;
+  ratings: StockRatings;
   reason: string;
   market: "TH" | "US";
 };
@@ -164,15 +173,12 @@ function isQuotaError(err: unknown): boolean {
 
 // ─── Yahoo Finance ────────────────────────────────────────────────────────────
 
-/**
- * Fetch currentPrice and return1M for a single ticker from Yahoo Finance.
- * Returns null values if the request fails so the caller can fall back gracefully.
- */
-async function fetchYahooPriceData(
-  ticker: string,
-): Promise<{ currentPrice: number | null; return1M: number | null }> {
+async function fetchYahooPriceData(ticker: string): Promise<{
+  currentPrice: number | null;
+  return1M: number | null;
+  dividendYield: number | null;
+}> {
   try {
-    // "1mo" range with "1d" interval gives us ~22 daily closes
     const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(
       ticker,
     )}?range=1mo&interval=1d`;
@@ -184,50 +190,67 @@ async function fetchYahooPriceData(
 
     if (!res.ok) {
       console.warn(`Yahoo Finance ${ticker}: HTTP ${res.status}`);
-      return { currentPrice: null, return1M: null };
+      return { currentPrice: null, return1M: null, dividendYield: null };
     }
 
     const json = await res.json();
     const result = json?.chart?.result?.[0];
-    if (!result) return { currentPrice: null, return1M: null };
+    if (!result)
+      return { currentPrice: null, return1M: null, dividendYield: null };
 
     const closes: number[] = result.indicators?.quote?.[0]?.close ?? [];
     const validCloses = closes.filter((c) => c != null && !isNaN(c));
 
-    if (validCloses.length === 0) return { currentPrice: null, return1M: null };
+    if (validCloses.length === 0)
+      return { currentPrice: null, return1M: null, dividendYield: null };
 
     const currentPrice = validCloses[validCloses.length - 1];
     const firstPrice = validCloses[0];
 
     const return1M =
       firstPrice > 0
-        ? Math.round(((currentPrice - firstPrice) / firstPrice) * 1000) / 10 // one decimal
+        ? Math.round(((currentPrice - firstPrice) / firstPrice) * 1000) / 10
         : null;
 
-    return { currentPrice: Math.round(currentPrice * 100) / 100, return1M };
+    // ── Dividend Yield ────────────────────────────────────────────────────────
+    const dividendPerShare: number | null =
+      result.meta?.trailingAnnualDividendRate ?? null;
+
+    const dividendYield =
+      dividendPerShare != null && currentPrice != null && currentPrice > 0
+        ? Math.round((dividendPerShare / currentPrice) * 1000) / 10
+        : null;
+
+    return {
+      currentPrice: Math.round(currentPrice * 100) / 100,
+      return1M,
+      dividendYield,
+    };
   } catch (err) {
     console.warn(`Yahoo Finance fetch failed for ${ticker}:`, err);
-    return { currentPrice: null, return1M: null };
+    return { currentPrice: null, return1M: null, dividendYield: null };
   }
 }
 
-/**
- * Enrich all recommendations with live price data from Yahoo Finance.
- * Fetches all tickers in parallel; falls back to Gemini values on failure.
- */
 async function enrichWithYahooPrices<
-  T extends { ticker: string; currentPrice: number; return1M: number },
+  T extends {
+    ticker: string;
+    currentPrice: number;
+    return1M: number;
+    dividendYield: number | null;
+  },
 >(items: T[]): Promise<T[]> {
   const priceResults = await Promise.all(
     items.map((item) => fetchYahooPriceData(item.ticker)),
   );
 
   return items.map((item, i) => {
-    const { currentPrice, return1M } = priceResults[i];
+    const { currentPrice, return1M, dividendYield } = priceResults[i];
     return {
       ...item,
-      currentPrice: currentPrice ?? item.currentPrice, // fall back to Gemini value
+      currentPrice: currentPrice ?? item.currentPrice,
       return1M: return1M ?? item.return1M,
+      dividendYield: dividendYield ?? item.dividendYield,
     };
   });
 }
@@ -270,6 +293,12 @@ Category guidance:
 For risk=low: avoid TSLA, prefer dividend/large-cap stocks
 For risk=high: include TSLA, NVDA, or volatile small caps
 
+Rating scale (1–5 stars):
+- growth: 5 = revenue/EPS growing >20% YoY, 3 = moderate growth, 1 = declining
+- dividend: 5 = yield >4% with stable payout history, 3 = some dividend, 1 = no dividend
+- profitability: 5 = high net margin + high ROE, 3 = average, 1 = loss-making
+- intrinsicValue: 5 = deeply undervalued vs DCF/P/E peers, 3 = fairly valued, 1 = significantly overvalued
+
 Respond ONLY with a valid JSON array. No markdown, no explanation, no extra text.
 
 Each item must have exactly these fields:
@@ -278,11 +307,17 @@ Each item must have exactly these fields:
   "name": "string (full company name)",
   "currency": "USD" or "THB",
   "upside": number (projected upside % for next 3 months, e.g. 12.0),
+  "ratings": {
+    "growth": number (1–5),
+    "dividend": number (1–5),
+    "profitability": number (1–5),
+    "intrinsicValue": number (1–5)
+  },
   "reason": "string (2-3 sentence Thai explanation why this stock is recommended)",
   "market": "US" or "TH"
 }
 
-Note: Do NOT include currentPrice or return1M — those will be fetched from live data.
+Note: Do NOT include currentPrice, return1M, or dividendYield — those will be fetched from live data.
 
 Example output:
 [
@@ -291,6 +326,12 @@ Example output:
     "name": "NVIDIA Corporation",
     "currency": "USD",
     "upside": 12.5,
+    "ratings": {
+      "growth": 5,
+      "dividend": 1,
+      "profitability": 5,
+      "intrinsicValue": 2
+    },
     "reason": "ผู้นำตลาด AI chip มีดีมานด์สูงจาก Data Center และ Blackwell GPU รุ่นใหม่กำลังส่งมอบ",
     "market": "US"
   }
@@ -413,7 +454,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ── Call Gemini (no currentPrice / return1M requested) ────────────────────
+    // ── Call Gemini ───────────────────────────────────────────────────────────
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
@@ -447,7 +488,11 @@ export async function POST(req: NextRequest) {
     // ── Parse Gemini response ─────────────────────────────────────────────────
     type GeminiItem = Omit<
       StockRecommendation,
-      "allocateBaht" | "allocatePercent" | "currentPrice" | "return1M"
+      | "allocateBaht"
+      | "allocatePercent"
+      | "currentPrice"
+      | "return1M"
+      | "dividendYield"
     >;
 
     let rawItems: GeminiItem[];
@@ -467,11 +512,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ── Fetch live prices from Yahoo Finance (parallel) ───────────────────────
+    // ── Fetch live prices + dividend yield from Yahoo Finance (parallel) ──────
     const itemsWithPlaceholders = rawItems.map((item) => ({
       ...item,
-      currentPrice: 0, // placeholder — will be overwritten
-      return1M: 0, // placeholder — will be overwritten
+      currentPrice: 0,
+      return1M: 0,
+      dividendYield: null as number | null,
     }));
 
     const enrichedItems = await enrichWithYahooPrices(itemsWithPlaceholders);
@@ -488,6 +534,8 @@ export async function POST(req: NextRequest) {
         currency: item.currency,
         return1M: item.return1M,
         upside: item.upside,
+        dividendYield: item.dividendYield,
+        ratings: item.ratings,
         reason: item.reason,
         market: item.market,
         allocateBaht: Math.round(perStock),
@@ -498,7 +546,7 @@ export async function POST(req: NextRequest) {
     const now = new Date();
 
     const mappedCategories = categories
-      .map((id: any) => {
+      .map((id: string) => {
         const found = STOCK_CATEGORIES.find((c) => c.id === id);
         return found ? found.label : id;
       })

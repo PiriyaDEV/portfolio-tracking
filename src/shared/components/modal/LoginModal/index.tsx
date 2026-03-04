@@ -641,7 +641,7 @@ export default function LoginModal({
               letterSpacing: "0.01em",
             }}
           >
-            Enter your 4-digit passcode
+            กรอกรหัสผ่าน 4 หลักของคุณ
           </p>
         </div>
 
