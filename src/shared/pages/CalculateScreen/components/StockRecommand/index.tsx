@@ -15,6 +15,7 @@ import {
 import { FaSeedling, FaShieldAlt, FaUniversity } from "react-icons/fa";
 import { TbMoneybag } from "react-icons/tb";
 import { GiGoldBar } from "react-icons/gi";
+import { getLogo } from "@/app/lib/utils";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -313,9 +314,14 @@ function StockCard({
     <div className="bg-black-lighter rounded-2xl overflow-hidden border border-gray-800">
       <div className="flex items-center justify-between px-4 pt-4 pb-3">
         <div className="flex items-center gap-3">
-          <div className="w-7 h-7 rounded-full bg-yellow-500 flex items-center justify-center flex-shrink-0">
-            <span className="text-black text-[11px] font-black">{rank}</span>
-          </div>
+          <div
+            className={`w-[30px] h-[30px] rounded-full bg-cover bg-center border border-gray-600 ${
+              getLogo(rec.ticker) ? "" : "bg-white"
+            }`}
+            style={{
+              backgroundImage: `url(${getLogo(rec.ticker)})`,
+            }}
+          />
           <div>
             <div className="flex items-center gap-2">
               <span className="text-white font-black text-base tracking-wide">

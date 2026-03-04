@@ -28,9 +28,9 @@ export type RecommendResponse = {
   summary: string;
   generatedAt: string;
   cached?: boolean;
-  lastUsed?: string | null;      // ISO — when Gemini was last called
+  lastUsed?: string | null; // ISO — when Gemini was last called
   nextAvailableAt?: string | null; // ISO — when user can call again
-  canResearch: boolean;           // true if 1-day window has passed
+  canResearch: boolean; // true if 1-day window has passed
 };
 
 // ─── Google Sheets ────────────────────────────────────────────────────────────
@@ -81,7 +81,10 @@ async function getUserSheetData(userId: string): Promise<{
   return { rowNumber, cachedData, lastUsed };
 }
 
-async function saveRecommendToSheet(rowNumber: number, data: RecommendResponse) {
+async function saveRecommendToSheet(
+  rowNumber: number,
+  data: RecommendResponse,
+) {
   const spreadsheetId = process.env.GOOGLE_SHEET_ID!;
   const sheets = await getGoogleSheets();
 
@@ -110,7 +113,9 @@ function isWithinOneDay(lastUsed: Date): boolean {
 }
 
 function calcNextAvailable(lastUsed: Date): string {
-  return new Date(lastUsed.getTime() + 24 * 60 * 60 * 1000 * LIMIT_PER_DAY).toISOString();
+  return new Date(
+    lastUsed.getTime() + 24 * 60 * 60 * 1000 * LIMIT_PER_DAY,
+  ).toISOString();
 }
 
 function isQuotaError(err: unknown): boolean {
@@ -119,7 +124,8 @@ function isQuotaError(err: unknown): boolean {
   const status = Number(e.status ?? e.statusCode ?? e.httpStatus ?? 0);
   if (status === 429 || status === 403) return true;
   const code = String(e.code ?? "").toLowerCase();
-  if (code.includes("resource_exhausted") || code.includes("rate_limit")) return true;
+  if (code.includes("resource_exhausted") || code.includes("rate_limit"))
+    return true;
   const msg = String(e.message ?? "").toLowerCase();
   return (
     msg.includes("quota") ||
@@ -203,7 +209,10 @@ export async function GET(req: NextRequest) {
     const userId = req.nextUrl.searchParams.get("userId");
 
     if (!userId) {
-      return NextResponse.json({ error: "userId is required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "userId is required" },
+        { status: 400 },
+      );
     }
 
     if (
@@ -211,7 +220,10 @@ export async function GET(req: NextRequest) {
       !process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL ||
       !process.env.GOOGLE_PRIVATE_KEY
     ) {
-      return NextResponse.json({ error: "Google Sheets env missing" }, { status: 500 });
+      return NextResponse.json(
+        { error: "Google Sheets env missing" },
+        { status: 500 },
+      );
     }
 
     const userData = await getUserSheetData(userId);
@@ -241,7 +253,10 @@ export async function GET(req: NextRequest) {
     });
   } catch (err) {
     console.error("GET recommend error:", err);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }
 
@@ -253,10 +268,16 @@ export async function POST(req: NextRequest) {
     const { userId, investmentAmount, categories, riskLevel, market } = body;
 
     if (!userId) {
-      return NextResponse.json({ error: "userId is required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "userId is required" },
+        { status: 400 },
+      );
     }
     if (!investmentAmount || !categories?.length) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Missing required fields" },
+        { status: 400 },
+      );
     }
 
     if (
@@ -264,10 +285,16 @@ export async function POST(req: NextRequest) {
       !process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL ||
       !process.env.GOOGLE_PRIVATE_KEY
     ) {
-      return NextResponse.json({ error: "Google Sheets env missing" }, { status: 500 });
+      return NextResponse.json(
+        { error: "Google Sheets env missing" },
+        { status: 500 },
+      );
     }
     if (!process.env.GEMINI_API_KEY) {
-      return NextResponse.json({ error: "GEMINI_API_KEY not set" }, { status: 500 });
+      return NextResponse.json(
+        { error: "GEMINI_API_KEY not set" },
+        { status: 500 },
+      );
     }
 
     const userData = await getUserSheetData(userId);
@@ -310,27 +337,38 @@ export async function POST(req: NextRequest) {
         return NextResponse.json(
           {
             error: "QUOTA_EXCEEDED",
-            message: "Gemini API quota หมดแล้ว กรุณาลองใหม่ในภายหลัง หรือติดต่อผู้ดูแลระบบ",
+            message:
+              "Gemini API quota หมดแล้ว กรุณาลองใหม่ในภายหลัง หรือติดต่อผู้ดูแลระบบ",
           },
           { status: 429 },
         );
       }
       return NextResponse.json(
-        { error: "AI_ERROR", message: "ไม่สามารถเชื่อมต่อ Gemini AI ได้ กรุณาลองใหม่" },
+        {
+          error: "AI_ERROR",
+          message: "ไม่สามารถเชื่อมต่อ Gemini AI ได้ กรุณาลองใหม่",
+        },
         { status: 502 },
       );
     }
 
     // ── Parse ─────────────────────────────────────────────────────────────────
-    let rawItems: Omit<StockRecommendation, "allocateBaht" | "allocatePercent">[];
+    let rawItems: Omit<
+      StockRecommendation,
+      "allocateBaht" | "allocatePercent"
+    >[];
     try {
       const cleaned = rawText.replace(/```json|```/g, "").trim();
       rawItems = JSON.parse(cleaned);
-      if (!Array.isArray(rawItems) || rawItems.length === 0) throw new Error("empty");
+      if (!Array.isArray(rawItems) || rawItems.length === 0)
+        throw new Error("empty");
     } catch {
       console.error("Failed to parse Gemini response:", rawText);
       return NextResponse.json(
-        { error: "AI_ERROR", message: "AI ตอบกลับในรูปแบบที่ไม่ถูกต้อง กรุณาลองใหม่" },
+        {
+          error: "AI_ERROR",
+          message: "AI ตอบกลับในรูปแบบที่ไม่ถูกต้อง กรุณาลองใหม่",
+        },
         { status: 500 },
       );
     }
@@ -355,7 +393,7 @@ export async function POST(req: NextRequest) {
 
     const response: RecommendResponse = {
       recommendations,
-      summary: `AI แนะนำ ${count} หุ้น จากงบ ${investmentAmount.toLocaleString()} บาท (risk: ${riskLevel})`,
+      summary: `AI แนะนำ ${count} หุ้น จากงบ ${investmentAmount.toLocaleString()} บาท (categories: ${categories}) (risk: ${riskLevel}) (market: ${market})`,
       generatedAt: now.toISOString(),
       canResearch: false,
     };
@@ -371,6 +409,9 @@ export async function POST(req: NextRequest) {
     });
   } catch (err) {
     console.error("Recommend API unhandled error:", err);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }

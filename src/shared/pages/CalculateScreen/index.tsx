@@ -35,7 +35,7 @@ export default function CalculatorScreen({
   assets,
   prices,
   currencyRate,
-  userId
+  userId,
 }: CalculatorScreenProps) {
   const [selectedSymbol, setSelectedSymbol] = useState<string>(
     assets.length > 0 ? assets[0].symbol : "",
@@ -327,7 +327,9 @@ export default function CalculatorScreen({
         </div>
       )}
 
-      {activeTab === "recommend" && <StockRecommendScreen userId={userId}/>}
+      {activeTab === "recommend" && (
+        <StockRecommendScreen userId={userId} currencyRate={currencyRate} />
+      )}
       {/* Show before/after cards */}
       {activeTab !== "recommend" && (
         <div className="grid grid-cols-1 gap-4">
