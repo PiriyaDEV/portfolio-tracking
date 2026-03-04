@@ -93,7 +93,7 @@ export default function AnalystScreen({
   ];
 
   return (
-    <div className="w-full px-4 mt-[35px] pb-[90px]">
+    <div className="w-full px-4 mt-[50px] pb-[90px]">
       {/* Tabs */}
       <div className="fixed top-[67px] left-1/2 -translate-x-1/2 max-w-[450px] w-full z-[99] bg-black py-3 border-b border-black-lighter2">
         <div className="flex justify-around">

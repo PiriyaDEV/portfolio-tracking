@@ -1,6 +1,160 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useCallback } from "react";
 import { FaTimes } from "react-icons/fa";
-import { FaCamera, FaCheck, FaUser } from "react-icons/fa6";
+import { FaCamera, FaCheck, FaUser, FaCrop } from "react-icons/fa6";
+import Cropper from "react-easy-crop";
+
+// ─── Types ─────────────────────────────────────────────────────────────────────
+interface Area {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+// ─── Crop Image Helper ─────────────────────────────────────────────────────────
+async function getCroppedImg(
+  imageSrc: string,
+  pixelCrop: Area,
+  outputSize = 256,
+  quality = 0.35,
+): Promise<string> {
+  const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const img = new Image();
+    img.addEventListener("load", () => resolve(img));
+    img.addEventListener("error", reject);
+    img.src = imageSrc;
+  });
+
+  const canvas = document.createElement("canvas");
+  canvas.width = outputSize;
+  canvas.height = outputSize;
+  const ctx = canvas.getContext("2d")!;
+
+  ctx.drawImage(
+    image,
+    pixelCrop.x,
+    pixelCrop.y,
+    pixelCrop.width,
+    pixelCrop.height,
+    0,
+    0,
+    outputSize,
+    outputSize,
+  );
+
+  return canvas.toDataURL("image/jpeg", quality);
+}
+
+// ─── Image Crop Modal ──────────────────────────────────────────────────────────
+function ImageCropModal({
+  imageSrc,
+  onConfirm,
+  onCancel,
+}: {
+  imageSrc: string;
+  onConfirm: (croppedUrl: string) => void;
+  onCancel: () => void;
+}) {
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const onCropComplete = useCallback((_: Area, croppedPixels: Area) => {
+    setCroppedAreaPixels(croppedPixels);
+  }, []);
+
+  const handleConfirm = async () => {
+    if (!croppedAreaPixels) return;
+    setIsProcessing(true);
+    try {
+      const cropped = await getCroppedImg(imageSrc, croppedAreaPixels);
+      onConfirm(cropped);
+    } catch {
+      // fallback
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/90 backdrop-blur-sm px-4">
+      <div className="bg-[#111] border border-white/10 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
+          <h2 className="text-white font-semibold text-[15px] flex items-center gap-2">
+            <FaCrop className="text-accent-yellow" />
+            ครอบตัดรูปภาพ
+          </h2>
+          <button
+            onClick={onCancel}
+            className="w-7 h-7 rounded-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition-all text-[13px]"
+          >
+            <FaTimes />
+          </button>
+        </div>
+
+        {/* Crop area */}
+        <div className="relative w-full" style={{ height: 300 }}>
+          <Cropper
+            image={imageSrc}
+            crop={crop}
+            zoom={zoom}
+            aspect={1}
+            cropShape="round"
+            showGrid={false}
+            onCropChange={setCrop}
+            onZoomChange={setZoom}
+            onCropComplete={onCropComplete}
+            style={{
+              containerStyle: { background: "#000" },
+              cropAreaStyle: {
+                border: "2px solid #FFD700",
+                boxShadow: "0 0 0 9999px rgba(0,0,0,0.7)",
+              },
+            }}
+          />
+        </div>
+
+        {/* Zoom slider */}
+        <div className="px-5 pt-4 pb-2 space-y-1">
+          <label className="text-[11px] text-gray-500">ซูม</label>
+          <input
+            type="range"
+            min={1}
+            max={3}
+            step={0.01}
+            value={zoom}
+            onChange={(e) => setZoom(Number(e.target.value))}
+            className="w-full accent-yellow-400"
+          />
+        </div>
+
+        {/* Size note */}
+        <p className="px-5 pb-2 text-[11px] text-gray-600">
+          รูปจะถูกบีบอัดให้เหลือ 256×256px / JPEG 35%
+        </p>
+
+        {/* Footer */}
+        <div className="px-5 pb-5 flex gap-2">
+          <button
+            onClick={onCancel}
+            className="flex-1 py-2.5 rounded-xl border border-white/10 text-gray-400 text-[13px] hover:bg-white/5 transition-all"
+          >
+            ยกเลิก
+          </button>
+          <button
+            onClick={handleConfirm}
+            disabled={isProcessing}
+            className="flex-1 py-2.5 rounded-xl bg-accent-yellow text-black font-semibold text-[13px] hover:brightness-110 transition-all disabled:opacity-50"
+          >
+            {isProcessing ? "กำลังตัด..." : "ยืนยัน"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ─── Edit Profile Modal ────────────────────────────────────────────────────────
 export function EditProfileModal({
@@ -24,20 +178,29 @@ export function EditProfileModal({
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [imagePreview, setImagePreview] = useState<string | null>(profileImage);
+  const [rawImageSrc, setRawImageSrc] = useState<string | null>(null); // for cropper
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Open file picker → show crop modal
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 2 * 1024 * 1024) {
-      setError("ขนาดรูปต้องไม่เกิน 2MB");
+    if (file.size > 10 * 1024 * 1024) {
+      setError("ขนาดรูปต้องไม่เกิน 10MB");
       return;
     }
     const reader = new FileReader();
-    reader.onload = () => setImagePreview(reader.result as string);
+    reader.onload = () => setRawImageSrc(reader.result as string);
     reader.readAsDataURL(file);
+    // reset input so same file can be reselected
+    e.target.value = "";
+  };
+
+  const handleCropConfirm = (croppedUrl: string) => {
+    setImagePreview(croppedUrl);
+    setRawImageSrc(null);
   };
 
   const handleSave = async () => {
@@ -70,151 +233,164 @@ export function EditProfileModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm px-4">
-      <div className="bg-[#111] border border-white/10 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl">
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
-          <h2 className="text-white font-semibold text-[15px]">แก้ไขโปรไฟล์</h2>
-          <button
-            onClick={onClose}
-            className="w-7 h-7 rounded-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition-all text-[13px]"
-          >
-            <FaTimes />
-          </button>
-        </div>
+    <>
+      {/* Crop modal sits above edit modal */}
+      {rawImageSrc && (
+        <ImageCropModal
+          imageSrc={rawImageSrc}
+          onConfirm={handleCropConfirm}
+          onCancel={() => setRawImageSrc(null)}
+        />
+      )}
 
-        <div className="px-5 py-5 space-y-5">
-          {/* Avatar Section */}
-          <div className="flex flex-col items-center gap-3">
-            <div className="relative">
-              <ProfileAvatar
-                username={username || userId}
-                imageUrl={imagePreview}
-                size="lg"
-              />
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-accent-yellow flex items-center justify-center text-black text-[12px] shadow-lg hover:brightness-110 transition-all"
-              >
-                <FaCamera />
-              </button>
-            </div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handleImageChange}
-            />
-            <div className="flex gap-2 text-[11px]">
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="text-accent-yellow hover:underline"
-              >
-                เลือกรูปภาพ
-              </button>
-              {imagePreview && (
-                <>
-                  <span className="text-gray-600">•</span>
-                  <button
-                    onClick={() => setImagePreview(null)}
-                    className="text-gray-400 hover:text-red-400"
-                  >
-                    ลบรูป
-                  </button>
-                </>
-              )}
-            </div>
+      <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm px-4">
+        <div className="bg-[#111] border border-white/10 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl">
+          {/* Header */}
+          <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
+            <h2 className="text-white font-semibold text-[15px]">
+              แก้ไขโปรไฟล์
+            </h2>
+            <button
+              onClick={onClose}
+              className="w-7 h-7 rounded-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition-all text-[13px]"
+            >
+              <FaTimes />
+            </button>
           </div>
 
-          {/* Username */}
-          <div className="space-y-1.5">
-            <label className="text-[11px] text-gray-500 flex items-center gap-1.5">
-              <FaUser className="text-accent-yellow/60" />
-              ชื่อผู้ใช้
-            </label>
-            <input
-              type="text"
-              value={newUsername}
-              onChange={(e) => setNewUsername(e.target.value)}
-              className="w-full bg-black border border-white/10 rounded-xl px-3 py-2.5 text-white text-[13px] outline-none focus:border-accent-yellow/50 transition-colors placeholder-gray-600"
-              placeholder="กรอกชื่อผู้ใช้ใหม่"
-            />
-          </div>
-
-          {/* Password */}
-          <div className="space-y-1.5">
-            <label className="text-[11px] text-gray-500">รหัสผ่านใหม่</label>
-            <input
-              type="password"
-              value={newPassword}
-              inputMode="numeric"
-              pattern="[0-9]*"
-              maxLength={4}
-              onChange={(e) => setNewPassword(e.target.value)}
-              className="w-full bg-black border border-white/10 rounded-xl px-3 py-2.5 text-white text-[13px] outline-none focus:border-accent-yellow/50 transition-colors placeholder-gray-600"
-              placeholder="เว้นว่างถ้าไม่ต้องการเปลี่ยน"
-            />
-          </div>
-
-          {/* Confirm Password */}
-          {newPassword.length > 0 && (
-            <div className="space-y-1.5">
-              <label className="text-[11px] text-gray-500">
-                ยืนยันรหัสผ่านใหม่
-              </label>
+          <div className="px-5 py-5 space-y-5">
+            {/* Avatar Section */}
+            <div className="flex flex-col items-center gap-3">
               <div className="relative">
-                <input
-                  type="password"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  maxLength={4}
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full bg-black border border-white/10 rounded-xl px-3 py-2.5 text-white text-[13px] outline-none focus:border-accent-yellow/50 transition-colors placeholder-gray-600 pr-9"
-                  placeholder="กรอกรหัสผ่านอีกครั้ง"
+                <ProfileAvatar
+                  username={username || userId}
+                  imageUrl={imagePreview}
+                  size="lg"
                 />
-                {confirmPassword && (
-                  <span
-                    className={`absolute right-3 top-1/2 -translate-y-1/2 text-[12px] ${confirmPassword === newPassword ? "text-green-400" : "text-red-400"}`}
-                  >
-                    {confirmPassword === newPassword ? (
-                      <FaCheck />
-                    ) : (
-                      <FaTimes />
-                    )}
-                  </span>
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-accent-yellow flex items-center justify-center text-black text-[12px] shadow-lg hover:brightness-110 transition-all"
+                >
+                  <FaCamera />
+                </button>
+              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleImageChange}
+              />
+              <div className="flex gap-2 text-[11px]">
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="text-accent-yellow hover:underline"
+                >
+                  เลือกรูปภาพ
+                </button>
+                {imagePreview && (
+                  <>
+                    <span className="text-gray-600">•</span>
+                    <button
+                      onClick={() => setImagePreview(null)}
+                      className="text-gray-400 hover:text-red-400"
+                    >
+                      ลบรูป
+                    </button>
+                  </>
                 )}
               </div>
             </div>
-          )}
 
-          {/* Error */}
-          {error && (
-            <p className="text-red-400 text-[12px] bg-red-400/10 rounded-lg px-3 py-2">
-              {error}
-            </p>
-          )}
-        </div>
+            {/* Username */}
+            <div className="space-y-1.5">
+              <label className="text-[11px] text-gray-500 flex items-center gap-1.5">
+                <FaUser className="text-accent-yellow/60" />
+                ชื่อผู้ใช้
+              </label>
+              <input
+                type="text"
+                value={newUsername}
+                onChange={(e) => setNewUsername(e.target.value)}
+                className="w-full bg-black border border-white/10 rounded-xl px-3 py-2.5 text-white text-[13px] outline-none focus:border-accent-yellow/50 transition-colors placeholder-gray-600"
+                placeholder="กรอกชื่อผู้ใช้ใหม่"
+              />
+            </div>
 
-        {/* Footer */}
-        <div className="px-5 pb-5 flex gap-2">
-          <button
-            onClick={onClose}
-            className="flex-1 py-2.5 rounded-xl border border-white/10 text-gray-400 text-[13px] hover:bg-white/5 transition-all"
-          >
-            ยกเลิก
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={isSaving}
-            className="flex-1 py-2.5 rounded-xl bg-accent-yellow text-black font-semibold text-[13px] hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isSaving ? "กำลังบันทึก..." : "บันทึก"}
-          </button>
+            {/* Password */}
+            <div className="space-y-1.5">
+              <label className="text-[11px] text-gray-500">รหัสผ่านใหม่</label>
+              <input
+                type="password"
+                value={newPassword}
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={4}
+                onChange={(e) => setNewPassword(e.target.value)}
+                className="w-full bg-black border border-white/10 rounded-xl px-3 py-2.5 text-white text-[13px] outline-none focus:border-accent-yellow/50 transition-colors placeholder-gray-600"
+                placeholder="เว้นว่างถ้าไม่ต้องการเปลี่ยน"
+              />
+            </div>
+
+            {/* Confirm Password */}
+            {newPassword.length > 0 && (
+              <div className="space-y-1.5">
+                <label className="text-[11px] text-gray-500">
+                  ยืนยันรหัสผ่านใหม่
+                </label>
+                <div className="relative">
+                  <input
+                    type="password"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={4}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="w-full bg-black border border-white/10 rounded-xl px-3 py-2.5 text-white text-[13px] outline-none focus:border-accent-yellow/50 transition-colors placeholder-gray-600 pr-9"
+                    placeholder="กรอกรหัสผ่านอีกครั้ง"
+                  />
+                  {confirmPassword && (
+                    <span
+                      className={`absolute right-3 top-1/2 -translate-y-1/2 text-[12px] ${confirmPassword === newPassword ? "text-green-400" : "text-red-400"}`}
+                    >
+                      {confirmPassword === newPassword ? (
+                        <FaCheck />
+                      ) : (
+                        <FaTimes />
+                      )}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Error */}
+            {error && (
+              <p className="text-red-400 text-[12px] bg-red-400/10 rounded-lg px-3 py-2">
+                {error}
+              </p>
+            )}
+          </div>
+
+          {/* Footer */}
+          <div className="px-5 pb-5 flex gap-2">
+            <button
+              onClick={onClose}
+              className="flex-1 py-2.5 rounded-xl border border-white/10 text-gray-400 text-[13px] hover:bg-white/5 transition-all"
+            >
+              ยกเลิก
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={isSaving}
+              className="flex-1 py-2.5 rounded-xl bg-accent-yellow text-black font-semibold text-[13px] hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isSaving ? "กำลังบันทึก..." : "บันทึก"}
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
 
