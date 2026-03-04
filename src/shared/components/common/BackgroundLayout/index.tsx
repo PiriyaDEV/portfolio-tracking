@@ -3,6 +3,9 @@
 import { FC } from "react";
 import { Sarabun } from "next/font/google";
 import type { Metadata } from "next";
+import Image from "next/image";
+
+import logoImg from "../../../../../public/images/metaImg.png";
 
 interface BackgroundLayoutProps {
   children: React.ReactNode;
@@ -28,75 +31,88 @@ const BackgroundLayout: FC<BackgroundLayoutProps> = ({ children }) => {
   return (
     <html lang="en" className={`${sarabun.variable}`}>
       <body className="antialiased font-sarabun">
-        <div className="bg-black bg-opacity-70 min-h-screen flex flex-col items-center">
+        <div className="bg-black min-h-screen flex flex-col items-center">
           {/* ── App Bar ─────────────────────────────────────────── */}
-          <div
-            className="fixed top-0 w-full sm:max-w-[450px] z-[98]"
-            style={{
-              background: "linear-gradient(180deg, #0d0d0d 0%, #111111 100%)",
-              borderBottom: "1px solid rgba(255, 215, 0, 0.12)",
-              boxShadow: "0 4px 24px rgba(0,0,0,0.5)",
-            }}
+          <header
+            className="fixed top-0 w-full sm:max-w-[450px] z-[98] overflow-hidden"
+            style={{ background: "#0a0a0a" }}
           >
-            <div className="px-5 pt-4 pb-3 flex items-center justify-between">
-              {/* Left: Logo mark */}
-              <div
-                className="w-8 h-8 rounded-lg flex items-center justify-center text-black text-xs font-black"
-                style={{
-                  background:
-                    "linear-gradient(135deg, #FFD700 0%, #FFA500 100%)",
-                  boxShadow: "0 2px 10px rgba(255,215,0,0.35)",
-                  letterSpacing: "-0.5px",
-                }}
-              >
-                PT
+            {/* Top glow line */}
+            <div
+              className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-px"
+              style={{
+                background:
+                  "linear-gradient(90deg, transparent, rgba(255,215,0,0.6), transparent)",
+              }}
+            />
+
+            <div className="relative flex items-center px-4 py-3 gap-3">
+              {/* Logo with glow */}
+              <div className="relative shrink-0">
+                <div
+                  className="absolute inset-0 rounded-xl blur-sm opacity-40"
+                  style={{ background: "rgba(255,215,0,0.5)" }}
+                />
+                <Image
+                  src={logoImg}
+                  alt="P'Tracker Logo"
+                  width={40}
+                  height={40}
+                  className="relative rounded-xl object-cover"
+                  style={{ border: "1px solid rgba(255,215,0,0.3)" }}
+                />
               </div>
 
-              {/* Center: Title */}
-              <div className="flex flex-col items-center">
-                <span
-                  className="font-black text-[20px] text-white tracking-tight leading-none"
-                  style={{ letterSpacing: "-0.5px" }}
-                >
-                  P&apos;Tracker
-                </span>
-                <div className="flex items-center gap-1 mt-0.5">
-                  <span className="w-1 h-1 rounded-full bg-green-400 animate-pulse" />
-                  <span className="text-[10px] text-gray-500">
-                    Live Portfolio
+              {/* Title + tagline */}
+              <div className="flex flex-col flex-1">
+                <div className="flex items-center gap-2">
+                  <span
+                    className="font-black text-white text-[20px] leading-none"
+                    style={{ letterSpacing: "-0.5px" }}
+                  >
+                    P&apos;Tracker
                   </span>
                 </div>
+                <span className="text-[10px] text-gray-600 mt-0.5">
+                  Portfolio Tracking
+                </span>
               </div>
 
-              {/* Right: Author */}
-              <div className="flex flex-col items-end">
-                <span className="text-[9px] text-gray-600 leading-tight">
-                  by
+              {/* Author button */}
+              <div className="flex flex-col items-end shrink-0">
+                <span className="text-[9px] text-gray-600 leading-none mb-1">
+                  created by
                 </span>
-                <span
-                  className="text-[11px] font-semibold text-accent-yellow underline cursor-pointer hover:opacity-80 transition-opacity leading-tight"
+                <button
                   onClick={() =>
                     window.open(
                       "https://www.instagram.com/pd.piriya/#",
                       "_blank",
                     )
                   }
+                  className="flex items-center gap-1 px-2 py-1 rounded-lg transition-all hover:opacity-80 active:scale-95"
+                  style={{
+                    background: "rgba(255,215,0,0.08)",
+                    border: "1px solid rgba(255,215,0,0.22)",
+                  }}
                 >
-                  @pd.piriya
-                </span>
-                <span className="text-[11px]">🤪✨</span>
+                  <span className="text-[11px] font-bold text-accent-yellow">
+                    @pd.piriya
+                  </span>
+                  <span className="text-[11px]">🤪</span>
+                </button>
               </div>
             </div>
 
-            {/* Bottom accent line */}
+            {/* Bottom gold shimmer line */}
             <div
-              className="h-[2px] w-full"
+              className="h-px w-full"
               style={{
                 background:
-                  "linear-gradient(90deg, transparent 0%, rgba(255,215,0,0.4) 30%, rgba(255,165,0,0.6) 50%, rgba(255,215,0,0.4) 70%, transparent 100%)",
+                  "linear-gradient(90deg, transparent 0%, rgba(255,215,0,0.5) 35%, rgba(255,180,0,0.85) 50%, rgba(255,215,0,0.5) 65%, transparent 100%)",
               }}
             />
-          </div>
+          </header>
 
           {/* ── Content ─────────────────────────────────────────── */}
           <div className="container sm:max-w-[450px] mx-auto sm:mx-0 flex-grow bg-black">
