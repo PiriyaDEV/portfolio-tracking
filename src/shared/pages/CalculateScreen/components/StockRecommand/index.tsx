@@ -197,10 +197,30 @@ const MARKETS: { id: Market; label: string; flag: string }[] = [
 // ─── Rating config ─────────────────────────────────────────────────────────────
 
 const RATING_CONFIG = [
-  { key: "growth" as const, label: "การเติบโต", emoji: "📈", color: "bg-cyan-400" },
-  { key: "dividend" as const, label: "เงินปันผล", emoji: "💰", color: "bg-pink-400" },
-  { key: "profitability" as const, label: "กำไร", emoji: "💎", color: "bg-purple-400" },
-  { key: "intrinsicValue" as const, label: "มูลค่าเหมาะสม", emoji: "🎯", color: "bg-amber-400" },
+  {
+    key: "growth" as const,
+    label: "การเติบโต",
+    emoji: "📈",
+    color: "bg-cyan-400",
+  },
+  {
+    key: "dividend" as const,
+    label: "เงินปันผล",
+    emoji: "💰",
+    color: "bg-pink-400",
+  },
+  {
+    key: "profitability" as const,
+    label: "กำไร",
+    emoji: "💎",
+    color: "bg-purple-400",
+  },
+  {
+    key: "intrinsicValue" as const,
+    label: "มูลค่าเหมาะสม",
+    emoji: "🎯",
+    color: "bg-amber-400",
+  },
 ];
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -245,13 +265,7 @@ function MiniBar({
   );
 }
 
-function RatingDots({
-  value,
-  color,
-}: {
-  value: number;
-  color: string;
-}) {
+function RatingDots({ value, color }: { value: number; color: string }) {
   return (
     <div className="flex gap-[3px] items-center">
       {[1, 2, 3, 4, 5].map((i) => (
@@ -274,7 +288,9 @@ function RatingsRow({ ratings }: { ratings: StockRatings }) {
           key={key}
           className="flex flex-col items-center gap-1 bg-gray-900/60 rounded-lg py-2 px-1"
         >
-          <span className="text-[8px] text-gray-500 leading-none mb-1">{emoji} {label}</span>
+          <span className="text-[8px] text-gray-500 leading-none mb-1">
+            {emoji} {label}
+          </span>
           <RatingDots value={ratings[key]} color={color} />
         </div>
       ))}
@@ -425,7 +441,8 @@ function StockCard({
               ≈
               {priceInThb.toLocaleString("th-TH", {
                 maximumFractionDigits: 0,
-              })} บาท
+              })}{" "}
+              บาท
             </p>
           )}
         </div>
@@ -522,7 +539,7 @@ function UsageStatusBar({
       </div>
       {!canResearch && nextAvailableAt && (
         <span className="text-gray-500 text-[10px]">
-          ใหม่ได้:{" "}
+          วิเคราะห์ใหม่ได้:{" "}
           <span className="text-gray-300">{formatDate(nextAvailableAt)}</span>
         </span>
       )}
@@ -652,19 +669,6 @@ export default function StockRecommendScreen({
 
   return (
     <div className="p-4 w-full pb-[70px]">
-      {/* Sticky header */}
-      <div className="fixed top-[67px] left-1/2 -translate-x-1/2 max-w-[450px] w-full bg-black py-3 px-5 border-b border-gray-800 z-10">
-        <div className="flex items-center gap-2">
-          <FaChartLine className="text-yellow-400 text-lg" />
-          <span className="text-white font-bold text-sm">
-            แนะนำหุ้นที่น่าลงทุน
-          </span>
-          <span className="ml-auto text-[10px] text-gray-600">
-            powered by Gemini AI
-          </span>
-        </div>
-      </div>
-
       <div className="pt-[64px] flex flex-col gap-6">
         {/* Loading skeleton on initial fetch */}
         {isFetching && (
@@ -675,6 +679,37 @@ export default function StockRecommendScreen({
 
         {!isFetching && (
           <>
+            <div className="w-full bg-gradient-to-r from-black via-gray-900 to-black border-b border-gray-800 px-4 py-3">
+              <div className="flex items-center gap-3">
+                {/* Left Icon */}
+                <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-yellow-400/10">
+                  <FaChartLine className="text-yellow-400 text-lg" />
+                </div>
+
+                {/* Title */}
+                <div className="flex flex-col">
+                  <span className="text-white font-semibold text-sm tracking-wide">
+                    แนะนำหุ้นที่น่าลงทุน
+                  </span>
+                  <span className="text-[11px] text-gray-400">
+                    วิเคราะห์ด้วย AI อัจฉริยะ
+                  </span>
+                </div>
+
+                {/* Gemini Badge */}
+                <div
+                  className="ml-auto flex items-center gap-2 px-3 py-1 rounded-full 
+                    bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 
+                    text-white text-[10px] font-medium shadow-md"
+                >
+                  {/* Gemini Spark */}
+                  <div className="w-2 h-2 rounded-full bg-white animate-pulse" />
+
+                  <span>Gemini AI</span>
+                </div>
+              </div>
+            </div>
+
             {/* Usage status bar */}
             {!canResearch && (
               <UsageStatusBar
