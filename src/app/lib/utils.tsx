@@ -2,6 +2,10 @@ import { MemberObj } from "@/app/lib/interface";
 import { MODE } from "./constants";
 import { replace } from "lodash";
 import numeral from "numeral";
+import crypto from "crypto";
+
+const ENCRYPT_KEY = process.env.GOOGLE_SHEET_ID;
+const IV_LENGTH = 16;
 
 export const getMemberObjByName = (
   name: string,
@@ -223,3 +227,36 @@ export const isThaiStock = (symbol: string): boolean => {
 export const isCash = (symbol: string): boolean => {
   return symbol === "THB=X" || symbol === "TISCO-PVD";
 };
+
+// ─── Encrypt Function ─────────────────────────────────────────────
+export function encrypt(text: string) {
+  const iv = crypto.randomBytes(IV_LENGTH);
+  const key = crypto
+    .createHash("sha256")
+    .update(ENCRYPT_KEY!)
+    .digest();
+
+  const cipher = crypto.createCipheriv("aes-256-cbc", key, iv);
+  let encrypted = cipher.update(text, "utf8", "base64");
+  encrypted += cipher.final("base64");
+
+  // return iv + encrypted (so we can decrypt later)
+  return iv.toString("base64") + ":" + encrypted;
+}
+
+// ─── Decrypt Function ─────────────────────────────────────────────
+export function decrypt(text: string) {
+  const [ivBase64, encryptedData] = text.split(":");
+
+  const iv = Buffer.from(ivBase64, "base64");
+  const key = crypto
+    .createHash("sha256")
+    .update(ENCRYPT_KEY!)
+    .digest();
+
+  const decipher = crypto.createDecipheriv("aes-256-cbc", key, iv);
+  let decrypted = decipher.update(encryptedData, "base64", "utf8");
+  decrypted += decipher.final("utf8");
+
+  return decrypted;
+}

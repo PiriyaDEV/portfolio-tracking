@@ -1,5 +1,6 @@
 // app/user/[id]/route.ts
 import { google } from "googleapis";
+import { encrypt, decrypt } from "@/app/lib/utils";
 
 // Helper function to initialize Google Sheets
 async function getGoogleSheets() {
@@ -67,8 +68,21 @@ export async function GET(req: Request, context: any) {
       });
     }
 
-    // Parse the JSON data from column B
-    const userData = userRow[1] ? JSON.parse(userRow[1]) : [];
+    // Decrypt and parse the JSON data from column B
+    let userData = [];
+    if (userRow[1]) {
+      try {
+        const decrypted = decrypt(userRow[1]);
+        userData = JSON.parse(decrypted);
+      } catch (e) {
+        // Fallback: try parsing as plain JSON (for legacy unencrypted rows)
+        try {
+          userData = JSON.parse(userRow[1]);
+        } catch {
+          userData = [];
+        }
+      }
+    }
 
     // Parse the JSON data from column D
     const username = userRow[3] ? userRow[3] : '';
@@ -129,6 +143,9 @@ export async function POST(req: Request, context: any) {
       });
     }
 
+    // Encrypt assets before saving to sheet
+    const encryptedAssets = encrypt(JSON.stringify(assets));
+
     const sheets = await getGoogleSheets();
 
     // Read all rows to find the user
@@ -151,7 +168,7 @@ export async function POST(req: Request, context: any) {
         range: "Sheet1!A:B",
         valueInputOption: "RAW",
         requestBody: {
-          values: [[id, JSON.stringify(assets)]],
+          values: [[id, encryptedAssets]],
         },
       });
     } else {
@@ -162,7 +179,7 @@ export async function POST(req: Request, context: any) {
         range: `Sheet1!B${actualRowNumber}`,
         valueInputOption: "RAW",
         requestBody: {
-          values: [[JSON.stringify(assets)]],
+          values: [[encryptedAssets]],
         },
       });
     }
