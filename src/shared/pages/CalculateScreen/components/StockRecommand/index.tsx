@@ -7,6 +7,7 @@ import {
   FaPills,
   FaBuilding,
   FaGem,
+  FaChartPie,
 } from "react-icons/fa6";
 import {
   FaArrowTrendUp as UpIcon,
@@ -100,6 +101,16 @@ const STOCK_CATEGORIES: StockCategory[] = [
     color: "text-sky-400",
     borderColor: "border-sky-500",
     bgColor: "bg-sky-500/10",
+  },
+  {
+    id: "etf_fund",
+    label: "ETF / กองทุน",
+    labelEn: "ETF / Fund",
+    icon: <FaChartPie />,
+    description: "ดัชนี, กองทุนรวม, กระจายความเสี่ยง",
+    color: "text-indigo-400",
+    borderColor: "border-indigo-500",
+    bgColor: "bg-indigo-500/10",
   },
   {
     id: "large_cap",
@@ -574,7 +585,7 @@ export default function StockRecommendScreen({
         {/* Loading skeleton on initial fetch */}
         {isFetching && (
           <div className="flex flex-col items-center mt-[200px]">
-            <CommonLoading isFullScreen={false}/>
+            <CommonLoading isFullScreen={false} />
           </div>
         )}
 

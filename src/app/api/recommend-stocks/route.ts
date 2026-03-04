@@ -13,6 +13,7 @@ export const STOCK_CATEGORIES = [
   { id: "pharma", label: "หุ้นยา / สุขภาพ" },
   { id: "defense", label: "หุ้นกลาโหม" },
   { id: "banking", label: "หุ้นการเงิน / ธนาคาร" },
+  { id: "etf_fund", label: "ETF / กองทุน" },
   { id: "large_cap", label: "หุ้นใหญ่" },
   { id: "small_cap", label: "หุ้นเล็ก" },
   { id: "dividend", label: "หุ้นปันผล" },
