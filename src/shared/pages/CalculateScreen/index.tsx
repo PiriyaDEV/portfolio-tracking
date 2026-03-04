@@ -169,7 +169,7 @@ export default function CalculatorScreen({
   return (
     <div className="p-4 w-full pb-[100px]">
       {/* Tabs mapping */}
-      <div className="fixed top-[80px] left-1/2 -translate-x-1/2 max-w-[450px] w-full bg-black w-full py-3 px-5 px-1 border-b border-black-lighter2">
+      <div className="fixed top-[67px] left-1/2 -translate-x-1/2 max-w-[450px] w-full bg-black w-full py-3 px-5 px-1 border-b border-black-lighter2">
         <div className="flex justify-start gap-[35px]">
           {tabs.map((tab) => {
             const isActive = activeTab === tab.key;
@@ -217,7 +217,7 @@ export default function CalculatorScreen({
       </div>
 
       {/* Asset selector */}
-      <div className="pt-[95px] mb-6 flex flex-col gap-2">
+      <div className="pt-[85px] mb-6 flex flex-col gap-2">
         <label className="text-white text-sm">เลือกหุ้น</label>
         <select
           value={selectedSymbol}

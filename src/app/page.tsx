@@ -528,7 +528,7 @@ export default function StockPrice() {
 
       {/* ── Top Bar ────────────────────────────────────────────── */}
       {currentPage === "portfolio" && (
-        <div className="fixed top-[80px] left-0 right-0 bg-black z-[99] sm:max-w-[450px] mx-auto">
+        <div className="fixed top-[67px] left-0 right-0 bg-black z-[99] sm:max-w-[450px] mx-auto">
           {/* Profile Row */}
           <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-accent-yellow/10">
             <div className="flex items-center gap-3">
@@ -634,7 +634,7 @@ export default function StockPrice() {
         )}
 
         {currentPage === "portfolio" && (
-          <div className="mt-[100px] mb-[50px] w-full">
+          <div className="mt-[90px] mb-[50px] w-full">
             {sortedAssets.map((asset) => {
               const isThai = isThaiStock(asset.symbol);
               const currentPrice = prices[asset.symbol] ?? 0;

@@ -95,7 +95,7 @@ export default function AnalystScreen({
   return (
     <div className="w-full px-4 mt-[35px] pb-[90px]">
       {/* Tabs */}
-      <div className="fixed top-[80px] left-1/2 -translate-x-1/2 max-w-[450px] w-full z-[99] bg-black py-3 border-b border-black-lighter2">
+      <div className="fixed top-[67px] left-1/2 -translate-x-1/2 max-w-[450px] w-full z-[99] bg-black py-3 border-b border-black-lighter2">
         <div className="flex justify-around">
           {tabs.map((tab) => {
             const isActive = activeTab === tab.key;
@@ -132,7 +132,7 @@ export default function AnalystScreen({
       </div>
 
       {/* Content */}
-      <div className="pt-[90px] space-y-3">
+      <div className="pt-[60px] space-y-3">
         {activeTab === "support" && (
           <div className="flex flex-col gap-3">
             {sortedSymbols.map((symbol) => (

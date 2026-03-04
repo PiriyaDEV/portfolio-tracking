@@ -223,7 +223,7 @@ export default function NewsScreen() {
       {/* =======================
           HEADER (ALWAYS SHOW)
       ======================= */}
-      <div className="fixed top-[173px] left-1/2 -translate-x-1/2 max-w-[450px] w-full py-2 px-5 bg-black z-[99] border-b border-black-lighter2">
+      <div className="fixed top-[160px] left-1/2 -translate-x-1/2 max-w-[450px] w-full py-2 px-5 bg-black z-[99] border-b border-black-lighter2">
         <div className="flex items-center justify-between">
           <h2 className="text-[14px] font-bold flex items-center gap-2 text-white">
             📢 อัพเดทข่าวหุ้นล่าสุดจาก กลุ่ม "ข่าวด่วนหุ้นสหรัฐ"
