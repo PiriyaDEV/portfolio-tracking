@@ -288,7 +288,7 @@ export default function EarningsPage({
                 )}
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div>
                 {grouped[date].map((e, i) => {
                   const isWishlist = wishlist.includes(e.symbol);
 
