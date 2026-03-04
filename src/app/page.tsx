@@ -791,7 +791,7 @@ export default function StockPrice() {
                       <div className="font-bold text-[15px] text-white">
                         {maskNumber(fNumber(marketValueThb))}
                         <span className="text-[10px] text-gray-500 ml-1">
-                          THB
+                          บาท
                         </span>
                       </div>
                       <div className="text-[11px] text-gray-500">
