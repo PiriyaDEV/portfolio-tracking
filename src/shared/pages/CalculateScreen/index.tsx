@@ -1,13 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { TiChartPieOutline as ChartIcon } from "react-icons/ti";
 import {
   FaArrowTrendUp as UpIcon,
   FaArrowTrendDown as DownIcon,
   FaCalculator,
   FaBullseye,
-  FaChartLine,
+  FaCoins,
 } from "react-icons/fa6";
 import {
   fNumber,
@@ -16,7 +15,7 @@ import {
   isCash,
   isThaiStock,
 } from "@/app/lib/utils";
-import StockRecommendScreen from "./components/StockRecommand";
+import DividendSummary from "../AnalystScreen/components/Dividend";
 
 export type Asset = {
   symbol: string;
@@ -28,14 +27,14 @@ type CalculatorScreenProps = {
   assets: Asset[];
   prices: any; // current price (THB for Thai stocks, USD for US stocks)
   currencyRate: number; // USD -> THB
-  userId: string;
+  dividend: any;
 };
 
 export default function CalculatorScreen({
   assets,
   prices,
   currencyRate,
-  userId,
+  dividend,
 }: CalculatorScreenProps) {
   const [selectedSymbol, setSelectedSymbol] = useState<string>(
     assets.length > 0 ? assets[0].symbol : "",
@@ -46,7 +45,7 @@ export default function CalculatorScreen({
   const [newCostPerShare, setNewCostPerShare] = useState<number | null>(null);
 
   const [activeTab, setActiveTab] = useState<
-    "calculator" | "estimate" | "recommend"
+    "calculator" | "estimate" | "dividend"
   >("calculator");
 
   const [afterData, setAfterData] = useState<{
@@ -174,7 +173,8 @@ export default function CalculatorScreen({
       label: "คำนวณเป้าหมาย",
       icon: <FaBullseye />, // change icon as needed
     },
-    { key: "recommend", label: "แนะนำหุ้น", icon: <FaChartLine /> },
+    // { key: "recommend", label: "แนะนำหุ้น", icon: <FaChartLine /> },
+    { key: "dividend", label: "ปันผล", icon: <FaCoins /> },
   ];
 
   return (
@@ -191,9 +191,7 @@ export default function CalculatorScreen({
               <button
                 key={tab.key}
                 onClick={() => {
-                  setActiveTab(
-                    tab.key as "calculator" | "estimate" | "recommend",
-                  );
+                  setActiveTab(tab.key as any);
 
                   // Clear all data on tab change
                   setAfterData(null);
@@ -230,7 +228,7 @@ export default function CalculatorScreen({
       </div>
 
       {/* Asset selector */}
-      {activeTab !== "recommend" && (
+      {(activeTab === "calculator" || activeTab === "estimate") && (
         <div className="pt-[85px] mb-6 flex flex-col gap-2">
           <label className="text-white text-sm">เลือกหุ้น</label>
           <select
@@ -327,11 +325,10 @@ export default function CalculatorScreen({
         </div>
       )}
 
-      {activeTab === "recommend" && (
-        <StockRecommendScreen userId={userId} currencyRate={currencyRate} />
-      )}
+      {activeTab === "dividend" && <DividendSummary data={dividend} />}
+
       {/* Show before/after cards */}
-      {activeTab !== "recommend" && (
+      {(activeTab === "calculator" || activeTab === "estimate") && (
         <div className="grid grid-cols-1 gap-4">
           {/* Before card */}
           <div className="w-full shadow-sm">

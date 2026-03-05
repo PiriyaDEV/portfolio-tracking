@@ -9,38 +9,45 @@ import {
   FaChartLine,
   FaLayerGroup,
   FaChartBar,
-  FaCoins,
   FaNewspaper,
 } from "react-icons/fa6";
 import SNPCompare from "./components/SNPCompare";
-import DividendSummary from "./components/Dividend";
 import { GraphPrice } from "./components/GraphPrice";
 import StockCard from "./components/StockCard";
 import NewsScreen from "../NewsScreen";
 import Earning from "./components/Earning";
 import { FaCalendarAlt } from "react-icons/fa";
 import { isCash } from "@/app/lib/utils";
+import StockRecommendScreen from "../CalculateScreen/components/StockRecommand";
 
 interface Props {
   advancedLevels: Record<string, AdvancedLevels>;
   prices: Record<string, number | null>;
   assets: Asset[];
-  dividend: any;
   graphs: any;
   previousPrice: any;
   wishlist: any;
+  userId: any;
+  currencyRate: any;
 }
 
-type TabKey = "graph" | "support" | "compare" | "dividend" | "news" | "earning";
+type TabKey =
+  | "graph"
+  | "support"
+  | "compare"
+  | "recommend"
+  | "news"
+  | "earning";
 
 export default function AnalystScreen({
   advancedLevels,
   prices,
   assets,
-  dividend,
   graphs,
   previousPrice,
   wishlist,
+  userId,
+  currencyRate,
 }: Props) {
   const [activeTab, setActiveTab] = useState<TabKey>("graph");
 
@@ -86,9 +93,9 @@ export default function AnalystScreen({
       icon: <FaCalendarAlt size={22} />,
     },
     {
-      key: "dividend",
-      label: "ปันผล",
-      icon: <FaCoins size={22} />,
+      key: "recommend",
+      label: "แนะนำหุ้น",
+      icon: <FaChartLine size={22} />,
     },
   ];
 
@@ -132,7 +139,7 @@ export default function AnalystScreen({
       </div>
 
       {/* Content */}
-      <div className="pt-[60px] space-y-3">
+      <div className="pt-[50px] space-y-3">
         {activeTab === "support" && (
           <div className="flex flex-col gap-3">
             {sortedSymbols.map((symbol) => (
@@ -149,7 +156,9 @@ export default function AnalystScreen({
 
         {activeTab === "compare" && <SNPCompare assets={assets} />}
 
-        {activeTab === "dividend" && <DividendSummary data={dividend} />}
+        {activeTab === "recommend" && (
+          <StockRecommendScreen userId={userId} currencyRate={currencyRate} />
+        )}
 
         {activeTab === "graph" && (
           <GraphPrice

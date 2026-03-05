@@ -233,7 +233,7 @@ export function GraphPrice({ graphs, assets, prices, previousPrice }: Props) {
   };
 
   return (
-    <div className="mt-[70px] flex flex-col">
+    <div className="mt-[90px] flex flex-col">
       {/* HEADER */}
       <div className="fixed top-[160px] left-1/2 -translate-x-1/2 max-w-[450px] w-full gap-3 py-2 px-3 text-[12px] text-gray-400 bg-black z-[99] border-b border-black-lighter2">
         {!loadingMarket && market && (

@@ -702,17 +702,18 @@ export default function StockPrice() {
             prices={prices}
             advancedLevels={advancedLevels}
             assets={assets}
-            dividend={dividend}
             graphs={graphs}
             previousPrice={previousPrice}
             wishlist={wishlist}
+            currencyRate={currencyRate}
+            userId={userId}
           />
         )}
         {currentPage === "calculator" && (
           <CalculateScreen
             assets={assets}
             prices={prices}
-            userId={userId}
+            dividend={dividend}
             currencyRate={currencyRate}
           />
         )}

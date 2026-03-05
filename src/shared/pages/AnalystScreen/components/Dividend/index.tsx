@@ -80,7 +80,7 @@ export default function DividendSummary({ data }: DividendSummaryProps) {
     .map(([symbol]) => symbol);
 
   return (
-    <div className="bg-black-lighter text-white p-4 rounded-lg">
+    <div className="bg-black-lighter text-white p-4 rounded-lg mt-[80px]">
       {/* Header */}
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-lg font-bold">📊 สรุปเงินปันผลรายปี</h2>
@@ -170,6 +170,7 @@ export default function DividendSummary({ data }: DividendSummaryProps) {
           <p className="text-gray-400 text-sm">💰 เงินปันผลรวมต่อปี</p>
           <p className="text-3xl font-bold text-yellow-400">
             {formatCurrency(totalAnnualDividend, baseCurrency)}
+            <span className="text-[12px] text-gray-500 ml-1">(บาท/ปี)</span>
           </p>
         </div>
       </div>

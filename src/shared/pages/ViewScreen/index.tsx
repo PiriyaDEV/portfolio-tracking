@@ -49,7 +49,7 @@ export default function ViewScreen({
 
   /* -------------------- Render -------------------- */
   return (
-    <div className="w-full px-4 mt-4 space-y-4 pb-[70px]">
+    <div className="w-full px-4 mt-4 space-y-4 pb-[120px]">
       {/* Search */}
       <div className="flex gap-2">
         <input
