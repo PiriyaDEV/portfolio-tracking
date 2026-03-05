@@ -2,6 +2,17 @@
    📝 CONFIG - แก้ไขที่นี่ที่เดียว
    ⚠️ ลำดับสำคัญ! อันไหนอยู่บนจะถูกเช็คก่อน (Priority จากบนลงล่าง)
 ======================= */
+export type Channel = {
+  id: string; // used as ?channel= query param
+  label: string; // Thai display label
+  emoji: string; // shown in pill + header
+};
+
+export const CHANNELS: Channel[] = [
+  { id: "usstockthailand1", label: "ข่าวด่วนสหรัฐ", emoji: "🇺🇸" },
+  { id: "wethaiinvestbot", label: "กูรูซื้อ-ขาย", emoji: "🧙‍♂️" },
+];
+
 export const NEWS_CONFIG = [
   {
     key: "bloomberg",
@@ -159,6 +170,13 @@ export const NEWS_CONFIG = [
     emoji: "🇺🇸",
     keywords: ["PPI"],
   },
+  {
+    key: "thaiusinvest",
+    name: "แอ๊ดอั้ม",
+    image: "https://scontent.fbkk29-6.fna.fbcdn.net/v/t39.30808-6/483507222_645968188373529_8415688579765343866_n.jpg?_nc_cat=109&ccb=1-7&_nc_sid=7b2446&_nc_ohc=M0WyEDmb4UcQ7kNvwHxkFTO&_nc_oc=Adm1iq70E_eE9cEtsPlWvphiy_kBkJVCOEECOWeWMer3FE9Sn2yROt4bVBsaIVXfbcrESRw4mv6xeYkjNakCc-Og&_nc_zt=23&_nc_ht=scontent.fbkk29-6.fna&_nc_gid=VX7T1Uh3oquIY9G3emjjZQ&_nc_ss=8&oh=00_Afx5bQzktY0gzANgKBOu6cuSZPAdnCKUpdu6Wsgyd75Z8g&oe=69AEE330",
+    emoji: "🐷",
+    keywords: ["แอ๊ดอั้ม"],
+  },
 ];
 
 // Default author (ถ้าไม่เจอ keyword ไหนเลย)
@@ -167,6 +185,23 @@ export const DEFAULT_AUTHOR = {
   name: "จาง (วงใน)",
   image:
     "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRn7p7pMMHspGbtZwGm6GWDBcXC8LkX73h1iGalFYgv-mf6F-L9",
-  emoji: null,
+  emoji: "🇺🇸",
   keywords: [],
+};
+
+export const CHANNEL_DEFAULT_AUTHOR: Record<string, typeof DEFAULT_AUTHOR> = {
+  usstockthailand1: {
+    key: "default",
+    name: "จาง (วงใน)",
+    image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRn7p7pMMHspGbtZwGm6GWDBcXC8LkX73h1iGalFYgv-mf6F-L9",
+    emoji: "🇺🇸",
+    keywords: [],
+  },
+  wethaiinvestbot: {
+    key: "thaiusinvest",
+    name: "แอ๊ดอั้ม",
+    image: "https://scontent.fbkk29-6.fna.fbcdn.net/v/t39.30808-6/483507222_645968188373529_8415688579765343866_n.jpg?_nc_cat=109&ccb=1-7&_nc_sid=7b2446&_nc_ohc=M0WyEDmb4UcQ7kNvwHxkFTO&_nc_oc=Adm1iq70E_eE9cEtsPlWvphiy_kBkJVCOEECOWeWMer3FE9Sn2yROt4bVBsaIVXfbcrESRw4mv6xeYkjNakCc-Og&_nc_zt=23&_nc_ht=scontent.fbkk29-6.fna&_nc_gid=VX7T1Uh3oquIY9G3emjjZQ&_nc_ss=8&oh=00_Afx5bQzktY0gzANgKBOu6cuSZPAdnCKUpdu6Wsgyd75Z8g&oe=69AEE330",
+    emoji: "🐷",
+    keywords: [],
+  },
 };
