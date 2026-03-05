@@ -3,7 +3,12 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { TiRefresh as RefreshIcon } from "react-icons/ti";
 import CommonLoading from "@/shared/components/common/CommonLoading";
-import { DEFAULT_AUTHOR, NEWS_CONFIG, CHANNELS, CHANNEL_DEFAULT_AUTHOR } from "./config.constants";
+import {
+  DEFAULT_AUTHOR,
+  NEWS_CONFIG,
+  CHANNELS,
+  CHANNEL_DEFAULT_AUTHOR,
+} from "./config.constants";
 
 /* =======================
    Types
@@ -12,19 +17,22 @@ type TelegramMessage = {
   id: number;
   text: string;
   date: number;
+  image: string | null; // ← add this
 };
 
 /* =======================
    Component
 ======================= */
 export default function NewsScreen() {
-  const [messages, setMessages]       = useState<TelegramMessage[]>([]);
-  const [loading, setLoading]         = useState(true);
-  const [refreshing, setRefreshing]   = useState(false);
+  const [messages, setMessages] = useState<TelegramMessage[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [hasMore, setHasMore]         = useState(true);
-  const [offset, setOffset]           = useState(0);
-  const [activeChannel, setActiveChannel] = useState<string>(CHANNELS[0]?.id ?? "usstockthailand1");
+  const [hasMore, setHasMore] = useState(true);
+  const [offset, setOffset] = useState(0);
+  const [activeChannel, setActiveChannel] = useState<string>(
+    CHANNELS[0]?.id ?? "usstockthailand1",
+  );
 
   const observerTarget = useRef<HTMLDivElement>(null);
 
@@ -56,17 +64,17 @@ export default function NewsScreen() {
 
     for (const config of NEWS_CONFIG) {
       for (const keyword of config.keywords) {
-        const key   = keyword.normalize("NFC").toLowerCase();
+        const key = keyword.normalize("NFC").toLowerCase();
         const index = lower.indexOf(key);
         if (index === -1) continue;
 
         const before = lower[index - 1];
-        const after  = lower[index + key.length];
+        const after = lower[index + key.length];
         if (isThaiLetter(before) || isThaiLetter(after)) continue;
 
         if (index < earliestIndex) {
           earliestIndex = index;
-          matchedConfig  = config;
+          matchedConfig = config;
         }
       }
     }
@@ -114,8 +122,8 @@ export default function NewsScreen() {
         }
 
         const currentOffset = reset ? 0 : offset;
-        const res  = await fetch(
-          `/api/news?offset=${currentOffset}&limit=5&channel=${channel}`
+        const res = await fetch(
+          `/api/news?offset=${currentOffset}&limit=5&channel=${channel}`,
         );
         const data = await res.json();
         const newMessages: TelegramMessage[] = Array.isArray(data) ? data : [];
@@ -137,7 +145,7 @@ export default function NewsScreen() {
         setLoadingMore(false);
       }
     },
-    [activeChannel, messages.length, offset]
+    [activeChannel, messages.length, offset],
   );
 
   /* =======================
@@ -167,13 +175,15 @@ export default function NewsScreen() {
         fetchNews(false);
       }
     },
-    [hasMore, loadingMore, loading, fetchNews]
+    [hasMore, loadingMore, loading, fetchNews],
   );
 
   useEffect(() => {
     const element = observerTarget.current;
     if (!element) return;
-    const observer = new IntersectionObserver(handleObserver, { threshold: 0.1 });
+    const observer = new IntersectionObserver(handleObserver, {
+      threshold: 0.1,
+    });
     observer.observe(element);
     return () => observer.unobserve(element);
   }, [handleObserver]);
@@ -182,7 +192,7 @@ export default function NewsScreen() {
      Derived
   ======================= */
   const filteredMessages = messages.filter(
-    (msg) => msg.text && msg.text.trim() !== ""
+    (msg) => msg.text && msg.text.trim() !== "",
   );
 
   const activeChannelInfo = CHANNELS.find((c) => c.id === activeChannel);
@@ -213,19 +223,20 @@ export default function NewsScreen() {
   ======================= */
   return (
     <div className="max-w-[600px] mx-auto">
-
       {/* ======================= HEADER ======================= */}
       <div className="fixed top-[160px] left-1/2 -translate-x-1/2 max-w-[450px] w-full z-[99]">
-
         {/* Title row */}
         <div className="flex items-center justify-between px-4 py-2.5 bg-black-lighter border-b border-white/[0.06]">
           <div className="flex items-center gap-2">
             <span className="text-lg">📢</span>
             <h2 className="text-[13px] font-semibold text-white/90 tracking-wide">
-              {activeChannelInfo?.emoji} {activeChannelInfo?.label ?? "ข่าวหุ้น"}
+              {activeChannelInfo?.emoji}{" "}
+              {activeChannelInfo?.label ?? "ข่าวหุ้น"}
             </h2>
             {refreshing && (
-              <span className="text-[11px] text-white/40 animate-pulse">กำลังโหลด…</span>
+              <span className="text-[11px] text-white/40 animate-pulse">
+                กำลังโหลด…
+              </span>
             )}
           </div>
 
@@ -252,9 +263,10 @@ export default function NewsScreen() {
                 className={`
                   flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[12px] font-medium
                   whitespace-nowrap shrink-0 transition-all duration-200
-                  ${isActive
-                    ? "bg-accent-yellow text-black shadow-[0_0_12px_rgba(255,200,0,0.35)]"
-                    : "bg-white/[0.07] text-white/60 hover:bg-white/[0.12] hover:text-white/90"
+                  ${
+                    isActive
+                      ? "bg-accent-yellow text-black shadow-[0_0_12px_rgba(255,200,0,0.35)]"
+                      : "bg-white/[0.07] text-white/60 hover:bg-white/[0.12] hover:text-white/90"
                   }
                 `}
               >
@@ -269,7 +281,6 @@ export default function NewsScreen() {
       {/* ======================= CONTENT ======================= */}
       {/* top padding accounts for both fixed bars (~104px) */}
       <div className="space-y-3 px-3 pt-[108px] pb-6">
-
         {/* Loading skeleton */}
         {loading && (
           <div className="pt-[100px]">
@@ -289,9 +300,9 @@ export default function NewsScreen() {
         {!loading &&
           filteredMessages.map((msg, index) => {
             const newsType = detectNewsType(msg.text);
-            const messageDate  = new Date(msg.date * 1000);
-            const diffMinutes  = (Date.now() - messageDate.getTime()) / 60_000;
-            const isNew        = diffMinutes <= 30;
+            const messageDate = new Date(msg.date * 1000);
+            const diffMinutes = (Date.now() - messageDate.getTime()) / 60_000;
+            const isNew = diffMinutes <= 30;
 
             return (
               <div
@@ -359,6 +370,17 @@ export default function NewsScreen() {
                   <p className="text-[14px] text-white/80 leading-relaxed whitespace-pre-line">
                     {renderTextWithLinks(msg.text) || "-"}
                   </p>
+
+                  {/* Post image */}
+                  {msg.image && (
+                    <div className="mt-3 rounded-xl overflow-hidden border border-white/[0.08]">
+                      <img
+                        src={msg.image}
+                        alt="post image"
+                        className="w-full object-cover max-h-[320px]"
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
             );
