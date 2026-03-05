@@ -282,7 +282,7 @@ function buildPrompt(payload: {
         ? "US stocks only (NYSE/NASDAQ)"
         : "Mix of Thailand SET (.BK) and US stocks";
 
-  return `You are an expert financial advisor. Recommend 3-5 stocks based on the investor profile below.
+  return `You are an expert financial advisor. Recommend 3-4 stocks based on the investor profile below.
 
 Investor Profile:
 - Investment amount: ${payload.investmentAmount.toLocaleString()} THB
@@ -307,7 +307,7 @@ For risk=high: include TSLA, NVDA, or volatile small caps
 
 Rating scale (1–5 stars):
 - growth: 5 = revenue/EPS growing >20% YoY, 3 = moderate growth, 1 = declining
-- dividend: 5 = yield >4% with stable payout history, 3 = some dividend, 1 = no dividend
+- dividend: 5 = yield >4% with stable payout history, 3 = some dividend, 0 = no dividend
 - profitability: 5 = high net margin + high ROE, 3 = average, 1 = loss-making
 - intrinsicValue: 5 = deeply undervalued vs DCF/P/E peers, 3 = fairly valued, 1 = significantly overvalued
 
@@ -321,7 +321,7 @@ Each item must have exactly these fields:
   "upside": number (projected upside % for next 3 months, e.g. 12.0),
   "ratings": {
     "growth": number (1–5),
-    "dividend": number (1–5),
+    "dividend": number (0–5),
     "profitability": number (1–5),
     "intrinsicValue": number (1–5)
   },
