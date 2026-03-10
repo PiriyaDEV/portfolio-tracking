@@ -484,7 +484,7 @@ export default function NewsScreen() {
       </div>
 
       {/* ======================= CONTENT ======================= */}
-      <div className="space-y-3 px-3 pt-[108px] pb-6">
+      <div className="space-y-3 px-3 pt-[98px] pb-6">
         {/* Loading skeleton */}
         {loading && (
           <div className="pt-[100px]">

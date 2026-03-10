@@ -17,6 +17,7 @@ type Asset = {
 
 type DividendAssetResult = {
   originalCurrency: "THB" | "USD";
+  shortName: string | null;
   dividendPerShare: number | null;
   annualDividend: number | null;
   annualDividendBase: number | null;
@@ -101,15 +102,14 @@ async function fetchYahooChart(
 ======================= */
 
 function isNYSEDaylightSaving(): boolean {
-  // New York DST: second Sunday of March → first Sunday of November
   const now = new Date();
   const year = now.getUTCFullYear();
 
-  // Second Sunday of March
   const march = new Date(Date.UTC(year, 2, 1));
-  const dstStart = new Date(Date.UTC(year, 2, 1 + ((14 - march.getUTCDay()) % 7)));
+  const dstStart = new Date(
+    Date.UTC(year, 2, 1 + ((14 - march.getUTCDay()) % 7)),
+  );
 
-  // First Sunday of November
   const nov = new Date(Date.UTC(year, 10, 1));
   const dstEnd = new Date(Date.UTC(year, 10, 1 + ((7 - nov.getUTCDay()) % 7)));
 
@@ -119,17 +119,23 @@ function isNYSEDaylightSaving(): boolean {
 function isInUSTradingHoursTH(timestampSec: number): boolean {
   const date = new Date(timestampSec * 1000);
 
-  // NYSE always opens at 13:30 UTC (DST) or 14:30 UTC (standard)
   const openUTCHour = isNYSEDaylightSaving() ? 13 : 14;
   const openUTCMinutes = openUTCHour * 60 + 30;
-  const closeUTCMinutes = openUTCMinutes + (6 * 60 + 30); // 6.5hr session
+  const closeUTCMinutes = openUTCMinutes + (6 * 60 + 30);
 
   const utcMinutes = date.getUTCHours() * 60 + date.getUTCMinutes();
 
   return utcMinutes >= openUTCMinutes && utcMinutes <= closeUTCMinutes;
 }
 
-async function fetch1DGraphForStock(symbol: string) {
+type GraphResult = {
+  symbol: string;
+  shortName: string | null;
+  base: number | null;
+  data: { time: number; price: number }[];
+} | null;
+
+async function fetch1DGraphForStock(symbol: string): Promise<GraphResult> {
   try {
     const { meta, data: chart } = await fetchYahooChart(symbol, "1d", "5m");
     const shortName = meta?.shortName || meta?.symbol || symbol;
@@ -183,6 +189,7 @@ function calculateDividend(
   currentPrice: number | null,
   baseCurrency: "THB" | "USD",
   usdThbRate: number,
+  shortName: string | null,
 ): DividendAssetResult {
   const originalCurrency = isThaiStock(asset.symbol) ? "THB" : "USD";
   const annualDividend =
@@ -203,6 +210,7 @@ function calculateDividend(
 
   return {
     originalCurrency,
+    shortName,
     dividendPerShare,
     annualDividend,
     annualDividendBase,
@@ -221,14 +229,17 @@ async function processAsset(
 ) {
   const { symbol } = asset;
 
-  // Fetch levels + recommendation in parallel
-  const [levels, recommendation, dividendPerShare] = await Promise.all([
+  // Fetch everything in parallel — graph is included here so shortName is reused below
+  const [levels, recommendation, dividendPerShare, graph] = await Promise.all([
     getAdvancedLevels(symbol),
     getRecommendation(symbol, API_KEY),
     fetchTTMDividend(symbol),
+    fetch1DGraphForStock(symbol),
   ]);
 
   if (!levels.currentPrice && !levels.previousClose) return null;
+
+  const shortName = graph?.shortName ?? null;
 
   const dividend = calculateDividend(
     asset,
@@ -236,6 +247,7 @@ async function processAsset(
     levels.currentPrice,
     baseCurrency,
     usdThbRate,
+    shortName,
   );
 
   return {
@@ -245,6 +257,7 @@ async function processAsset(
     previousClose: levels.previousClose ?? null,
     advancedLevel: { ...levels, recommendation },
     dividend,
+    graph, // carry the already-fetched graph result forward
   };
 }
 
@@ -275,7 +288,6 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Fetch FX rate once, then process all assets in parallel
     const usdThbRate = await fetchUSDTHBRate();
 
     const results = await Promise.all(
@@ -285,6 +297,7 @@ export async function POST(req: NextRequest) {
     const prices: Record<string, number | null> = {};
     const previousPrice: Record<string, number | null> = {};
     const advancedLevels: Record<string, any> = {};
+    const graphs: Record<string, GraphResult> = {};
     const validAssets: Asset[] = [];
     const dividendSummary = {
       baseCurrency,
@@ -299,17 +312,9 @@ export async function POST(req: NextRequest) {
       advancedLevels[r.symbol] = r.advancedLevel;
       dividendSummary.perAsset[r.symbol] = r.dividend;
       dividendSummary.totalAnnualDividend += r.dividend.annualDividendBase || 0;
+      graphs[r.symbol] = r.graph; // reuse — no second fetch needed
       validAssets.push(r.asset);
     }
-
-    // Graphs already run in parallel via processAsset grouping; fire all together
-    const graphEntries = await Promise.all(
-      validAssets.map(
-        async (asset) =>
-          [asset.symbol, await fetch1DGraphForStock(asset.symbol)] as const,
-      ),
-    );
-    const graphs = Object.fromEntries(graphEntries);
 
     return NextResponse.json({
       prices,

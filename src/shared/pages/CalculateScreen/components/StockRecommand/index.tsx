@@ -565,6 +565,8 @@ export default function StockRecommendScreen({
 
   const [isFetching, setIsFetching] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // showForm: true = show input form, false = show existing results
+  const [showForm, setShowForm] = useState(false);
 
   const [result, setResult] = useState<RecommendResponse | null>(null);
   const [errorCode, setErrorCode] = useState<ApiErrorCode | null>(null);
@@ -584,9 +586,16 @@ export default function StockRecommendScreen({
         const data = await res.json();
         if (res.ok) {
           setResult(data as RecommendResponse);
+          // If no existing recommendations, show form right away
+          const hasData =
+            (data as RecommendResponse)?.recommendations &&
+            (data as RecommendResponse).recommendations!.length > 0;
+          setShowForm(!hasData);
+        } else {
+          setShowForm(true);
         }
       } catch {
-        // silently ignore
+        setShowForm(true);
       } finally {
         setIsFetching(false);
       }
@@ -598,6 +607,12 @@ export default function StockRecommendScreen({
     setSelectedCategories((prev) =>
       prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id],
     );
+  };
+
+  const handleRecommendAgain = () => {
+    setShowForm(true);
+    setErrorCode(null);
+    setErrorMessage(null);
   };
 
   // ── POST on submit ──────────────────────────────────────────────────────────
@@ -643,11 +658,13 @@ export default function StockRecommendScreen({
 
         if (data.recommendations) {
           setResult(data as RecommendResponse);
+          setShowForm(false);
         }
         return;
       }
 
       setResult(data as RecommendResponse);
+      setShowForm(false);
       setTimeout(() => {
         document
           .getElementById("recommend-results")
@@ -663,6 +680,8 @@ export default function StockRecommendScreen({
     }
   };
 
+  const hasResults =
+    result?.recommendations && result.recommendations.length > 0;
   const canResearch = result?.canResearch ?? true;
   const isValid =
     parseFloat(investmentAmount) > 0 && selectedCategories.length > 0;
@@ -704,14 +723,13 @@ export default function StockRecommendScreen({
                 >
                   {/* Gemini Spark */}
                   <div className="w-2 h-2 rounded-full bg-white animate-pulse" />
-
                   <span>Gemini AI</span>
                 </div>
               </div>
             </div>
 
-            {/* Usage status bar */}
-            {!canResearch && (
+            {/* Usage status bar (only when not showing form) */}
+            {!showForm && !canResearch && (
               <UsageStatusBar
                 lastUsed={result?.lastUsed}
                 nextAvailableAt={result?.nextAvailableAt}
@@ -719,8 +737,51 @@ export default function StockRecommendScreen({
               />
             )}
 
-            {canResearch && (
+            {/* ── "Recommend again" button — shown when there are results and form is hidden ── */}
+            {canResearch && hasResults && !showForm && (
+              <button
+                onClick={handleRecommendAgain}
+                disabled={!canResearch}
+                className={`w-full py-3.5 rounded-xl font-bold text-sm transition flex items-center justify-center gap-2
+                  ${
+                    canResearch
+                      ? "bg-gray-800 text-yellow-400 border border-yellow-500/40 hover:bg-gray-700 hover:border-yellow-500 active:scale-[0.98]"
+                      : "bg-gray-800/50 text-gray-600 border border-gray-700 cursor-not-allowed"
+                  }`}
+              >
+                <>
+                  <FaChartLine className="text-base" />
+                  แนะนำอีกครั้ง
+                </>
+              </button>
+            )}
+
+            {/* ── Input form — shown only when showForm is true ── */}
+            {showForm && canResearch && (
               <div className="flex flex-col gap-5">
+                {/* Back button — only when there are existing results to go back to */}
+                {hasResults && (
+                  <button
+                    onClick={() => setShowForm(false)}
+                    className="flex items-center gap-1.5 text-gray-400 text-xs hover:text-white transition w-fit"
+                  >
+                    <svg
+                      className="w-3.5 h-3.5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2.5}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M15 19l-7-7 7-7"
+                      />
+                    </svg>
+                    กลับไปดูผลเดิม
+                  </button>
+                )}
+
                 {/* Investment Amount */}
                 <div className="flex flex-col gap-2">
                   <label className="text-white text-sm font-semibold">
@@ -876,10 +937,10 @@ export default function StockRecommendScreen({
                 {/* Submit */}
                 <button
                   onClick={handleSubmit}
-                  disabled={!isValid || isSubmitting || !canResearch}
+                  disabled={!isValid || isSubmitting}
                   className={`w-full py-4 rounded-xl font-bold text-sm transition flex items-center justify-center gap-2
                 ${
-                  isValid && !isSubmitting && canResearch
+                  isValid && !isSubmitting
                     ? "bg-yellow-500 text-black hover:bg-yellow-400 active:scale-[0.98]"
                     : "bg-gray-800 text-gray-600 cursor-not-allowed"
                 }`}
@@ -889,8 +950,6 @@ export default function StockRecommendScreen({
                       <SpinnerIcon />
                       กำลังวิเคราะห์ด้วย AI...
                     </>
-                  ) : !canResearch ? (
-                    <>🕐 รอการวิเคราะห์ครั้งถัดไป</>
                   ) : (
                     <>
                       <FaChartLine />
@@ -899,7 +958,7 @@ export default function StockRecommendScreen({
                   )}
                 </button>
 
-                {!isValid && canResearch && (
+                {!isValid && (
                   <p className="text-center text-gray-600 text-xs -mt-4">
                     {!investmentAmount || parseFloat(investmentAmount) <= 0
                       ? "กรอกจำนวนเงินที่ต้องการลงทุน"
@@ -918,8 +977,17 @@ export default function StockRecommendScreen({
               </div>
             )}
 
-            {/* Results */}
-            {result?.recommendations && result.recommendations.length > 0 && (
+            {/* Rate limited — show form is requested but can't research */}
+            {showForm && !canResearch && (
+              <UsageStatusBar
+                lastUsed={result?.lastUsed}
+                nextAvailableAt={result?.nextAvailableAt}
+                canResearch={canResearch}
+              />
+            )}
+
+            {/* Results — only shown when form is hidden */}
+            {!showForm && hasResults && (
               <div id="recommend-results" className="flex flex-col gap-4">
                 <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl px-4 py-3">
                   <div className="flex items-start gap-2">
@@ -927,24 +995,24 @@ export default function StockRecommendScreen({
                     <div className="flex-1">
                       <div className="flex items-center justify-between gap-2 flex-wrap">
                         <p className="text-yellow-300 text-sm font-semibold">
-                          {result.summary}
+                          {result!.summary}
                         </p>
-                        {result.cached && (
+                        {result!.cached && (
                           <span className="flex-shrink-0 text-[10px] px-2 py-0.5 rounded-full bg-gray-700 text-gray-400 border border-gray-600">
                             📋 ผลล่าสุด
                           </span>
                         )}
                       </div>
-                      {result.generatedAt && (
+                      {result!.generatedAt && (
                         <p className="text-gray-600 text-[10px] mt-1">
-                          วิเคราะห์เมื่อ: {formatDate(result.generatedAt)}
+                          วิเคราะห์เมื่อ: {formatDate(result!.generatedAt)}
                         </p>
                       )}
                     </div>
                   </div>
                 </div>
 
-                {result.recommendations.map((rec, i) => (
+                {result!.recommendations!.map((rec, i) => (
                   <StockCard
                     key={rec.ticker}
                     rec={rec}

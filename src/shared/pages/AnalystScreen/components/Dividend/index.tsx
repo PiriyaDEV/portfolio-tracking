@@ -247,6 +247,7 @@ export default function DividendSummary({ data }: DividendSummaryProps) {
 
               const isTopAnnual = annualRankIdx === 0;
               const displayName = getName ? getName(symbol) : symbol;
+              const shortName = d.shortName ?? "";
 
               return (
                 <tr
@@ -279,6 +280,11 @@ export default function DividendSummary({ data }: DividendSummaryProps) {
                             {displayName}
                           </span>
                         </div>
+                        {shortName && (
+                          <div className="font-normal text-gray-400 text-[12px] max-w-[120px] truncate">
+                            {shortName}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </td>
