@@ -27,6 +27,36 @@ type ChannelCache = {
 };
 
 /* =======================
+   TickerChip Component
+======================= */
+function TickerChip({ ticker }: { ticker: string }) {
+  const token = process.env.NEXT_PUBLIC_LOGOKIT_TOKEN;
+  const logoUrl = token
+    ? `https://img.logokit.com/ticker/${ticker}?token=${token}`
+    : null;
+  const [imgError, setImgError] = useState(false);
+
+  return (
+    <span className="bg-accent-yellow inline-flex items-center gap-1.5 mx-0.5 px-2 py-0.5 rounded-full border border-white/20 text-white/90 text-[13px] font-semibold align-middle">
+      🛒
+      {logoUrl && !imgError ? (
+        <img
+          src={logoUrl}
+          alt={ticker}
+          onError={() => setImgError(true)}
+          className="w-5 h-5 rounded-full object-cover ring-1 ring-white/20 shrink-0"
+        />
+      ) : (
+        <span className="w-5 h-5 rounded-full bg-accent-yellow/20 flex items-center justify-center text-[9px] font-bold text-accent-yellow shrink-0">
+          {ticker[0]}
+        </span>
+      )}
+      <span>{ticker}</span>
+    </span>
+  );
+}
+
+/* =======================
    Component
 ======================= */
 export default function NewsScreen() {
@@ -253,25 +283,67 @@ export default function NewsScreen() {
 
   const activeChannelInfo = CHANNELS.find((c) => c.id === activeChannel);
 
+  /**
+   * Renders text with:
+   * - Clickable URLs
+   * - 🛒 **TICKER** patterns replaced with <TickerChip>
+   */
   const renderTextWithLinks = (text: string) => {
     if (!text) return "-";
-    const urlRegex = /(https?:\/\/[^\s]+)/g;
-    return text.split(urlRegex).map((part, index) => {
-      if (part.match(urlRegex)) {
-        return (
+
+    // Split on URLs or 🛒 **TICKER** patterns
+    // Capture groups so they stay in the resulting array
+    const segmentRegex = /(https?:\/\/[^\s]+|🛒\s*\*\*([A-Z]{1,6})\*\*)/g;
+
+    const parts: React.ReactNode[] = [];
+    let lastIndex = 0;
+    let match: RegExpExecArray | null;
+    let keyCounter = 0;
+
+    while ((match = segmentRegex.exec(text)) !== null) {
+      const [fullMatch, , tickerCapture] = match;
+      const matchStart = match.index;
+
+      // Push plain text before this match
+      if (matchStart > lastIndex) {
+        parts.push(
+          <span key={`t-${keyCounter++}`}>
+            {text.slice(lastIndex, matchStart)}
+          </span>,
+        );
+      }
+
+      if (tickerCapture) {
+        // Render ticker chip
+        parts.push(
+          <TickerChip key={`chip-${keyCounter++}`} ticker={tickerCapture} />,
+        );
+      } else {
+        // Render URL link
+        parts.push(
           <a
-            key={`link-${index}-${part.substring(0, 20)}`}
-            href={part}
+            key={`link-${keyCounter++}`}
+            href={fullMatch}
             target="_blank"
             rel="noopener noreferrer"
             className="text-blue-400 underline break-words hover:text-blue-300 transition-colors"
           >
-            {part}
-          </a>
+            {fullMatch}
+          </a>,
         );
       }
-      return <span key={`text-${index}`}>{part}</span>;
-    });
+
+      lastIndex = matchStart + fullMatch.length;
+    }
+
+    // Push remaining text
+    if (lastIndex < text.length) {
+      parts.push(
+        <span key={`t-${keyCounter++}`}>{text.slice(lastIndex)}</span>,
+      );
+    }
+
+    return parts.length > 0 ? parts : "-";
   };
 
   /* =======================

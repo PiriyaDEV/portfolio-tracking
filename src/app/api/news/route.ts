@@ -15,6 +15,27 @@ const SKIP_MESSAGES = new Set([
 
 const shouldSkip = (text: string) => SKIP_MESSAGES.has(text.trim());
 
+const WETHAIINVEST_STRIPS = [
+  `📔 ข้อมูลและไอเดียการเทรดทั้งหมดนี้ เป็นเพียงกรณีศึกษาเพื่อนำไปต่อยอดเท่านั้น ไม่ใช่การชี้นำต้องลงทุน เพื่อนๆควรนำไปศึกษาทำการบ้านเพิ่มเติมเพื่อตัดสินใจด้วยตัวเอง ต้องไม่ลืมว่า "ต้นทุนค่าเฉลี่ย, เงินสำรอง, การแบ่งไม้เข้าซื้อ, กลยุทธ์ รวมถึงการรับความเสี่ยง" ของเราแต่ละคนไม่เท่ากัน การลงทุนที่ดีควรยึดเป้าหมาย และหน้าตักพอร์ตของเราเป็นหลักเสมอครับ`,
+  `https://wethaiinvest.com`,
+];
+
+function cleanWethaiinvestText(text: string): string {
+  let cleaned = text;
+  for (const strip of WETHAIINVEST_STRIPS) {
+    cleaned = cleaned.split(strip).join("");
+  }
+  // Remove "📅 อัปเดตเมื่อ..." lines
+  cleaned = cleaned.replace(/📅\s*อัปเดตเมื่อ[^\n]*/g, "");
+  // Trim leading whitespace from each line, then trim the whole string
+  cleaned = cleaned
+    .split("\n")
+    .map((line) => line.trimStart())
+    .join("\n")
+    .trim();
+  return cleaned;
+}
+
 /* =======================
    Singleton Telegram client
 ======================= */
@@ -119,6 +140,8 @@ export async function GET(request: NextRequest) {
     const offset = Number(params.get("offset") ?? 0);
     const limit = Number(params.get("limit") ?? 5);
 
+    const isWethaiinvest = channelName === "wethaiinvestbot";
+
     // Fetch client + channel entity in parallel
     const [client] = await Promise.all([getClient()]);
     const channel = await client.getEntity(channelName);
@@ -132,12 +155,19 @@ export async function GET(request: NextRequest) {
       .slice(offset, offset + limit);
 
     const results = await Promise.all(
-      paginated.map(async (m) => ({
-        id: m.id,
-        text: m.text ?? "",
-        date: m.date,
-        image: await extractImage(client, m),
-      })),
+      paginated.map(async (m) => {
+        let text = m.text ?? "";
+        if (isWethaiinvest) text = cleanWethaiinvestText(text);
+        // Collapse 3+ consecutive newlines to max 2 for all channels
+        text = text.replace(/\n{3,}/g, "\n\n").trim();
+
+        return {
+          id: m.id,
+          text,
+          date: m.date,
+          image: await extractImage(client, m),
+        };
+      }),
     );
 
     return NextResponse.json(results);
