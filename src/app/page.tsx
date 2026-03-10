@@ -380,7 +380,7 @@ export default function StockPrice() {
   async function fetchFinancialData() {
     if (!assets || assets.length === 0) return;
 
-    const BATCH_SIZE = 3;
+    const BATCH_SIZE = 5;
 
     try {
       // Split assets into chunks of 3

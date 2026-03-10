@@ -141,7 +141,7 @@ const FEAR_GREED_MAP: FearGreedConfig[] = [
   },
   {
     min: 75,
-    max: 101, // covers 100
+    max: 101,
     label: "โลภขั้นสุด",
     emoji: "🤑",
     bg: "!bg-green-200 animate-pulse",
@@ -158,7 +158,7 @@ function getFearGreedConfig(value: number): FearGreedConfig {
 
 export function mapFearGreed(value: number) {
   const { emoji, label } = getFearGreedConfig(value);
-  return `${emoji} ${label} (${fNumber(value, { decimalNumber: 0})})`;
+  return `${emoji} ${label} (${fNumber(value, { decimalNumber: 0 })})`;
 }
 
 export const getFearGreedBg = (value: number) => getFearGreedConfig(value).bg;
@@ -173,7 +173,6 @@ export const getFearGreedText = (value: number) =>
 export function GraphPrice({ graphs, assets, prices, previousPrice }: Props) {
   const [sortBy, setSortBy] = useState<SortBy>("holding");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
-
   const [market, setMarket] = useState<MarketResponse | null>(null);
   const [loadingMarket, setLoadingMarket] = useState(true);
 
@@ -193,8 +192,7 @@ export function GraphPrice({ graphs, assets, prices, previousPrice }: Props) {
     fetchMarket();
   }, []);
 
-  if (!graphs || Object.keys(graphs).length === 0) return null;
-
+  // ✅ FIXED: getProfitPercent defined BEFORE useMemo so the closure is correct
   const getProfitPercent = (symbol: string) => {
     const currentPrice = prices?.[symbol];
     const prevPrice = previousPrice?.[symbol];
@@ -202,6 +200,7 @@ export function GraphPrice({ graphs, assets, prices, previousPrice }: Props) {
     return ((currentPrice - prevPrice) / prevPrice) * 100;
   };
 
+  // ✅ FIXED: useMemo is always called (no early return before this)
   const sortedAssets = useMemo(() => {
     const list = [...assets];
 
@@ -217,6 +216,9 @@ export function GraphPrice({ graphs, assets, prices, previousPrice }: Props) {
       return sortOrder === "asc" ? pa - pb : pb - pa;
     });
   }, [assets, prices, previousPrice, sortBy, sortOrder]);
+
+  // ✅ FIXED: guard is AFTER all hooks — no more Rules of Hooks violation
+  if (!graphs || Object.keys(graphs).length === 0) return null;
 
   const toggleProfitSort = () => {
     if (sortBy === "holding") {
@@ -334,6 +336,8 @@ export function GraphPrice({ graphs, assets, prices, previousPrice }: Props) {
         sortedAssets.map((asset, index) => {
           const symbol = asset.symbol;
           const graph = graphs[symbol];
+
+          // ✅ Skip assets whose graph isn't ready yet — doesn't break other rows
           if (!graph || graph.data.length <= 1) return null;
 
           const { data } = graph;
@@ -379,14 +383,14 @@ export function GraphPrice({ graphs, assets, prices, previousPrice }: Props) {
                 {/* GRAPH */}
                 <div
                   className={`w-full pointer-events-none rounded-md
-              ${
-                percentChange > 0
-                  ? "bg-gradient-to-b from-green-500/25 via-green-400/10 to-transparent"
-                  : percentChange < 0
-                    ? "bg-gradient-to-b from-red-500/25 via-red-400/10 to-transparent"
-                    : "bg-gradient-to-b from-gray-400/20 to-transparent"
-              }
-            `}
+                    ${
+                      percentChange > 0
+                        ? "bg-gradient-to-b from-green-500/25 via-green-400/10 to-transparent"
+                        : percentChange < 0
+                          ? "bg-gradient-to-b from-red-500/25 via-red-400/10 to-transparent"
+                          : "bg-gradient-to-b from-gray-400/20 to-transparent"
+                    }
+                  `}
                 >
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart

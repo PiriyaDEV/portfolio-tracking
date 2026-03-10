@@ -100,14 +100,33 @@ async function fetchYahooChart(
    Fetch 1D Graph
 ======================= */
 
+function isNYSEDaylightSaving(): boolean {
+  // New York DST: second Sunday of March → first Sunday of November
+  const now = new Date();
+  const year = now.getUTCFullYear();
+
+  // Second Sunday of March
+  const march = new Date(Date.UTC(year, 2, 1));
+  const dstStart = new Date(Date.UTC(year, 2, 1 + ((14 - march.getUTCDay()) % 7)));
+
+  // First Sunday of November
+  const nov = new Date(Date.UTC(year, 10, 1));
+  const dstEnd = new Date(Date.UTC(year, 10, 1 + ((7 - nov.getUTCDay()) % 7)));
+
+  return now >= dstStart && now < dstEnd;
+}
+
 function isInUSTradingHoursTH(timestampSec: number): boolean {
-  const th = new Date(
-    new Date(timestampSec * 1000).toLocaleString("en-US", {
-      timeZone: "Asia/Bangkok",
-    }),
-  );
-  const timeInMinutes = th.getHours() * 60 + th.getMinutes();
-  return timeInMinutes >= 21 * 60 + 30 || timeInMinutes <= 4 * 60;
+  const date = new Date(timestampSec * 1000);
+
+  // NYSE always opens at 13:30 UTC (DST) or 14:30 UTC (standard)
+  const openUTCHour = isNYSEDaylightSaving() ? 13 : 14;
+  const openUTCMinutes = openUTCHour * 60 + 30;
+  const closeUTCMinutes = openUTCMinutes + (6 * 60 + 30); // 6.5hr session
+
+  const utcMinutes = date.getUTCHours() * 60 + date.getUTCMinutes();
+
+  return utcMinutes >= openUTCMinutes && utcMinutes <= closeUTCMinutes;
 }
 
 async function fetch1DGraphForStock(symbol: string) {
