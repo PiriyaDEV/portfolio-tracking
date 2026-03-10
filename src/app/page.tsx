@@ -350,7 +350,16 @@ export default function StockPrice() {
 
   async function loadData() {
     if (!assets || assets.length === 0) return;
-    if (!isInitialLoad) setIsLoading(true);
+
+    // Reset everything so skeletons show on refresh too
+    setIsLoading(true);
+    setIsFirstBatchLoaded(false);
+    setPrices({});
+    setPreviousPrice({});
+    setGraphs({});
+    setAdvancedLevels({});
+    setDividend({});
+
     try {
       await Promise.all([fetchFinancialData(), fetchFxRate()]);
       const now = new Date();
