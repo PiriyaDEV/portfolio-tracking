@@ -25,8 +25,8 @@ export type Asset = {
 
 type CalculatorScreenProps = {
   assets: Asset[];
-  prices: any; // current price (THB for Thai stocks, USD for US stocks)
-  currencyRate: number; // USD -> THB
+  prices: any;
+  currencyRate: number;
   dividend: any;
 };
 
@@ -52,7 +52,7 @@ export default function CalculatorScreen({
     quantity: number;
     costPerShare: number;
     totalCost: number;
-    marketValueBase: number; // in original currency
+    marketValueBase: number;
     marketValueThb: number;
     profit: number;
     profitPercent: number;
@@ -69,7 +69,6 @@ export default function CalculatorScreen({
 
     if (isNaN(investment) || isNaN(price) || price <= 0) return;
 
-    // Convert investment THB to stock currency
     const investmentInStockCurrency = isThai
       ? investment
       : investment / currencyRate;
@@ -83,7 +82,6 @@ export default function CalculatorScreen({
 
     setNewCostPerShare(averageCostInStockCurrency);
 
-    // Update after card data
     const currentPrice = prices[asset.symbol] ?? 0;
     const marketValueBase = currentPrice * totalQty;
     const marketValueThb = isThai
@@ -119,7 +117,6 @@ export default function CalculatorScreen({
 
     setNewCostPerShare(averageCostInStockCurrency);
 
-    // Update after card data
     const currentPrice = price;
     const marketValueBase = currentPrice * totalQty;
     const marketValueThb = isThai
@@ -149,38 +146,36 @@ export default function CalculatorScreen({
   const isThai = isThaiStock(selectedSymbol);
   const currencyLabel = isThai ? "THB" : "USD";
 
-  // --- Before calculations ---
   const currentPrice = prices[asset.symbol] ?? 0;
-  const cost = asset.quantity * asset.costPerShare; // in stock currency
-  const marketValueBase = currentPrice * asset.quantity; // in stock currency
+  const cost = asset.quantity * asset.costPerShare;
+  const marketValueBase = currentPrice * asset.quantity;
   const marketValueThb = isThai
     ? marketValueBase
     : marketValueBase * currencyRate;
   const profit = marketValueBase - cost;
   const profitPercent = cost > 0 ? (profit / cost) * 100 : 0;
   const profitColor =
-    profit > 0 ? "text-green-500" : profit < 0 ? "text-red-500" : "text-white";
+    profit > 0 ? "text-green-400" : profit < 0 ? "text-red-400" : "text-white";
   const profitThb = isThai ? profit : profit * currencyRate;
 
   const tabs = [
     {
       key: "calculator",
       label: "คำนวณต้นทุน",
-      icon: <FaCalculator />, // change icon as needed
+      icon: <FaCalculator />,
     },
     {
       key: "estimate",
       label: "คำนวณเป้าหมาย",
-      icon: <FaBullseye />, // change icon as needed
+      icon: <FaBullseye />,
     },
-    // { key: "recommend", label: "แนะนำหุ้น", icon: <FaChartLine /> },
     { key: "dividend", label: "ปันผล", icon: <FaCoins /> },
   ];
 
   return (
     <div className="p-4 w-full pb-[100px]">
-      {/* Tabs mapping */}
-      <div className="fixed top-[67px] left-1/2 -translate-x-1/2 max-w-[450px] w-full bg-black w-full py-3 px-5 px-1 border-b border-black-lighter2 z-[99]">
+      {/* Tab bar — same structure, added backdrop-blur + glow on active */}
+      <div className="fixed top-[67px] left-1/2 -translate-x-1/2 max-w-[450px] w-full bg-black/90 backdrop-blur-md py-3 px-5 px-1 border-b border-white/[0.06] z-[99]">
         <div className="flex justify-start gap-[35px]">
           {tabs.map((tab) => {
             const isActive = activeTab === tab.key;
@@ -192,8 +187,6 @@ export default function CalculatorScreen({
                 key={tab.key}
                 onClick={() => {
                   setActiveTab(tab.key as any);
-
-                  // Clear all data on tab change
                   setAfterData(null);
                   setNewInvestment("");
                   setNewPrice("");
@@ -203,20 +196,18 @@ export default function CalculatorScreen({
                 className="flex flex-col items-center gap-1"
               >
                 <div
-                  className={`w-12 h-12 flex items-center justify-center rounded-full transition
-              ${
-                isActive
-                  ? "bg-yellow-500 text-white"
-                  : "bg-black-lighter2 text-white"
-              }
-            `}
+                  className={`w-12 h-12 flex items-center justify-center rounded-full transition-all duration-200
+                    ${
+                      isActive
+                        ? "bg-yellow-500 text-white shadow-[0_0_18px_rgba(234,179,8,0.55)]"
+                        : "bg-black-lighter2 text-white hover:bg-white/10"
+                    }`}
                 >
                   {tab.icon}
                 </div>
-
                 <span
                   className={`text-xs ${
-                    isActive ? "text-yellow-400" : "text-gray-300"
+                    isActive ? "text-yellow-400" : "text-gray-400"
                   }`}
                 >
                   {tab.label}
@@ -227,22 +218,21 @@ export default function CalculatorScreen({
         </div>
       </div>
 
-      {/* Asset selector */}
+      {/* Asset selector — same structure */}
       {(activeTab === "calculator" || activeTab === "estimate") && (
         <div className="pt-[85px] mb-6 flex flex-col gap-2">
-          <label className="text-white text-sm">เลือกหุ้น</label>
+          <label className="text-gray-400 text-sm">🔍 เลือกหุ้น</label>
           <select
             value={selectedSymbol}
             onChange={(e) => {
               setSelectedSymbol(e.target.value);
-              // Clear all input and output data when changing asset
               setAfterData(null);
               setNewInvestment("");
               setNewPrice("");
               setEstimatePrice("");
               setNewCostPerShare(null);
             }}
-            className="p-2 rounded bg-black-lighter2 text-white w-full"
+            className="p-2 rounded-lg bg-black-lighter2 border border-white/10 text-white w-full outline-none focus:border-yellow-500/40 transition-colors cursor-pointer"
           >
             {assets
               .filter((a) => !isCash(a.symbol))
@@ -254,9 +244,9 @@ export default function CalculatorScreen({
           </select>
 
           <div>
-            <label className="text-white text-sm">
-              ราคาตอนนี้:{" "}
-              <span className="font-bold">
+            <label className="text-gray-400 text-sm">
+              💹 ราคาตอนนี้:{" "}
+              <span className="font-bold text-yellow-300">
                 ({currentPrice} {currencyLabel})
               </span>
             </label>
@@ -264,11 +254,12 @@ export default function CalculatorScreen({
         </div>
       )}
 
-      {/* Inputs column */}
-
+      {/* Calculator inputs */}
       {activeTab == "calculator" && (
         <div className="mb-4 flex flex-col gap-2">
-          <label className="text-white text-sm">จำนวนเงินลงทุนใหม่ (บาท)</label>
+          <label className="text-gray-400 text-sm">
+            💵 จำนวนเงินลงทุนใหม่ (บาท)
+          </label>
           <input
             type="number"
             step="any"
@@ -276,11 +267,11 @@ export default function CalculatorScreen({
             placeholder="จำนวนเงินลงทุนใหม่ (บาท)"
             value={newInvestment}
             onChange={(e) => setNewInvestment(e.target.value)}
-            className="p-2 rounded bg-black-lighter2 text-white"
+            className="p-2 rounded-lg bg-black-lighter2 border border-white/10 text-white outline-none focus:border-yellow-500/40 transition-colors placeholder:text-gray-600"
           />
 
-          <label className="text-white text-sm">
-            ราคาหุ้นใหม่ ({currencyLabel})
+          <label className="text-gray-400 text-sm">
+            📈 ราคาหุ้นใหม่ ({currencyLabel})
           </label>
           <input
             type="number"
@@ -289,22 +280,22 @@ export default function CalculatorScreen({
             placeholder={`ราคาหุ้นใหม่ (${currencyLabel})`}
             value={newPrice}
             onChange={(e) => setNewPrice(e.target.value)}
-            className="p-2 rounded bg-black-lighter2 text-white"
+            className="p-2 rounded-lg bg-black-lighter2 border border-white/10 text-white outline-none focus:border-yellow-500/40 transition-colors placeholder:text-gray-600"
           />
 
           <button
             onClick={calculateNewCost}
-            className="bg-yellow-500 text-black p-2 rounded font-bold"
+            className="bg-yellow-500 shadow-[0_0_18px_rgba(234,179,8,0.55)] py-2.5 rounded-lg font-bold text-black transition-transform active:scale-[0.98]"
           >
-            คำนวณต้นทุนเฉลี่ย
+            ⚡ คำนวณต้นทุนเฉลี่ย
           </button>
         </div>
       )}
 
       {activeTab == "estimate" && (
         <div className="mb-4 flex flex-col gap-2">
-          <label className="text-white text-sm">
-            ราคาหุ้นเป้าหมาย ({currencyLabel})
+          <label className="text-gray-400 text-sm">
+            🎯 ราคาหุ้นเป้าหมาย ({currencyLabel})
           </label>
           <input
             type="number"
@@ -313,27 +304,27 @@ export default function CalculatorScreen({
             placeholder={`ราคาหุ้นเป้าหมาย (${currencyLabel})`}
             value={estimatePrice}
             onChange={(e) => setEstimatePrice(e.target.value)}
-            className="p-2 rounded bg-black-lighter2 text-white"
+            className="p-2 rounded-lg bg-black-lighter2 border border-white/10 text-white outline-none focus:border-yellow-500/40 transition-colors placeholder:text-gray-600"
           />
 
           <button
             onClick={calculateEstimateCost}
-            className="bg-yellow-500 text-black p-2 rounded font-bold"
+            className="py-2.5 bg-yellow-500 shadow-[0_0_18px_rgba(234,179,8,0.55)] rounded-lg font-bold text-black transition-transform active:scale-[0.98]"
           >
-            คำนวณเป้าหมาย
+            🚀 คำนวณเป้าหมาย
           </button>
         </div>
       )}
 
       {activeTab === "dividend" && <DividendSummary data={dividend} />}
 
-      {/* Show before/after cards */}
+      {/* Before / After cards — same grid structure, subtle polish only */}
       {(activeTab === "calculator" || activeTab === "estimate") && (
         <div className="grid grid-cols-1 gap-4">
           {/* Before card */}
-          <div className="w-full shadow-sm">
-            <div className="text-white font-bold px-4 py-1 bg-gray-700">
-              ก่อน
+          <div className="w-full shadow-sm rounded-xl overflow-hidden border border-white/[0.06]">
+            <div className="text-white font-bold px-4 py-1 bg-gray-800/70 text-sm">
+              📋 ก่อน
             </div>
             <div className="w-full grid grid-cols-[2fr_1fr_1fr] gap-3 px-4 py-2 bg-black-lighter">
               <div className="flex flex-col gap-1">
@@ -356,7 +347,7 @@ export default function CalculatorScreen({
                 <div className="font-bold text-[16px]">
                   {fNumber(marketValueThb)} THB
                 </div>
-                <div className="text-[12px] text-gray-300">
+                <div className="text-[12px] text-gray-400">
                   ≈{" "}
                   {fNumber(
                     isThai ? marketValueBase / currencyRate : marketValueBase,
@@ -383,27 +374,28 @@ export default function CalculatorScreen({
               </div>
             </div>
 
-            <div className="mt-2 bg-black-lighter text-[12px] grid grid-cols-2 gap-1 px-4 py-2 text-gray-300">
+            <div className="mt-2 bg-black-lighter text-[12px] grid grid-cols-2 gap-1 px-4 py-2 text-gray-400">
               <div>
-                จำนวนหุ้น:{" "}
+                🔢 จำนวนหุ้น:{" "}
                 <span className="text-white">
                   {fNumber(asset.quantity, { decimalNumber: 7 })}
                 </span>
               </div>
               <div>
-                ราคาปัจจุบัน:{" "}
+                💲 ราคาปัจจุบัน:{" "}
                 <span className="text-white">{fNumber(currentPrice)}</span>{" "}
                 {currencyLabel}
               </div>
               <div>
-                ต้นทุนต่อหุ้น:{" "}
+                🏷️ ต้นทุนต่อหุ้น:{" "}
                 <span className="text-white">
                   {fNumber(asset.costPerShare, { decimalNumber: 4 })}
                 </span>{" "}
                 {currencyLabel}
               </div>
               <div>
-                ต้นทุนรวม: <span className="text-white">{fNumber(cost)}</span>{" "}
+                💼 ต้นทุนรวม:{" "}
+                <span className="text-white">{fNumber(cost)}</span>{" "}
                 {currencyLabel}
               </div>
             </div>
@@ -411,9 +403,12 @@ export default function CalculatorScreen({
 
           {/* After card */}
           {afterData && (
-            <div className="w-full shadow-sm">
-              <div className="text-white font-bold px-4 py-1 bg-gray-700">
-                หลัง{" "}
+            <div className="w-full shadow-sm rounded-xl overflow-hidden border border-yellow-500/25">
+              <div
+                className="text-white font-bold px-4 py-1 text-sm"
+                style={{ background: "rgba(245,158,11,0.18)" }}
+              >
+                ✨ หลัง{" "}
                 {activeTab === "calculator" && afterData
                   ? `(ต้นทุนใหม่: ${fNumber(afterData.costPerShare, {
                       decimalNumber: 4,
@@ -444,7 +439,7 @@ export default function CalculatorScreen({
                     {fNumber(afterData.marketValueThb)} THB
                   </div>
                   {!isThai && (
-                    <div className="text-[12px] text-gray-300">
+                    <div className="text-[12px] text-gray-400">
                       ≈ {fNumber(afterData.marketValueBase)} USD
                     </div>
                   )}
@@ -454,9 +449,9 @@ export default function CalculatorScreen({
                   <div
                     className={`font-bold text-[16px] flex items-center gap-1 ${
                       afterData.profit > 0
-                        ? "text-green-500"
+                        ? "text-green-400"
                         : afterData.profit < 0
-                          ? "text-red-500"
+                          ? "text-red-400"
                           : "text-white"
                     }`}
                   >
@@ -470,9 +465,9 @@ export default function CalculatorScreen({
                   <div
                     className={`text-[12px] ${
                       afterData.profit > 0
-                        ? "text-green-500"
+                        ? "text-green-400"
                         : afterData.profit < 0
-                          ? "text-red-500"
+                          ? "text-red-400"
                           : "text-white"
                     }`}
                   >
@@ -487,31 +482,30 @@ export default function CalculatorScreen({
                 </div>
               </div>
 
-              <div className="mt-2 bg-black-lighter text-[12px] grid grid-cols-2 gap-1 px-4 py-2 text-gray-300">
+              <div className="mt-2 bg-black-lighter text-[12px] grid grid-cols-2 gap-1 px-4 py-2 text-gray-400">
                 <div>
-                  จำนวนหุ้น:{" "}
+                  🔢 จำนวนหุ้น:{" "}
                   <span className="text-white">
                     {fNumber(afterData.quantity, { decimalNumber: 7 })}
                   </span>
                 </div>
                 <div>
-                  ราคาปัจจุบัน:{" "}
+                  💲 ราคาปัจจุบัน:{" "}
                   <span className="text-white">
                     {activeTab === "estimate" && afterData.estimateCost
                       ? `${fNumber(afterData.estimateCost)} ${currencyLabel}`
                       : `${fNumber(currentPrice)} ${currencyLabel}`}
                   </span>
                 </div>
-
                 <div>
-                  ต้นทุนต่อหุ้นใหม่:{" "}
+                  🏷️ ต้นทุนต่อหุ้นใหม่:{" "}
                   <span className="text-white">
                     {fNumber(afterData.costPerShare)}
                   </span>{" "}
                   {currencyLabel}
                 </div>
                 <div>
-                  ต้นทุนรวม:{" "}
+                  💼 ต้นทุนรวม:{" "}
                   <span className="text-white">
                     {fNumber(afterData.totalCost)}
                   </span>{" "}

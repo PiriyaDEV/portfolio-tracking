@@ -29,7 +29,7 @@ interface Props {
   wishlist: any;
   userId: any;
   currencyRate: any;
-  market: MarketResponse
+  market: MarketResponse;
 }
 
 type TabKey =
@@ -49,7 +49,7 @@ export default function AnalystScreen({
   wishlist,
   userId,
   currencyRate,
-  market
+  market,
 }: Props) {
   const [activeTab, setActiveTab] = useState<TabKey>("graph");
 
@@ -116,13 +116,12 @@ export default function AnalystScreen({
                 className="flex flex-col items-center gap-1"
               >
                 <div
-                  className={`w-12 h-12 flex items-center justify-center rounded-full transition
+                  className={`w-12 h-12 flex items-center justify-center rounded-full transition-all duration-200
                     ${
                       isActive
-                        ? "bg-yellow-500 text-white"
-                        : "bg-black-lighter2 text-white"
-                    }
-                  `}
+                        ? "bg-yellow-500 shadow-[0_0_18px_rgba(234,179,8,0.55)]"
+                        : "bg-black-lighter2 text-white hover:bg-white/10"
+                    }`}
                 >
                   {tab.icon}
                 </div>
