@@ -38,6 +38,7 @@ import {
   EditProfileModal,
   ProfileAvatar,
 } from "@/shared/components/modal/EditProfileModal";
+import { defaultMarketResponse, MarketResponse } from "@/shared/pages/AnalystScreen/components/GraphPrice";
 
 const now = new Date();
 const thaiMonths = [
@@ -94,6 +95,7 @@ export default function StockPrice() {
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [isFirstBatchLoaded, setIsFirstBatchLoaded] = useState(false);
+  const [market, setMarket] = useState<MarketResponse | null>(defaultMarketResponse);
   const maskNumber = useMaskNumber();
 
   const [sortBy, setSortBy] = useState<"asset" | "value" | "profit">("value");
@@ -361,7 +363,7 @@ export default function StockPrice() {
     setDividend({});
 
     try {
-      await Promise.all([fetchFinancialData(), fetchFxRate()]);
+      await Promise.all([fetchFinancialData(), fetchFxRate(), fetchMarket()]);
       const now = new Date();
       const day = now.getDate();
       const month = thaiMonths[now.getMonth()];
@@ -443,6 +445,12 @@ export default function StockPrice() {
       const data = await res.json();
       setCurrencyRate(Number(data.rate) ?? 0);
     }
+  }
+
+  async function fetchMarket() {
+    const res = await fetch("/api/market");
+    const json = await res.json();
+    setMarket(json.data);
   }
 
   // ─── Save Profile ─────────────────────────────────────────────────────────────
@@ -745,6 +753,7 @@ export default function StockPrice() {
             wishlist={wishlist}
             currencyRate={currencyRate}
             userId={userId}
+            market={market!}
           />
         )}
         {currentPage === "calculator" && (

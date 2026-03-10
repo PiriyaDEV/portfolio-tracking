@@ -33,6 +33,7 @@ type Props = {
   assets: Asset[];
   prices: any;
   previousPrice: any;
+  market: MarketResponse;
 };
 
 type MarketItem = {
@@ -45,7 +46,30 @@ type FearGreedItem = {
   status: string | null;
 };
 
-type MarketResponse = {
+export const defaultMarketResponse: MarketResponse = {
+  sp500: {
+    price: null,
+    changePercent: null,
+  },
+  gold: {
+    price: null,
+    changePercent: null,
+  },
+  set: {
+    price: null,
+    changePercent: null,
+  },
+  btc: {
+    price: null,
+    changePercent: null,
+  },
+  fearGreed: {
+    value: null,
+    status: '',
+  },
+};
+
+export type MarketResponse = {
   sp500: MarketItem;
   gold: MarketItem;
   set: MarketItem;
@@ -170,27 +194,15 @@ export const getFearGreedText = (value: number) =>
    Component
 ======================= */
 
-export function GraphPrice({ graphs, assets, prices, previousPrice }: Props) {
+export function GraphPrice({
+  graphs,
+  assets,
+  prices,
+  previousPrice,
+  market,
+}: Props) {
   const [sortBy, setSortBy] = useState<SortBy>("holding");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
-  const [market, setMarket] = useState<MarketResponse | null>(null);
-  const [loadingMarket, setLoadingMarket] = useState(true);
-
-  useEffect(() => {
-    const fetchMarket = async () => {
-      try {
-        const res = await fetch("/api/market");
-        const json = await res.json();
-        setMarket(json.data);
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setLoadingMarket(false);
-      }
-    };
-
-    fetchMarket();
-  }, []);
 
   // ✅ FIXED: getProfitPercent defined BEFORE useMemo so the closure is correct
   const getProfitPercent = (symbol: string) => {
@@ -238,7 +250,7 @@ export function GraphPrice({ graphs, assets, prices, previousPrice }: Props) {
     <div className="mt-[90px] flex flex-col">
       {/* HEADER */}
       <div className="fixed top-[160px] left-1/2 -translate-x-1/2 max-w-[450px] w-full gap-3 py-2 px-3 text-[12px] text-gray-400 bg-black z-[99] border-b border-black-lighter2">
-        {!loadingMarket && market && (
+        {market && (
           <div className="mt-[5px] overflow-x-auto">
             <div className="flex items-center gap-3 min-w-max">
               {MARKET_ITEMS.map((item) => {
@@ -326,13 +338,7 @@ export function GraphPrice({ graphs, assets, prices, previousPrice }: Props) {
         </div>
       </div>
 
-      {loadingMarket && (
-        <div className="pt-[150px]">
-          <CommonLoading isFullScreen={false} />
-        </div>
-      )}
-
-      {!loadingMarket &&
+      {market &&
         sortedAssets.map((asset, index) => {
           const symbol = asset.symbol;
           const graph = graphs[symbol];

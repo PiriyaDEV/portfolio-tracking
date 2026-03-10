@@ -12,7 +12,7 @@ import {
   FaNewspaper,
 } from "react-icons/fa6";
 import SNPCompare from "./components/SNPCompare";
-import { GraphPrice } from "./components/GraphPrice";
+import { GraphPrice, MarketResponse } from "./components/GraphPrice";
 import StockCard from "./components/StockCard";
 import NewsScreen from "../NewsScreen";
 import Earning from "./components/Earning";
@@ -29,6 +29,7 @@ interface Props {
   wishlist: any;
   userId: any;
   currencyRate: any;
+  market: MarketResponse
 }
 
 type TabKey =
@@ -48,6 +49,7 @@ export default function AnalystScreen({
   wishlist,
   userId,
   currencyRate,
+  market
 }: Props) {
   const [activeTab, setActiveTab] = useState<TabKey>("graph");
 
@@ -166,6 +168,7 @@ export default function AnalystScreen({
             graphs={graphs}
             prices={prices}
             previousPrice={previousPrice}
+            market={market}
           />
         )}
 
