@@ -189,7 +189,7 @@ export const NEWS_CONFIG = [
   {
     key: "thaiusinvest",
     name: "แอ๊ดอั้ม",
-    image: "https://scontent.fbkk29-6.fna.fbcdn.net/v/t39.30808-6/483507222_645968188373529_8415688579765343866_n.jpg?_nc_cat=109&ccb=1-7&_nc_sid=7b2446&_nc_ohc=M0WyEDmb4UcQ7kNvwHxkFTO&_nc_oc=Adm1iq70E_eE9cEtsPlWvphiy_kBkJVCOEECOWeWMer3FE9Sn2yROt4bVBsaIVXfbcrESRw4mv6xeYkjNakCc-Og&_nc_zt=23&_nc_ht=scontent.fbkk29-6.fna&_nc_gid=VX7T1Uh3oquIY9G3emjjZQ&_nc_ss=8&oh=00_Afx5bQzktY0gzANgKBOu6cuSZPAdnCKUpdu6Wsgyd75Z8g&oe=69AEE330",
+    image: "https://yt3.googleusercontent.com/2mOv094mTt_NYLhBQ3LQhI4DR_j2dtA7psR0ZfP2xDWToQr9n25aZP6H0O7_7uCA8awEFnQC9w=s160-c-k-c0x00ffffff-no-rj",
     emoji: "🐷",
     keywords: ["แอ๊ดอั้ม"],
   },
@@ -216,7 +216,7 @@ export const CHANNEL_DEFAULT_AUTHOR: Record<string, typeof DEFAULT_AUTHOR> = {
   wethaiinvestbot: {
     key: "thaiusinvest",
     name: "แอ๊ดอั้ม",
-    image: "https://scontent.fbkk29-6.fna.fbcdn.net/v/t39.30808-6/483507222_645968188373529_8415688579765343866_n.jpg?_nc_cat=109&ccb=1-7&_nc_sid=7b2446&_nc_ohc=M0WyEDmb4UcQ7kNvwHxkFTO&_nc_oc=Adm1iq70E_eE9cEtsPlWvphiy_kBkJVCOEECOWeWMer3FE9Sn2yROt4bVBsaIVXfbcrESRw4mv6xeYkjNakCc-Og&_nc_zt=23&_nc_ht=scontent.fbkk29-6.fna&_nc_gid=VX7T1Uh3oquIY9G3emjjZQ&_nc_ss=8&oh=00_Afx5bQzktY0gzANgKBOu6cuSZPAdnCKUpdu6Wsgyd75Z8g&oe=69AEE330",
+    image: "https://yt3.googleusercontent.com/2mOv094mTt_NYLhBQ3LQhI4DR_j2dtA7psR0ZfP2xDWToQr9n25aZP6H0O7_7uCA8awEFnQC9w=s160-c-k-c0x00ffffff-no-rj",
     emoji: "🐷",
     keywords: [],
   },

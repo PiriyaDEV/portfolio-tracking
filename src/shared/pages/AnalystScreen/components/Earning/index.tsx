@@ -288,7 +288,7 @@ export default function EarningsPage({
                 )}
               </div>
 
-              <div>
+              <div className="flex flex-col gap-4">
                 {grouped[date].map((e, i) => {
                   const isWishlist = wishlist.includes(e.symbol);
 
