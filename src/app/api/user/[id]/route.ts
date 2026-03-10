@@ -93,7 +93,7 @@ export async function GET(req: Request, context: any) {
         userId: id,
         username: username,
         assets: userData,
-        image: image
+        image: image,
       }),
       {
         status: 200,
@@ -145,8 +145,13 @@ export async function POST(req: Request, context: any) {
       });
     }
 
+    // Sort assets by total value (costPerShare * quantity) descending
+    const sortedAssets = [...assets].sort(
+      (a, b) => b.costPerShare * b.quantity - a.costPerShare * a.quantity,
+    );
+
     // Encrypt assets before saving to sheet
-    const encryptedAssets = encrypt(JSON.stringify(assets));
+    const encryptedAssets = encrypt(JSON.stringify(sortedAssets));
 
     const sheets = await getGoogleSheets();
 
@@ -189,7 +194,7 @@ export async function POST(req: Request, context: any) {
     return new Response(
       JSON.stringify({
         message: "Updated",
-        user: { id, data: assets },
+        user: { id, data: sortedAssets },
       }),
       {
         status: 200,

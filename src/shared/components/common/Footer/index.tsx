@@ -37,6 +37,9 @@ export default function FooterPortfolio({
 
   if (!assets) return null;
 
+  // ✅ เช็คว่า prices โหลดครบทุก asset หรือยัง
+  const isFullyLoaded = assets.every((a) => a.symbol in prices);
+
   // Total cost in THB (converting USD stocks to THB)
   const totalCostThb = assets.reduce((sum, a) => {
     const isThai = isThaiStock(a.symbol);
@@ -75,7 +78,6 @@ export default function FooterPortfolio({
       const prevValue = prevPrice * quantity;
       const currValue = currPrice * quantity;
 
-      // Convert to THB if US stock
       totalPreviousValue += isThai ? prevValue : prevValue * currencyRate;
       totalCurrentValue += isThai ? currValue : currValue * currencyRate;
     }
@@ -97,7 +99,14 @@ export default function FooterPortfolio({
             มูลค่าเงินทั้งหมด ({formattedDate})
           </div>
           <div className="font-bold text-[26px] mt-1 flex items-center justify-center gap-2">
-            {isNumbersHidden ? "*****" : fNumber(totalMarketThb)} บาท{" "}
+            {isNumbersHidden ? (
+              "*****"
+            ) : isFullyLoaded ? (
+              fNumber(totalMarketThb)
+            ) : (
+              <span className="inline-block w-32 h-7 bg-white/10 rounded animate-pulse align-middle" />
+            )}{" "}
+            บาท{" "}
             <HiChevronDown
               onClick={() => setIsOpen(!isOpen)}
               className={`mt-2 !text-[16px] text-gray-300 transition-transform duration-200 ${
@@ -114,16 +123,20 @@ export default function FooterPortfolio({
             <div className="font-bold text-[10px] flex items-center gap-1">
               % เปลี่ยนจากวันก่อน :{" "}
               <span
-                className={`flex items-center gap-1 ${getProfitColor(
-                  totalPercentChange(),
-                )}`}
+                className={`flex items-center gap-1 ${getProfitColor(totalPercentChange())}`}
               >
-                {totalPercentChange() > 0 ? (
-                  <UpIcon className="text-[12px]" />
-                ) : totalPercentChange() < 0 ? (
-                  <DownIcon className="text-[12px]" />
-                ) : null}
-                {fNumber(totalPercentChange())}%
+                {isFullyLoaded ? (
+                  <>
+                    {totalPercentChange() > 0 ? (
+                      <UpIcon className="text-[12px]" />
+                    ) : totalPercentChange() < 0 ? (
+                      <DownIcon className="text-[12px]" />
+                    ) : null}
+                    {fNumber(totalPercentChange())}%
+                  </>
+                ) : (
+                  <span className="inline-block w-12 h-3 bg-white/10 rounded animate-pulse" />
+                )}
               </span>
             </div>
 
@@ -131,18 +144,22 @@ export default function FooterPortfolio({
             <div className="font-bold text-[10px] flex items-center gap-1">
               % กำไรของทรัพย์ที่ถืออยู่ :{" "}
               <span
-                className={`flex items-center gap-1 ${getProfitColor(
-                  totalProfitThb,
-                )}`}
+                className={`flex items-center gap-1 ${getProfitColor(totalProfitThb)}`}
               >
-                {totalProfitPercent > 0 ? (
-                  <UpIcon className="text-[12px]" />
-                ) : totalProfitPercent < 0 ? (
-                  <DownIcon className="text-[12px]" />
-                ) : null}
-                {fNumber(totalProfitPercent)}% (
-                {totalProfitPercent > 0 ? "+" : ""}
-                {isNumbersHidden ? "*****" : fNumber(totalProfitThb)} บาท)
+                {isFullyLoaded ? (
+                  <>
+                    {totalProfitPercent > 0 ? (
+                      <UpIcon className="text-[12px]" />
+                    ) : totalProfitPercent < 0 ? (
+                      <DownIcon className="text-[12px]" />
+                    ) : null}
+                    {fNumber(totalProfitPercent)}% (
+                    {totalProfitPercent > 0 ? "+" : ""}
+                    {isNumbersHidden ? "*****" : fNumber(totalProfitThb)} บาท)
+                  </>
+                ) : (
+                  <span className="inline-block w-24 h-3 bg-white/10 rounded animate-pulse" />
+                )}
               </span>
             </div>
           </div>

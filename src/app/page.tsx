@@ -93,6 +93,7 @@ export default function StockPrice() {
   const [editAssets, setEditAssets] = useState<Asset[]>([]);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [isFirstBatchLoaded, setIsFirstBatchLoaded] = useState(false);
   const maskNumber = useMaskNumber();
 
   const [sortBy, setSortBy] = useState<"asset" | "value" | "profit">("value");
@@ -369,30 +370,56 @@ export default function StockPrice() {
 
   async function fetchFinancialData() {
     if (!assets || assets.length === 0) return;
+
+    const BATCH_SIZE = 3;
+
     try {
-      let data: any;
-      if (!isMock) {
+      // Split assets into chunks of 3
+      const batches: Asset[][] = [];
+      for (let i = 0; i < assets.length; i += BATCH_SIZE) {
+        batches.push(assets.slice(i, i + BATCH_SIZE));
+      }
+
+      for (const [index, batch] of batches.entries()) {
         const res = await fetch("/api/stock", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ assets, isMock }),
+          body: JSON.stringify({ assets: batch, isMock }),
         });
+
         if (!res.ok) throw new Error("Failed to fetch API");
-        data = await res.json();
-      } else {
-        const mockPrices: Record<string, number> = {};
-        const validAssets: Asset[] = [];
-        for (const asset of assets) {
-          mockPrices[asset.symbol] = 190.17;
-          validAssets.push(asset);
+
+        const data = await res.json();
+
+        // ✅ Merge incrementally — UI updates after each batch
+        setPrices((prev) => ({ ...prev, ...(data.prices || {}) }));
+        setAdvancedLevels((prev: Record<string, any>) => ({
+          ...prev,
+          ...(data.advancedLevels || {}),
+        }));
+        setPreviousPrice((prev) => ({
+          ...prev,
+          ...(data.previousPrice || {}),
+        }));
+        setGraphs((prev) => ({ ...prev, ...(data.graphs || {}) }));
+        setDividend((prev: any) => ({
+          ...prev,
+          baseCurrency: data.dividendSummary?.baseCurrency,
+          perAsset: {
+            ...prev?.perAsset,
+            ...(data.dividendSummary?.perAsset || {}),
+          },
+          totalAnnualDividend:
+            (prev?.totalAnnualDividend || 0) +
+            (data.dividendSummary?.totalAnnualDividend || 0),
+        }));
+
+        // ✅ หลัง batch แรกเสร็จ → ซ่อน CommonLoading ได้เลย
+        if (index === 0) {
+          setIsFirstBatchLoaded(true);
+          setIsLoading(false);
         }
-        data = { prices: mockPrices, assets: validAssets };
       }
-      setPrices(data.prices || {});
-      setAdvancedLevels(data.advancedLevels || {});
-      setPreviousPrice(data.previousPrice || {});
-      setDividend(data.dividendSummary || {});
-      setGraphs(data.graphs || {});
     } catch (err) {
       console.error(err);
     }
@@ -530,7 +557,7 @@ export default function StockPrice() {
     </div>
   );
 
-  if (isLoading) return <CommonLoading />;
+  if (isLoading && !isFirstBatchLoaded) return <CommonLoading />;
   if (!isLoggedIn) {
     return (
       <LoginModal
@@ -615,6 +642,8 @@ export default function StockPrice() {
       setSortOrder(column === "asset" ? "asc" : "desc");
     }
   };
+
+  const isFullyLoaded = assets?.every((a) => a.symbol in prices) ?? false;
 
   return (
     <div
@@ -757,6 +786,8 @@ export default function StockPrice() {
               const currencyLabel = isThai ? "THB" : "USD";
               const logoUrl = getLogo(asset.symbol);
 
+              const isLoadingThis = !(asset.symbol in prices);
+
               return (
                 <div key={asset.symbol} className="w-full">
                   {/* ── Asset Row ── */}
@@ -791,10 +822,16 @@ export default function StockPrice() {
                     {/* Col 2: Value */}
                     <div className="flex flex-col items-end whitespace-nowrap">
                       <div className="font-bold text-[15px] text-white">
-                        {maskNumber(fNumber(marketValueThb))}
-                        <span className="text-[10px] text-gray-500 ml-1">
-                          บาท
-                        </span>
+                        {isLoadingThis ? (
+                          <span className="inline-block w-16 h-4 bg-white/10 rounded animate-pulse" />
+                        ) : (
+                          <>
+                            {maskNumber(fNumber(marketValueThb))}
+                            <span className="text-[10px] text-gray-500 ml-1">
+                              บาท
+                            </span>
+                          </>
+                        )}
                       </div>
                       <div className="text-[11px] text-gray-500">
                         ≈{" "}
@@ -819,7 +856,11 @@ export default function StockPrice() {
                         ) : profitBase < 0 ? (
                           <DownIcon className="text-[11px]" />
                         ) : null}
-                        {fNumber(profitPercent)}%
+                        {isLoadingThis ? (
+                          <span className="inline-block w-10 h-4 bg-white/10 rounded animate-pulse" />
+                        ) : (
+                          <>{fNumber(profitPercent)}%</>
+                        )}
                       </div>
                       <div className={`text-[11px] ${profitColor}`}>
                         ({profitBase > 0 ? "+" : ""}
@@ -899,7 +940,11 @@ export default function StockPrice() {
         />
       )}
 
-      <BottomNavbar currentPage={currentPage} setCurrentPage={setCurrentPage} />
+      <BottomNavbar
+        currentPage={currentPage}
+        setCurrentPage={setCurrentPage}
+        isFullyLoaded={isFullyLoaded}
+      />
     </div>
   );
 }
