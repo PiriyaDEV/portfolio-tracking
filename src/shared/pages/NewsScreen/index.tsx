@@ -17,13 +17,22 @@ type TelegramMessage = {
   id: number;
   text: string;
   date: number;
-  image: string | null; // ← add this
+  image: string | null;
+};
+
+type ChannelCache = {
+  messages: TelegramMessage[];
+  offset: number;
+  hasMore: boolean;
 };
 
 /* =======================
    Component
 ======================= */
 export default function NewsScreen() {
+  // Per-channel cache: keyed by channel id
+  const cacheRef = useRef<Record<string, ChannelCache>>({});
+
   const [messages, setMessages] = useState<TelegramMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -107,8 +116,10 @@ export default function NewsScreen() {
   const fetchNews = useCallback(
     async (reset = false, channelOverride?: string) => {
       const channel = channelOverride ?? activeChannel;
+      const cached = cacheRef.current[channel];
 
-      if (!reset && messages.length >= 50) {
+      // If not a reset and we already have cached data, load more from cache state
+      if (!reset && cached && cached.messages.length >= 50) {
         setHasMore(false);
         return;
       }
@@ -116,12 +127,11 @@ export default function NewsScreen() {
       try {
         if (reset) {
           setRefreshing(true);
-          setOffset(0);
         } else {
           setLoadingMore(true);
         }
 
-        const currentOffset = reset ? 0 : offset;
+        const currentOffset = reset ? 0 : (cached?.offset ?? 0);
         const res = await fetch(
           `/api/news?offset=${currentOffset}&limit=5&channel=${channel}`,
         );
@@ -129,23 +139,47 @@ export default function NewsScreen() {
         const newMessages: TelegramMessage[] = Array.isArray(data) ? data : [];
 
         if (reset) {
+          const updated: ChannelCache = {
+            messages: newMessages,
+            offset: 5,
+            hasMore: newMessages.length >= 5,
+          };
+          cacheRef.current[channel] = updated;
           setMessages(newMessages);
           setOffset(5);
+          setHasMore(updated.hasMore);
         } else {
-          setMessages((prev) => [...prev, ...newMessages]);
-          setOffset((prev) => prev + 5);
-        }
+          const prevMessages = cached?.messages ?? [];
+          const merged = [...prevMessages, ...newMessages];
+          const newOffset = (cached?.offset ?? 0) + 5;
+          const newHasMore = newMessages.length >= 5;
 
-        setHasMore(newMessages.length >= 5);
+          cacheRef.current[channel] = {
+            messages: merged,
+            offset: newOffset,
+            hasMore: newHasMore,
+          };
+
+          setMessages(merged);
+          setOffset(newOffset);
+          setHasMore(newHasMore);
+        }
       } catch {
-        if (reset) setMessages([]);
+        if (reset) {
+          cacheRef.current[channel] = {
+            messages: [],
+            offset: 0,
+            hasMore: false,
+          };
+          setMessages([]);
+        }
       } finally {
         setLoading(false);
         setRefreshing(false);
         setLoadingMore(false);
       }
     },
-    [activeChannel, messages.length, offset],
+    [activeChannel],
   );
 
   /* =======================
@@ -153,18 +187,40 @@ export default function NewsScreen() {
   ======================= */
   const handleChannelChange = (channelId: string) => {
     if (channelId === activeChannel) return;
+
+    const cached = cacheRef.current[channelId];
+
     setActiveChannel(channelId);
-    setMessages([]);
-    setOffset(0);
-    setHasMore(true);
-    setLoading(true);
+
+    if (cached) {
+      // Restore from cache — no fetch needed
+      setMessages(cached.messages);
+      setOffset(cached.offset);
+      setHasMore(cached.hasMore);
+      setLoading(false);
+    } else {
+      // First visit to this channel
+      setMessages([]);
+      setOffset(0);
+      setHasMore(true);
+      setLoading(true);
+    }
   };
 
   /* =======================
      Effects
   ======================= */
   useEffect(() => {
-    fetchNews(true, activeChannel);
+    const cached = cacheRef.current[activeChannel];
+    if (cached) {
+      // Already have data, just restore UI state
+      setMessages(cached.messages);
+      setOffset(cached.offset);
+      setHasMore(cached.hasMore);
+      setLoading(false);
+    } else {
+      fetchNews(true, activeChannel);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeChannel]);
 
@@ -280,7 +336,6 @@ export default function NewsScreen() {
       </div>
 
       {/* ======================= CONTENT ======================= */}
-      {/* top padding accounts for both fixed bars (~104px) */}
       <div className="space-y-3 px-3 pt-[108px] pb-6">
         {/* Loading skeleton */}
         {loading && (
