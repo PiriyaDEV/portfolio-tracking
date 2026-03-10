@@ -37,8 +37,7 @@ function TickerChip({ ticker }: { ticker: string }) {
   const [imgError, setImgError] = useState(false);
 
   return (
-    <span className="bg-accent-yellow inline-flex items-center gap-1.5 mx-0.5 px-2 py-0.5 rounded-full border border-white/20 text-white/90 text-[13px] font-semibold align-middle">
-      🛒
+    <span className="bg-accent-yellow inline-flex items-center gap-1.5 mx-0.5 px-2 py-0.5 rounded-full border border-white/20 text-white/90 text-[13px] font-semibold align-middle mb-1">
       {logoUrl && !imgError ? (
         <img
           src={logoUrl}
@@ -286,14 +285,19 @@ export default function NewsScreen() {
   /**
    * Renders text with:
    * - Clickable URLs
-   * - 🛒 **TICKER** patterns replaced with <TickerChip>
+   * - 🛒/💰 **TICKER** patterns replaced with <TickerChip>
+   * - 🟢/**text** and 🔴/**text** rendered bold + colored
    */
   const renderTextWithLinks = (text: string) => {
     if (!text) return "-";
 
-    // Split on URLs or 🛒 **TICKER** patterns
-    // Capture groups so they stay in the resulting array
-    const segmentRegex = /(https?:\/\/[^\s]+|🛒\s*\*\*([A-Z]{1,6})\*\*)/g;
+    // Matches:
+    // 1. URLs
+    // 2. 🛒/💰 **TICKER**  (ticker chip)
+    // 3. 🟢/🔴 **text**    (emoji before **)
+    // 4. **🟢/🔴 text**    (emoji inside **)
+    const segmentRegex =
+      /(https?:\/\/[^\s]+|(?:🛒|💰)\s*\*\*([A-Z]{1,6})\*\*|((?:🟢|🔴)\s*)\*\*([^*]+)\*\*|\*\*((?:🟢|🔴)[^*]+)\*\*)/g;
 
     const parts: React.ReactNode[] = [];
     let lastIndex = 0;
@@ -301,7 +305,14 @@ export default function NewsScreen() {
     let keyCounter = 0;
 
     while ((match = segmentRegex.exec(text)) !== null) {
-      const [fullMatch, , tickerCapture] = match;
+      const [
+        fullMatch,
+        ,
+        tickerCapture,
+        signalEmoji,
+        signalText1,
+        signalText2,
+      ] = match;
       const matchStart = match.index;
 
       // Push plain text before this match
@@ -317,6 +328,21 @@ export default function NewsScreen() {
         // Render ticker chip
         parts.push(
           <TickerChip key={`chip-${keyCounter++}`} ticker={tickerCapture} />,
+        );
+      } else if (signalEmoji !== undefined || signalText2 !== undefined) {
+        // Render buy/sell signal bold + colored
+        const raw =
+          signalEmoji !== undefined
+            ? `${signalEmoji}${signalText1}`
+            : signalText2!;
+        const isGreen = raw.includes("🟢");
+        parts.push(
+          <span
+            key={`signal-${keyCounter++}`}
+            className={`font-bold ${isGreen ? "!text-green-600" : "!text-red-600"}`}
+          >
+            {raw.trim()}
+          </span>,
         );
       } else {
         // Render URL link
