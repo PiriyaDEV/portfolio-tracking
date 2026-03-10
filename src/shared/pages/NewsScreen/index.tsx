@@ -56,6 +56,19 @@ function TickerChip({ ticker }: { ticker: string }) {
 }
 
 /* =======================
+   DateChip Component
+======================= */
+function DateChip({ label }: { label: string }) {
+  return (
+    <div className="flex items-center justify-center">
+      <span className="px-5 py-1 bg-black/40 backdrop-blur-sm border border-white/[0.1] rounded-full text-[11px] text-white/45 font-medium tracking-wide select-none">
+        {label}
+      </span>
+    </div>
+  );
+}
+
+/* =======================
    Component
 ======================= */
 export default function NewsScreen() {
@@ -280,6 +293,53 @@ export default function NewsScreen() {
     (msg) => msg.text && msg.text.trim() !== "",
   );
 
+  /** Format date label like LINE: วันนี้ / เมื่อวาน / 10 เมษายน 2568 */
+  function formatDateChip(date: Date): string {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+
+    const msgDay = new Date(
+      date.getFullYear(),
+      date.getMonth(),
+      date.getDate(),
+    );
+
+    if (msgDay.getTime() === today.getTime()) return "วันนี้";
+    if (msgDay.getTime() === yesterday.getTime()) return "เมื่อวาน";
+
+    return date.toLocaleDateString("th-TH", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+  }
+
+  /** Build a flat display list interleaved with date separator items */
+  type DisplayItem =
+    | { type: "date"; label: string; key: string }
+    | { type: "message"; msg: TelegramMessage; index: number };
+
+  const displayItems: DisplayItem[] = [];
+  let lastDateKey = "";
+
+  filteredMessages.forEach((msg, index) => {
+    const msgDate = new Date(msg.date * 1000);
+    const dateKey = `${msgDate.getFullYear()}-${msgDate.getMonth()}-${msgDate.getDate()}`;
+
+    if (dateKey !== lastDateKey) {
+      displayItems.push({
+        type: "date",
+        label: formatDateChip(msgDate),
+        key: `date-${dateKey}`,
+      });
+      lastDateKey = dateKey;
+    }
+
+    displayItems.push({ type: "message", msg, index });
+  });
+
   const activeChannelInfo = CHANNELS.find((c) => c.id === activeChannel);
 
   /**
@@ -291,11 +351,6 @@ export default function NewsScreen() {
   const renderTextWithLinks = (text: string) => {
     if (!text) return "-";
 
-    // Matches:
-    // 1. URLs
-    // 2. 🛒/💰 **TICKER**  (ticker chip)
-    // 3. 🟢/🔴 **text**    (emoji before **)
-    // 4. **🟢/🔴 text**    (emoji inside **)
     const segmentRegex =
       /(https?:\/\/[^\s]+|(?:🛒|💰)\s*\*\*([A-Z]{1,6})\*\*|((?:🟢|🔴)\s*)\*\*([^*]+)\*\*|\*\*((?:🟢|🔴)[^*]+)\*\*)/g;
 
@@ -315,7 +370,6 @@ export default function NewsScreen() {
       ] = match;
       const matchStart = match.index;
 
-      // Push plain text before this match
       if (matchStart > lastIndex) {
         parts.push(
           <span key={`t-${keyCounter++}`}>
@@ -325,12 +379,10 @@ export default function NewsScreen() {
       }
 
       if (tickerCapture) {
-        // Render ticker chip
         parts.push(
           <TickerChip key={`chip-${keyCounter++}`} ticker={tickerCapture} />,
         );
       } else if (signalEmoji !== undefined || signalText2 !== undefined) {
-        // Render buy/sell signal bold + colored
         const raw =
           signalEmoji !== undefined
             ? `${signalEmoji}${signalText1}`
@@ -345,7 +397,6 @@ export default function NewsScreen() {
           </span>,
         );
       } else {
-        // Render URL link
         parts.push(
           <a
             key={`link-${keyCounter++}`}
@@ -362,7 +413,6 @@ export default function NewsScreen() {
       lastIndex = matchStart + fullMatch.length;
     }
 
-    // Push remaining text
     if (lastIndex < text.length) {
       parts.push(
         <span key={`t-${keyCounter++}`}>{text.slice(lastIndex)}</span>,
@@ -450,9 +500,14 @@ export default function NewsScreen() {
           </div>
         )}
 
-        {/* News cards */}
+        {/* News cards with date chips */}
         {!loading &&
-          filteredMessages.map((msg, index) => {
+          displayItems.map((item) => {
+            if (item.type === "date") {
+              return <DateChip key={item.key} label={item.label} />;
+            }
+
+            const { msg, index } = item;
             const newsType = detectNewsType(msg.text);
             const messageDate = new Date(msg.date * 1000);
             const diffMinutes = (Date.now() - messageDate.getTime()) / 60_000;
