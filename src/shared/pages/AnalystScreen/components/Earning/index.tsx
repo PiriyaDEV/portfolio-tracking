@@ -46,6 +46,16 @@ const DAY_COLORS: Record<number, string> = {
   6: "text-purple-400",
 };
 
+const DAY_GLOW: Record<number, string> = {
+  0: "shadow-red-500/20",
+  1: "shadow-yellow-500/20",
+  2: "shadow-pink-500/20",
+  3: "shadow-green-500/20",
+  4: "shadow-orange-500/20",
+  5: "shadow-blue-500/20",
+  6: "shadow-purple-500/20",
+};
+
 const formatThaiFullDate = (dateStr: string) => {
   const d = new Date(dateStr);
   return `${TH_DAYS[d.getDay()]}ที่ ${d.toLocaleDateString("th-TH", {
@@ -107,9 +117,10 @@ const Badge = ({
   pulse?: boolean;
 }) => (
   <span
-    className={`inline-flex items-center gap-3 px-3 py-1 bg-gradient-to-r ${gradient} !text-white text-xs font-bold rounded-full shadow-sm ${
+    className={`inline-flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r ${gradient} !text-white text-xs font-bold rounded-full shadow-lg ${
       pulse ? "animate-pulse" : ""
     }`}
+    style={{ letterSpacing: "0.02em" }}
   >
     {children}
   </span>
@@ -128,51 +139,52 @@ const EpsExplain = ({
 }) => {
   if (eps === undefined || eps === null) {
     return (
-      <div className="text-xs text-gray-400 mt-2">
+      <div className="text-xs text-gray-500 mt-2 flex items-center gap-1.5">
+        <span className="inline-block w-1.5 h-1.5 rounded-full bg-gray-600"></span>
         📊 ยังไม่มีตัวเลข EPS คาดการณ์
       </div>
     );
   }
 
-  // 🔥 ดีมาก
   if (eps >= 5) {
     return (
-      <div className="text-xs text-green-600 mt-2 font-bold">
+      <div className="text-xs text-emerald-400 mt-2 font-bold flex items-center gap-1.5">
+        <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_#34d399]"></span>
         🚀 คาดว่าดีมาก (EPS +{eps})
       </div>
     );
   }
 
-  // 🙂 ดี
   if (eps >= 0.3) {
     return (
-      <div className="text-xs text-green-500 mt-2 font-bold">
+      <div className="text-xs text-green-400 mt-2 font-bold flex items-center gap-1.5">
+        <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-400 shadow-[0_0_6px_#4ade80]"></span>
         📈 คาดว่าดี (EPS +{eps})
       </div>
     );
   }
 
-  // 😐 เฉยๆ (ไม่ต้อง = 0 เป๊ะ)
   if (eps > -0.3 && eps < 0.3) {
     return (
-      <div className="text-xs text-yellow-500 mt-2 font-bold">
+      <div className="text-xs text-yellow-400 mt-2 font-bold flex items-center gap-1.5">
+        <span className="inline-block w-1.5 h-1.5 rounded-full bg-yellow-400 shadow-[0_0_6px_#facc15]"></span>
         😐 คาดว่าเฉยๆ (EPS {eps})
       </div>
     );
   }
 
-  // 😕 แย่
   if (eps > -5) {
     return (
-      <div className="text-xs text-orange-500 mt-2 font-bold">
+      <div className="text-xs text-orange-400 mt-2 font-bold flex items-center gap-1.5">
+        <span className="inline-block w-1.5 h-1.5 rounded-full bg-orange-400 shadow-[0_0_6px_#fb923c]"></span>
         📉 คาดว่าแย่ (EPS {eps})
       </div>
     );
   }
 
-  // 💀 แย่มาก
   return (
-    <div className="text-xs text-red-600 mt-2 font-bold">
+    <div className="text-xs text-red-400 mt-2 font-bold flex items-center gap-1.5">
+      <span className="inline-block w-1.5 h-1.5 rounded-full bg-red-400 shadow-[0_0_6px_#f87171]"></span>
       💀 คาดว่าแย่มาก (EPS {eps})
     </div>
   );
@@ -264,8 +276,15 @@ export default function EarningsPage({
 
     return (
       <div className="mb-14">
-        <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-          {icon} {title}
+        {/* Section Header */}
+        <h2 className="text-xl font-bold mb-5 flex items-center gap-2.5">
+          <span className="text-2xl">{icon}</span>
+          <span className="bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
+            {title}
+          </span>
+          <span className="ml-1 px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-xs font-semibold text-gray-400">
+            {dates.reduce((acc, d) => acc + grouped[d].length, 0)} รายการ
+          </span>
         </h2>
 
         {dates.map((date) => {
@@ -273,12 +292,18 @@ export default function EarningsPage({
           const past = isPast(date);
 
           return (
-            <div key={date} className="mb-3">
+            <div key={date} className="mb-5">
+              {/* Date Row */}
               <div
-                className={`flex items-center gap-3 text-lg font-semibold mb-3 ${
-                  past ? "text-gray-500" : DAY_COLORS[dayIdx]
+                className={`flex items-center gap-3 text-base font-semibold mb-3 ${
+                  past ? "text-gray-600" : DAY_COLORS[dayIdx]
                 }`}
               >
+                <span
+                  className={`inline-block w-2 h-2 rounded-full ${
+                    past ? "bg-gray-700" : "bg-current opacity-80"
+                  }`}
+                ></span>
                 {formatThaiFullDate(date)}
 
                 {isToday(date) && (
@@ -288,46 +313,75 @@ export default function EarningsPage({
                 )}
               </div>
 
-              <div className="flex flex-col gap-4">
+              {/* Cards */}
+              <div className="flex flex-col gap-3">
                 {grouped[date].map((e, i) => {
                   const isWishlist = wishlist.includes(e.symbol);
+                  const glowClass = past ? "" : DAY_GLOW[dayIdx];
 
                   return (
                     <div
                       key={i}
-                      className={`border rounded-xl p-4 ${
-                        past
-                          ? "bg-gray-900 border-gray-800 text-gray-500"
-                          : "bg-white border-gray-800 text-black"
-                      }`}
+                      className={`
+                        relative border rounded-2xl p-4 overflow-hidden !text-white
+                        transition-all duration-200
+                        ${
+                          past
+                            ? "bg-[#0d0d0d] border-white/5 !text-white"
+                            : `bg-gradient-to-br from-[#141414] to-[#0f0f0f]
+                               border-white/10 !text-white
+                               hover:border-white/20 hover:shadow-xl hover:shadow-black/40
+                               ${glowClass}`
+                        }
+                      `}
                     >
-                      <div className="flex justify-between items-start mb-2">
-                        <div className="flex items-center gap-2">
+                      {/* Subtle top shimmer line */}
+                      {!past && (
+                        <div
+                          className={`absolute top-0 left-4 right-4 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent`}
+                        />
+                      )}
+
+                      {/* Card Header */}
+                      <div className="flex justify-between items-start mb-3">
+                        <div className="flex items-center gap-3">
                           <div
-                            className={`w-[30px] h-[30px] rounded-full bg-cover bg-center border border-gray-600 ${
-                              getLogo(e.symbol) ? "" : "bg-white"
-                            }`}
+                            className={`
+                              w-9 h-9 rounded-full bg-cover bg-center flex-shrink-0
+                              border-2 ${past ? "border-white/5" : "border-white/15"}
+                              ${getLogo(e.symbol) ? "" : "bg-white/10"}
+                              ${!past ? "shadow-md" : ""}
+                            `}
                             style={{
                               backgroundImage: `url(${getLogo(e.symbol)})`,
                             }}
                           />
-                          <div className="font-bold text-[16px]">
+                          <div
+                            className={`font-bold text-[15px] tracking-wide ${
+                              past ? "text-white/60" : "text-white"
+                            }`}
+                          >
                             {getName(e.symbol)}
                           </div>
                         </div>
 
                         {isWishlist ? (
-                          <Badge gradient="from-pink-500 to-red-500">
+                          <Badge gradient="from-pink-500 to-rose-500">
                             🎯 Wishlist
                           </Badge>
                         ) : (
-                          <Badge gradient="from-blue-500 to-cyan-500">
+                          <Badge gradient="from-blue-500 to-indigo-500">
                             💼 พอร์ต
                           </Badge>
                         )}
                       </div>
 
-                      <div className="text-sm mb-2">
+                      {/* Announce Time */}
+                      <div
+                        className={`text-xs font-medium mb-1 flex items-center gap-1.5 ${
+                          past ? "text-gray-400" : "text-gray-400"
+                        }`}
+                      >
                         {e.announceTime === "After Market Close"
                           ? "🔴 หลังตลาดปิด"
                           : e.announceTime === "Before Market Open"
@@ -351,16 +405,22 @@ export default function EarningsPage({
     sections.today.length || sections.future.length || sections.past.length;
 
   return (
-    <div className="min-h-screen bg-black text-gray-200">
+    <div>
+      {/* Ambient background glow */}
+      <div className="fixed inset-0 pointer-events-none">
+        <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-900/10 rounded-full blur-3xl" />
+        <div className="absolute top-1/3 right-1/4 w-80 h-80 bg-purple-900/8 rounded-full blur-3xl" />
+      </div>
+
       {!loading && (
-        <div>
+        <div className="relative z-10">
           {!hasAnyData ? (
-            <div className="pt-[160px] flex flex-col items-center text-center text-gray-400">
-              <div className="text-5xl mb-4">📭</div>
-              <div className="text-lg font-semibold">
+            <div className="pt-[160px] flex flex-col items-center text-center text-gray-500">
+              <div className="text-6xl mb-5 opacity-60">📭</div>
+              <div className="text-lg font-semibold text-gray-400">
                 ยังไม่มี Earnings เร็วๆ นี้
               </div>
-              <div className="text-sm mt-1">
+              <div className="text-sm mt-2 text-gray-600">
                 รอติดตามงบประกาศรอบถัดไปได้เลย 👀
               </div>
             </div>

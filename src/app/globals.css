@@ -10,7 +10,7 @@
 body {
   /* color: var(--foreground);
   background: var(--background); */
-  background: linear-gradient(160deg, #0f0f0f 0%, #1a1a1a 60%, #0a0a0a 100%);
+  background: linear-gradient(120deg, #0f0f0f 0%, #1a1a1a 60%, #0a0a0a 100%);
   font-family: "Sarabun", sans-serif;
 }
 

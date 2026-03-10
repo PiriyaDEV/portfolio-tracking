@@ -19,9 +19,9 @@ export default {
         "accent-yellow": "#FFD700",
       },
       backgroundImage: {
-        black: "linear-gradient(160deg, #0f0f0f 0%, #1a1a1a 60%, #0a0a0a 100%)",
+        black: "linear-gradient(120deg, #0f0f0f 0%, #1a1a1a 60%, #0a0a0a 100%)",
         "black-lighter":
-          "linear-gradient(160deg, #1a1a1a 0%, #262626 60%, #161616 100%)",
+          "linear-gradient(120deg, #1a1a1a 0%, #262626 60%, #161616 100%)",
       },
     },
   },
