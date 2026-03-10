@@ -26,11 +26,22 @@ const INITIAL_LEVELS = (symbol: string): AdvancedLevels => ({
   recommendation: "",
 });
 
+const SYMBOL_MAP: Record<string, string> = {
+  "GOLD-USD": "GC=F",
+  "TISCO-PVD": "THB=X",
+};
+
+// Cache: 3-month chart data doesn't change minute-to-minute
+const cache = new Map<string, { value: AdvancedLevels; ts: number }>();
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
 export async function getAdvancedLevels(
   symbol: string = "TSLA",
 ): Promise<AdvancedLevels> {
-  if (symbol === "GOLD-USD") symbol = "GC=F";
-  if (symbol === "TISCO-PVD") symbol = "THB=X";
+  symbol = SYMBOL_MAP[symbol] ?? symbol;
+
+  const cached = cache.get(symbol);
+  if (cached && Date.now() - cached.ts < CACHE_TTL_MS) return cached.value;
 
   try {
     const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=3mo`;
@@ -44,10 +55,16 @@ export async function getAdvancedLevels(
 
     if (!quotes) return INITIAL_LEVELS(symbol);
 
-    const closes = (quotes.close ?? []).filter((v: number) => v != null);
+    const closes = (quotes.close ?? []).filter(
+      (v: number) => v != null,
+    ) as number[];
     const stableCloses = closes.slice(0, -1);
-    const highs = (quotes.high ?? []).filter((v: number) => v != null);
-    const lows = (quotes.low ?? []).filter((v: number) => v != null);
+    const highs = (quotes.high ?? []).filter(
+      (v: number) => v != null,
+    ) as number[];
+    const lows = (quotes.low ?? []).filter(
+      (v: number) => v != null,
+    ) as number[];
 
     if (closes.length < 10 || highs.length < 10 || lows.length < 10) {
       return INITIAL_LEVELS(symbol);
@@ -58,25 +75,26 @@ export async function getAdvancedLevels(
     const previousClose = meta?.previousClose ?? closes[closes.length - 2];
 
     /* ================= EMA ================= */
-    const ema = (period: number) => {
-      const p = Math.min(period, stableCloses.length);
-      return stableCloses.slice(-p).reduce((a: any, b: any) => a + b, 0) / p;
-    };
+    function calcEMA(data: number[], period: number): number {
+      const p = Math.min(period, data.length);
+      const slice = data.slice(-p);
+      const k = 2 / (p + 1);
+      return slice.reduce((prev, curr) => curr * k + prev * (1 - k), slice[0]);
+    }
 
-    const ema20 = ema(20);
-    const ema50 = ema(50);
+    const ema20 = calcEMA(stableCloses, 20);
+    const ema50 = calcEMA(stableCloses, 50);
 
     /* ================= ATR ================= */
-    let totalTR = 0;
     const len = Math.min(highs.length, lows.length, closes.length);
+    let totalTR = 0;
 
     for (let i = 1; i < len; i++) {
-      const tr = Math.max(
+      totalTR += Math.max(
         highs[i] - lows[i],
         Math.abs(highs[i] - closes[i - 1]),
         Math.abs(lows[i] - closes[i - 1]),
       );
-      totalTR += tr;
     }
 
     const atr = totalTR / Math.max(1, len - 1);
@@ -88,33 +106,25 @@ export async function getAdvancedLevels(
 
     /* ================= TREND ================= */
     let trend: "UP" | "DOWN" | "SIDEWAYS" = "SIDEWAYS";
-
     if (ema20 > ema50 && currentPrice > ema20) trend = "UP";
     else if (ema20 < ema50 && currentPrice < ema20) trend = "DOWN";
 
     /* ================= ENTRY LEVELS ================= */
     let entry1 = ema20 - 0.3 * atr;
-    const deepByEMA = ema50 - 1.0 * atr;
-    const deepByStructure = swingLow + 0.2 * atr;
-    let entry2 = Math.min(deepByEMA, deepByStructure);
+    let entry2 = Math.min(ema50 - 1.0 * atr, swingLow + 0.2 * atr);
 
     const minGap = 0.8 * atr;
 
-    if (entry2 >= entry1) {
-      entry2 = entry1 - minGap;
-    }
+    if (entry2 >= entry1) entry2 = entry1 - minGap;
 
     entry1 = Math.min(entry1, swingHigh - 0.3 * atr);
     entry2 = Math.max(entry2, swingLow);
 
-    if (entry2 >= entry1) {
-      entry2 = entry1 - minGap;
-    }
+    if (entry2 >= entry1) entry2 = entry1 - minGap;
 
-    /* ================= RISK ================= */
     const stopLoss = entry2 * 0.95;
 
-    return {
+    const value: AdvancedLevels = {
       symbol,
       currentPrice: Number(currentPrice.toFixed(2)),
       previousClose: Number(previousClose.toFixed(2)),
@@ -126,6 +136,9 @@ export async function getAdvancedLevels(
       resistance: Number(swingHigh.toFixed(2)),
       trend,
     };
+
+    cache.set(symbol, { value, ts: Date.now() });
+    return value;
   } catch (error) {
     console.error(`[getAdvancedLevels] Failed for ${symbol}`, error);
     return INITIAL_LEVELS(symbol);

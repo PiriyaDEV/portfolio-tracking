@@ -13,59 +13,43 @@ interface Asset {
 
 type Range = "1d" | "5d" | "1m" | "6m" | "1y";
 
+type ChartPoint = { time: number; close: number | null };
+
 /* =======================
    Currency helpers
 ======================= */
 
-/**
- * USDTHB=X = THB per 1 USD
- * THB → USD = price / rate
- */
 async function fetchUSDTHBRate(): Promise<number> {
   const data = await fetchYahooChart("USDTHB=X", "2d", "1d");
   return data[data.length - 1].close!;
 }
 
-function convertToUSD(
-  price: number,
-  symbol: string,
-  usdThbRate: number,
-): number {
-  if (isThaiStock(symbol)) {
-    return price / usdThbRate;
-  }
-  return price;
+function toUSD(price: number, symbol: string, usdThbRate: number): number {
+  return isThaiStock(symbol) ? price / usdThbRate : price;
 }
 
 /* =======================
    Yahoo helpers
 ======================= */
 
-function normalizeYahooSymbol(raw: string): string {
-  const symbol = raw.trim().toUpperCase();
+const SYMBOL_MAP: Record<string, string> = {
+  "TISCO-PVD": "THB=X",
+  "BTC-USD": "BTC-USD",
+  "GOLD-USD": "GC=F",
+};
 
-  switch (symbol) {
-    case "TISCO-PVD":
-      return "THB=X";
-    case "BTC-USD":
-      return "BTC-USD";
-    case "GOLD-USD":
-      return "GC=F";
-    default:
-      return symbol;
-  }
+function normalizeYahooSymbol(raw: string): string {
+  const s = raw.trim().toUpperCase();
+  return SYMBOL_MAP[s] ?? s;
 }
 
 async function fetchYahooChart(
   rawSymbol: string,
   range: string,
   interval: string,
-) {
+): Promise<ChartPoint[]> {
   const symbol = normalizeYahooSymbol(rawSymbol);
-
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(
-    symbol,
-  )}?range=${range}&interval=${interval}`;
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=${interval}`;
 
   const res = await fetch(url, {
     headers: { "User-Agent": "Mozilla/5.0" },
@@ -76,26 +60,20 @@ async function fetchYahooChart(
 
   const json = await res.json();
   const result = json?.chart?.result?.[0];
-
   const timestamps: number[] | undefined = result?.timestamp;
   const closes: (number | null)[] | undefined =
     result?.indicators?.quote?.[0]?.close;
 
-  if (!timestamps || !closes) {
-    throw new Error(`Invalid Yahoo data: ${symbol}`);
-  }
+  if (!timestamps || !closes) throw new Error(`Invalid Yahoo data: ${symbol}`);
 
   return timestamps
-    .map((t, i) => ({
-      time: t,
-      close: closes[i],
-    }))
+    .map((t, i) => ({ time: t, close: closes[i] }))
     .filter((p) => p.close != null);
 }
 
 async function fetchPreviousClose(symbol: string): Promise<number> {
   const data = await fetchYahooChart(symbol, "2d", "1d");
-  return data[data.length - 2]?.close! ?? data[0].close;
+  return (data[data.length - 2]?.close ?? data[0].close)!;
 }
 
 /* =======================
@@ -113,6 +91,49 @@ const RANGE_CONFIG: Record<
 };
 
 /* =======================
+   Shared helpers
+======================= */
+
+/** Total portfolio value in USD at chart index i */
+function portfolioValueAt(
+  assetCharts: ChartPoint[][],
+  assets: Asset[],
+  i: number,
+  usdThbRate: number,
+): number {
+  return assetCharts.reduce((sum, chart, idx) => {
+    return (
+      sum +
+      toUSD(chart[i].close!, assets[idx].symbol, usdThbRate) *
+        assets[idx].quantity
+    );
+  }, 0);
+}
+
+function buildDataPoints(
+  spChart: ChartPoint[],
+  assetCharts: ChartPoint[][],
+  assets: Asset[],
+  usdThbRate: number,
+  startIndex = 0,
+  basePortfolio?: number,
+  baseSP500?: number,
+) {
+  const length = Math.min(spChart.length, ...assetCharts.map((c) => c.length));
+  const data = [];
+
+  for (let i = startIndex; i < length; i++) {
+    data.push({
+      time: spChart[i].time,
+      portfolioValue: portfolioValueAt(assetCharts, assets, i, usdThbRate),
+      sp500Value: spChart[i].close!,
+    });
+  }
+
+  return data;
+}
+
+/* =======================
    API
 ======================= */
 
@@ -127,42 +148,33 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "assets required" }, { status: 400 });
     }
 
-    // FX rate (THB → USD)
     const usdThbRate = await fetchUSDTHBRate();
 
-    /* =====================================================
-       1D → intraday vs previous close
-    ===================================================== */
-
+    /* ── 1D: intraday vs previous close ── */
     if (range === "1d") {
-      const interval = "5m";
-      const chartRange = "1d";
-
-      const [spPrevClose, assetPrevCloses] = await Promise.all([
-        fetchPreviousClose("^GSPC"),
-        Promise.all(assets.map((a) => fetchPreviousClose(a.symbol))),
-      ]);
-
-      const [spChart, assetCharts] = await Promise.all([
-        fetchYahooChart("^GSPC", chartRange, interval),
-        Promise.all(
-          assets.map((a) => fetchYahooChart(a.symbol, chartRange, interval)),
-        ),
-      ]);
+      const [[spPrevClose, ...assetPrevCloses], [spChart, ...assetCharts]] =
+        await Promise.all([
+          Promise.all([
+            fetchPreviousClose("^GSPC"),
+            ...assets.map((a) => fetchPreviousClose(a.symbol)),
+          ]),
+          Promise.all([
+            fetchYahooChart("^GSPC", "1d", "5m"),
+            ...assets.map((a) => fetchYahooChart(a.symbol, "1d", "5m")),
+          ]),
+        ]);
 
       const basePortfolio = assetPrevCloses.reduce((sum, price, i) => {
-        const usdPrice = convertToUSD(price, assets[i].symbol, usdThbRate);
-        return sum + usdPrice * assets[i].quantity;
+        return (
+          sum + toUSD(price, assets[i].symbol, usdThbRate) * assets[i].quantity
+        );
       }, 0);
 
-      /* ---------- Market CLOSED ---------- */
+      // Market closed
       if (spChart.length <= 1) {
         return NextResponse.json({
           range,
-          base: {
-            portfolio: basePortfolio,
-            sp500: spPrevClose,
-          },
+          base: { portfolio: basePortfolio, sp500: spPrevClose },
           data: [
             {
               time: spChart[0]?.time ?? Math.floor(Date.now() / 1000),
@@ -173,115 +185,43 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      /* ---------- Market OPEN ---------- */
-
-      const length = Math.min(
-        spChart.length,
-        ...assetCharts.map((c) => c.length),
-      );
-
-      const data: {
-        time: number;
-        portfolioValue: number;
-        sp500Value: number;
-      }[] = [];
-
-      data.push({
-        time: spChart[0].time,
-        portfolioValue: basePortfolio,
-        sp500Value: spPrevClose,
-      });
-
-      for (let i = 1; i < length; i++) {
-        let portfolioValue = 0;
-
-        assetCharts.forEach((chart, idx) => {
-          const usdPrice = convertToUSD(
-            chart[i].close!,
-            assets[idx].symbol,
-            usdThbRate,
-          );
-          portfolioValue += usdPrice * assets[idx].quantity;
-        });
-
-        data.push({
-          time: spChart[i].time,
-          portfolioValue,
-          sp500Value: spChart[i].close!,
-        });
-      }
+      // Market open — first point is prev-close baseline, rest are live
+      const data = [
+        {
+          time: spChart[0].time,
+          portfolioValue: basePortfolio,
+          sp500Value: spPrevClose,
+        },
+        ...buildDataPoints(spChart, assetCharts, assets, usdThbRate, 1),
+      ];
 
       return NextResponse.json({
         range,
-        base: {
-          portfolio: basePortfolio,
-          sp500: spPrevClose,
-        },
+        base: { portfolio: basePortfolio, sp500: spPrevClose },
         data,
       });
     }
 
-    /* =====================================================
-       5D / 1M / 6M / 1Y → historical
-    ===================================================== */
-
+    /* ── 5D / 1M / 6M / 1Y: historical ── */
     const cfg = RANGE_CONFIG[range];
 
-    const [spChart, assetCharts] = await Promise.all([
+    const [spChart, ...assetCharts] = await Promise.all([
       fetchYahooChart("^GSPC", cfg.range, cfg.interval),
-      Promise.all(
-        assets.map((a) => fetchYahooChart(a.symbol, cfg.range, cfg.interval)),
-      ),
+      ...assets.map((a) => fetchYahooChart(a.symbol, cfg.range, cfg.interval)),
     ]);
 
-    const length = Math.min(
-      spChart.length,
-      ...assetCharts.map((c) => c.length),
-    );
-
     const basePortfolio = assetCharts.reduce((sum, chart, i) => {
-      const usdPrice = convertToUSD(
-        chart[0].close!,
-        assets[i].symbol,
-        usdThbRate,
+      return (
+        sum +
+        toUSD(chart[0].close!, assets[i].symbol, usdThbRate) *
+          assets[i].quantity
       );
-      return sum + usdPrice * assets[i].quantity;
     }, 0);
-
-    const baseSP500 = spChart[0].close!;
-
-    const data: {
-      time: number;
-      portfolioValue: number;
-      sp500Value: number;
-    }[] = [];
-
-    for (let i = 0; i < length; i++) {
-      let portfolioValue = 0;
-
-      assetCharts.forEach((chart, idx) => {
-        const usdPrice = convertToUSD(
-          chart[i].close!,
-          assets[idx].symbol,
-          usdThbRate,
-        );
-        portfolioValue += usdPrice * assets[idx].quantity;
-      });
-
-      data.push({
-        time: spChart[i].time,
-        portfolioValue,
-        sp500Value: spChart[i].close!,
-      });
-    }
 
     return NextResponse.json({
       range,
-      base: {
-        portfolio: basePortfolio,
-        sp500: baseSP500,
-      },
-      data,
+      base: { portfolio: basePortfolio, sp500: spChart[0].close! },
+      data: buildDataPoints(spChart, assetCharts, assets, usdThbRate),
     });
   } catch (err: any) {
     console.error("compare api error:", err);

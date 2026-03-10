@@ -260,6 +260,7 @@ export default function NewsScreen() {
               <button
                 key={ch.id}
                 onClick={() => handleChannelChange(ch.id)}
+                disabled={loading}
                 className={`
                   flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[12px] font-medium
                   whitespace-nowrap shrink-0 transition-all duration-200

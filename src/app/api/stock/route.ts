@@ -49,7 +49,6 @@ async function fetchUSDTHBRate(): Promise<number> {
 
 function normalizeYahooSymbol(raw: string): string {
   const symbol = raw.trim().toUpperCase();
-
   switch (symbol) {
     case "TISCO-PVD":
       return "THB=X";
@@ -73,10 +72,7 @@ async function fetchYahooChart(
   interval: string,
 ): Promise<YahooChartResult> {
   const symbol = normalizeYahooSymbol(rawSymbol);
-
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(
-    symbol,
-  )}?range=${range}&interval=${interval}`;
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=${interval}`;
 
   const res = await fetch(url, {
     headers: { "User-Agent": "Mozilla/5.0" },
@@ -87,88 +83,44 @@ async function fetchYahooChart(
 
   const json = await res.json();
   const result = json?.chart?.result?.[0];
-
-  const meta = result?.meta;
   const timestamps: number[] | undefined = result?.timestamp;
   const closes: (number | null)[] | undefined =
     result?.indicators?.quote?.[0]?.close;
 
-  if (!timestamps || !closes) {
-    throw new Error(`Invalid Yahoo data: ${symbol}`);
-  }
+  if (!timestamps || !closes) throw new Error(`Invalid Yahoo data: ${symbol}`);
 
   const data = timestamps
-    .map((t, i) => ({
-      time: t,
-      close: closes[i],
-    }))
+    .map((t, i) => ({ time: t, close: closes[i] }))
     .filter((p) => p.close != null) as { time: number; close: number }[];
 
-  return { meta, data };
-}
-
-async function fetchPreviousClose(symbol: string): Promise<number> {
-  const { data } = await fetchYahooChart(symbol, "2d", "1d");
-  return data[data.length - 2]?.close ?? data[0].close;
+  return { meta: result?.meta, data };
 }
 
 /* =======================
-   Fetch 1D Graph (WITH shortName)
+   Fetch 1D Graph
 ======================= */
 
 function isInUSTradingHoursTH(timestampSec: number): boolean {
-  const date = new Date(timestampSec * 1000);
-
-  // แปลงเป็นเวลาไทย
   const th = new Date(
-    date.toLocaleString("en-US", { timeZone: "Asia/Bangkok" }),
+    new Date(timestampSec * 1000).toLocaleString("en-US", {
+      timeZone: "Asia/Bangkok",
+    }),
   );
-  const hours = th.getHours();
-  const minutes = th.getMinutes();
-
-  const timeInMinutes = hours * 60 + minutes;
-
-  // 21:30 → 04:00
-  const start = 21 * 60 + 30; // 1290
-  const end = 4 * 60; // 240
-
-  return timeInMinutes >= start || timeInMinutes <= end;
+  const timeInMinutes = th.getHours() * 60 + th.getMinutes();
+  return timeInMinutes >= 21 * 60 + 30 || timeInMinutes <= 4 * 60;
 }
 
 async function fetch1DGraphForStock(symbol: string) {
   try {
-    const interval = "5m";
-    const chartRange = "1d";
-
-    const chartRes = await fetchYahooChart(symbol, chartRange, interval);
-    const { meta, data: chart } = chartRes;
-
+    const { meta, data: chart } = await fetchYahooChart(symbol, "1d", "5m");
     const shortName = meta?.shortName || meta?.symbol || symbol;
-
-    // กรองเฉพาะแท่งที่อยู่ในเวลาตลาด US (เวลาไทย)
     const filtered = chart.filter((p) => isInUSTradingHoursTH(p.time));
 
-    // ถ้ายังไม่เปิดตลาด → ไม่มีกราฟ
-    if (filtered.length === 0) {
-      return {
-        symbol,
-        shortName,
-        base: null,
-        data: [],
-      };
-    }
+    if (filtered.length === 0)
+      return { symbol, shortName, base: null, data: [] };
 
-    const data = filtered.map((p) => ({
-      time: p.time,
-      price: p.close,
-    }));
-
-    return {
-      symbol,
-      shortName,
-      base: data[0].price, // ราคาแท่งแรกของวันนี้จริง ๆ
-      data,
-    };
+    const data = filtered.map((p) => ({ time: p.time, price: p.close }));
+    return { symbol, shortName, base: data[0].price, data };
   } catch (error) {
     console.error(`Failed to fetch 1D graph for ${symbol}:`, error);
     return null;
@@ -181,10 +133,7 @@ async function fetch1DGraphForStock(symbol: string) {
 
 async function fetchTTMDividend(symbol: string): Promise<number | null> {
   try {
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(
-      symbol,
-    )}?range=1y&interval=1mo&events=div`;
-
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=1y&interval=1mo&events=div`;
     const res = await fetch(url, {
       headers: { "User-Agent": "Mozilla/5.0" },
       cache: "no-store",
@@ -194,7 +143,6 @@ async function fetchTTMDividend(symbol: string): Promise<number | null> {
 
     const json = await res.json();
     const dividends = json?.chart?.result?.[0]?.events?.dividends;
-
     if (!dividends) return null;
 
     return Object.values(dividends).reduce(
@@ -218,20 +166,15 @@ function calculateDividend(
   usdThbRate: number,
 ): DividendAssetResult {
   const originalCurrency = isThaiStock(asset.symbol) ? "THB" : "USD";
-
   const annualDividend =
     dividendPerShare != null ? dividendPerShare * asset.quantity : null;
 
   let annualDividendBase: number | null = null;
-
   if (annualDividend != null) {
-    if (baseCurrency === originalCurrency) {
-      annualDividendBase = annualDividend;
-    } else if (baseCurrency === "THB") {
+    if (baseCurrency === originalCurrency) annualDividendBase = annualDividend;
+    else if (baseCurrency === "THB")
       annualDividendBase = annualDividend * usdThbRate;
-    } else {
-      annualDividendBase = annualDividend / usdThbRate;
-    }
+    else annualDividendBase = annualDividend / usdThbRate;
   }
 
   const dividendYieldPercent =
@@ -245,6 +188,44 @@ function calculateDividend(
     annualDividend,
     annualDividendBase,
     dividendYieldPercent,
+  };
+}
+
+/* =======================
+   Per-asset processor
+======================= */
+
+async function processAsset(
+  asset: Asset,
+  baseCurrency: "THB" | "USD",
+  usdThbRate: number,
+) {
+  const { symbol } = asset;
+
+  // Fetch levels + recommendation in parallel
+  const [levels, recommendation, dividendPerShare] = await Promise.all([
+    getAdvancedLevels(symbol),
+    getRecommendation(symbol, API_KEY),
+    fetchTTMDividend(symbol),
+  ]);
+
+  if (!levels.currentPrice && !levels.previousClose) return null;
+
+  const dividend = calculateDividend(
+    asset,
+    dividendPerShare,
+    levels.currentPrice,
+    baseCurrency,
+    usdThbRate,
+  );
+
+  return {
+    asset,
+    symbol,
+    currentPrice: levels.currentPrice ?? null,
+    previousClose: levels.previousClose ?? null,
+    advancedLevel: { ...levels, recommendation },
+    dividend,
   };
 }
 
@@ -264,56 +245,52 @@ export async function POST(req: NextRequest) {
       baseCurrency?: "THB" | "USD";
     } = await req.json();
 
+    if (isMock) {
+      return NextResponse.json({
+        prices: {},
+        previousPrice: {},
+        dividendSummary: { baseCurrency, perAsset: {}, totalAnnualDividend: 0 },
+        assets: [],
+        advancedLevels: {},
+        graphs: {},
+      });
+    }
+
+    // Fetch FX rate once, then process all assets in parallel
+    const usdThbRate = await fetchUSDTHBRate();
+
+    const results = await Promise.all(
+      assets.map((asset) => processAsset(asset, baseCurrency, usdThbRate)),
+    );
+
     const prices: Record<string, number | null> = {};
     const previousPrice: Record<string, number | null> = {};
     const advancedLevels: Record<string, any> = {};
-
+    const validAssets: Asset[] = [];
     const dividendSummary = {
       baseCurrency,
       perAsset: {} as Record<string, DividendAssetResult>,
       totalAnnualDividend: 0,
     };
 
-    const validAssets: Asset[] = [];
-    const usdThbRate = await fetchUSDTHBRate();
-
-    for (const asset of assets) {
-      const { symbol } = asset;
-
-      if (isMock) continue;
-
-      const levels = await getAdvancedLevels(symbol);
-      const recommendation = await getRecommendation(symbol, API_KEY);
-
-      advancedLevels[symbol] = { ...levels, recommendation };
-
-      if (levels.currentPrice || levels.previousClose) {
-        prices[symbol] = levels.currentPrice ?? null;
-        previousPrice[symbol] = levels.previousClose ?? null;
-
-        const dividendPerShare = await fetchTTMDividend(symbol);
-        const dividend = calculateDividend(
-          asset,
-          dividendPerShare,
-          levels.currentPrice,
-          baseCurrency,
-          usdThbRate,
-        );
-
-        dividendSummary.perAsset[symbol] = dividend;
-        dividendSummary.totalAnnualDividend += dividend.annualDividendBase || 0;
-
-        validAssets.push(asset);
-      }
+    for (const r of results) {
+      if (!r) continue;
+      prices[r.symbol] = r.currentPrice;
+      previousPrice[r.symbol] = r.previousClose;
+      advancedLevels[r.symbol] = r.advancedLevel;
+      dividendSummary.perAsset[r.symbol] = r.dividend;
+      dividendSummary.totalAnnualDividend += r.dividend.annualDividendBase || 0;
+      validAssets.push(r.asset);
     }
 
-    const graphs: Record<string, any> = {};
-
-    await Promise.all(
-      validAssets.map(async (asset) => {
-        graphs[asset.symbol] = await fetch1DGraphForStock(asset.symbol);
-      }),
+    // Graphs already run in parallel via processAsset grouping; fire all together
+    const graphEntries = await Promise.all(
+      validAssets.map(
+        async (asset) =>
+          [asset.symbol, await fetch1DGraphForStock(asset.symbol)] as const,
+      ),
     );
+    const graphs = Object.fromEntries(graphEntries);
 
     return NextResponse.json({
       prices,
