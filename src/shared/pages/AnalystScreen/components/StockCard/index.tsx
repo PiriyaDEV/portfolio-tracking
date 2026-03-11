@@ -51,38 +51,39 @@ export default function StockCard({
 
   // ── Card wrapper ──────────────────────────────────────────────────────
   const cardVariant = strongBuy
-    ? "bg-gradient-to-br from-emerald-950/80 via-[#0d1a14] to-[#0d0f14] border-emerald-500/40 shadow-[0_0_0_1px_rgba(52,211,153,0.15),0_8px_32px_rgba(16,185,129,0.12)]"
+    ? "bg-gradient-to-br from-emerald-950/80 via-[#0d1a14] to-[#0d0f14] border-emerald-500/25 shadow-[0_0_0_1px_rgba(52,211,153,0.15),0_8px_32px_rgba(16,185,129,0.10)]"
     : buyZone
-      ? "bg-gradient-to-br from-emerald-950/30 to-[#0d0f14] border-emerald-500/20"
+      ? "bg-gradient-to-br from-emerald-950/30 to-[#0d0f14] border-emerald-500/[0.12]"
       : takeProfit
-        ? "bg-gradient-to-br from-red-950/40 to-[#0d0f14] border-red-500/25"
-        : "bg-[#0d0f14] border-white/5";
+        ? "bg-gradient-to-br from-red-950/40 to-[#0d0f14] border-red-500/[0.18]"
+        : "bg-[#0d0f14] border-white/[0.06]";
 
-  // ── Change pill ───────────────────────────────────────────────────────
+  // ── Top accent line ───────────────────────────────────────────────────
+  const accentBar = strongBuy
+    ? "from-transparent via-emerald-500/60 to-transparent"
+    : buyZone
+      ? "from-transparent via-emerald-500/30 to-transparent"
+      : takeProfit
+        ? "from-transparent via-red-500/40 to-transparent"
+        : "from-transparent via-white/[0.08] to-transparent";
+
+  // ── % change pill ─────────────────────────────────────────────────────
   const pillVariant = isUp
-    ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+    ? "bg-emerald-500/[0.08] border border-emerald-500/20 !text-emerald-400"
     : isDown
-      ? "bg-red-500/10 text-red-400 border border-red-500/20"
-      : "bg-white/5 text-slate-500 border border-white/10";
+      ? "bg-red-500/[0.08] border border-red-500/20 !text-red-400"
+      : "bg-white/[0.05] border border-white/10 !text-white/40";
 
   // ── Signal badge ──────────────────────────────────────────────────────
   const badgeVariant = strongBuy
-    ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+    ? "bg-emerald-500/[0.07] border-emerald-500/25 !text-emerald-300"
     : buyZone
-      ? "bg-emerald-500/[0.06] border-emerald-500/15 text-emerald-300"
-      : "bg-red-500/[0.08] border-red-500/20 text-red-400";
-
-  // ── Accent bar ────────────────────────────────────────────────────────
-  const accentBar =
-    strongBuy || buyZone
-      ? "from-transparent via-emerald-500/60 to-transparent"
-      : takeProfit
-        ? "from-transparent via-red-500/50 to-transparent"
-        : "from-transparent via-white/[0.08] to-transparent";
+      ? "bg-emerald-500/[0.04] border-emerald-500/[0.12] !text-emerald-200/70"
+      : "bg-red-500/[0.06] border-red-500/[0.18] !text-red-300";
 
   return (
     <div
-      className={`relative rounded-2xl border p-5 overflow-hidden transition-all duration-200 hover:-translate-y-0.5 cursor-default ${cardVariant}`}
+      className={`relative rounded-[14px] border p-3.5 overflow-hidden transition-transform duration-150 hover:-translate-y-px cursor-default backdrop-blur-xl ${cardVariant}`}
     >
       {/* Top accent line */}
       <div
@@ -92,46 +93,45 @@ export default function StockCard({
       {/* Ticker watermark */}
       <span
         aria-hidden
-        className="pointer-events-none select-none absolute -bottom-3 -right-2 text-[80px] font-black leading-none tracking-tighter !text-white/[0.02] z-0"
+        className="pointer-events-none select-none absolute -bottom-2 -right-1 text-[72px] font-black leading-none !text-white/[0.02] z-0"
       >
         {symbol}
       </span>
 
-      {/* Pulse ring for STRONG BUY */}
+      {/* Pulse ring — strong buy */}
       {strongBuy && (
-        <span className="absolute left-5 top-5 h-11 w-11 rounded-xl animate-ping bg-emerald-500/20 z-0" />
+        <span className="absolute left-3.5 top-3.5 h-9 w-9 rounded-full animate-ping bg-emerald-500/15 z-0" />
       )}
 
       {/* ─── Content ─────────────────────────────────────────────── */}
-      <div className="relative z-10 flex flex-col gap-3.5">
-        {/* Header */}
-        <div className="flex items-center gap-3">
+      <div className="relative z-10 flex flex-col gap-2.5">
+        {/* ── Row 1: Logo + Name + Price + Pin ── */}
+        <div className="flex items-center gap-2.5">
           {/* Logo */}
           <div
-            className="w-[40px] h-[40px] rounded-full bg-cover bg-center bg-white border-[1px] border-white/20"
-            style={{
-              backgroundImage: `url(${getLogo(symbol)})`,
-            }}
+            className="w-9 h-9 rounded-full bg-cover bg-center bg-white border border-white/15 shrink-0 shadow-[0_0_0_1px_rgba(255,255,255,0.06)]"
+            style={{ backgroundImage: `url(${getLogo(symbol)})` }}
           />
 
-          {/* Name + symbol */}
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-[15px] font-bold leading-tight text-slate-100 tracking-tight">
+          {/* Name + pill */}
+          <div className="flex-1 min-w-0">
+            <p className="text-[14px] font-bold text-[#f0f0f0] leading-tight truncate">
               {getName(symbol)}
             </p>
-            <div className="mt-1 flex items-center gap-2">
-              <span className="font-normal !text-gray-400 text-[12px] max-w-[120px] truncate">
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <span className="text-[11px] !text-white/35 truncate max-w-[90px]">
                 {levels.shortName ?? getName(symbol)}
               </span>
+              {/* % change pill — same style as GraphPrice market pills */}
               <span
-                className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold ${pillVariant}`}
+                className={`inline-flex items-center gap-1 rounded-[6px] px-1.5 py-0.5 text-[10px] font-semibold font-mono shrink-0 ${pillVariant}`}
               >
                 {isUp ? (
-                  <TrendingUp size={9} />
+                  <TrendingUp size={8} />
                 ) : isDown ? (
-                  <TrendingDown size={9} />
+                  <TrendingDown size={8} />
                 ) : (
-                  <Minus size={9} />
+                  <Minus size={8} />
                 )}
                 {isUp && "+"}
                 {percentChange.toFixed(2)}%
@@ -141,10 +141,10 @@ export default function StockCard({
 
           {/* Price */}
           <div className="shrink-0 text-right">
-            <p className="text-[18px] font-bold leading-none tracking-tight text-slate-100">
+            <p className="text-[17px] font-bold text-[#f0f0f0] font-mono leading-none">
               {fNumber(price)}
             </p>
-            <p className="mt-1 text-[9px] font-semibold tracking-widest text-slate-700 uppercase">
+            <p className="text-[9px] font-semibold !text-white/20 uppercase mt-0.5 text-right">
               USD
             </p>
           </div>
@@ -154,21 +154,21 @@ export default function StockCard({
             <button
               onClick={() => onTogglePin(symbol)}
               title="Pin to watchlist"
-              className={`shrink-0 rounded-lg p-1.5 transition-all hover:bg-white/5 ${
+              className={`shrink-0 rounded-lg p-1.5 transition-all hover:bg-white/[0.05] ${
                 pinned
-                  ? "text-amber-400"
-                  : "text-slate-700 hover:text-amber-400"
+                  ? "!text-amber-400"
+                  : "!text-white/20 hover:!text-amber-400"
               }`}
             >
-              <FaThumbtack size={12} />
+              <FaThumbtack size={11} />
             </button>
           )}
         </div>
 
-        {/* Signal badge */}
+        {/* ── Signal badge ── */}
         {(strongBuy || buyZone || takeProfit) && (
           <div
-            className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-[11px] font-semibold tracking-wide ${badgeVariant}`}
+            className={`flex items-center gap-2 rounded-[8px] border px-2.5 py-1.5 text-[11px] font-semibold uppercase backdrop-blur-md shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] ${badgeVariant}`}
           >
             <span className="relative flex h-[7px] w-[7px] shrink-0">
               {strongBuy && (
@@ -190,60 +190,60 @@ export default function StockCard({
           </div>
         )}
 
-        {/* Divider */}
+        {/* ── Divider ── */}
         <div className="h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
 
-        {/* Levels */}
-        <div className="grid grid-cols-2 gap-2">
+        {/* ── Levels 2×2 grid ── */}
+        <div className="grid grid-cols-2 gap-1.5">
           {[
             {
               label: "จุดซื้อ 1",
               value: levels.entry1,
-              icon: <Target size={9} />,
-              color: "text-emerald-500",
+              icon: <Target size={8} />,
+              color: "!text-emerald-500/80",
             },
             {
               label: "จุดซื้อ 2",
               value: levels.entry2,
-              icon: <Zap size={9} />,
-              color: "text-emerald-500",
+              icon: <Zap size={8} />,
+              color: "!text-emerald-500/80",
             },
             {
               label: "จุดตัดขาดทุน",
               value: levels.stopLoss,
-              icon: <Shield size={9} />,
-              color: "text-red-500",
+              icon: <Shield size={8} />,
+              color: "!text-red-500/80",
             },
             {
               label: "แนวต้าน",
               value: levels.resistance,
-              icon: <TrendingUp size={9} />,
-              color: "text-orange-500",
+              icon: <TrendingUp size={8} />,
+              color: "!text-orange-400/80",
             },
           ].map(({ label, value, icon, color }) => (
             <div
               key={label}
-              className="rounded-xl border border-white/5 bg-white/[0.025] p-2.5 transition-colors hover:bg-white/[0.04]"
+              className="rounded-[10px] border border-white/[0.06] bg-white/[0.025] px-2.5 py-2 transition-colors hover:bg-white/[0.04] shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]"
             >
               <div
-                className={`mb-1.5 flex items-center gap-1.5 text-[9px] font-semibold uppercase tracking-widest ${color}`}
+                className={`flex items-center gap-1 text-[9px] font-semibold uppercase mb-1.5 ${color}`}
               >
                 {icon} {label}
               </div>
-              <p className="text-[14px] font-bold tracking-tight text-slate-200">
+              <p className="text-[13px] font-bold text-slate-200 font-mono">
                 {fNumber(value)}
               </p>
             </div>
           ))}
         </div>
 
-        {/* Analyst */}
+        {/* ── Analyst row ── */}
         {showAnalyst && levels.recommendation && (
-          <div className="flex items-center justify-between rounded-lg border border-white/5 bg-white/[0.02] px-3 py-2">
-            <span className="flex items-center gap-1.5 text-[9px] font-semibold uppercase tracking-widest text-slate-700">
+          <div className="flex items-center justify-between rounded-[8px] border border-white/[0.06] bg-white/[0.02] px-2.5 py-1.5 backdrop-blur-md">
+            <span className="flex items-center gap-1.5 text-[9px] font-semibold uppercase !text-white/20">
               <BarChart2 size={9} /> Analyst View
             </span>
-            <span className="text-[11px] font-semibold text-slate-400">
+            <span className="text-[11px] font-semibold !text-white/50 font-mono">
               {getAnalystLabel(getAnalystView(levels.recommendation))}
             </span>
           </div>
