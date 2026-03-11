@@ -65,7 +65,7 @@ export const defaultMarketResponse: MarketResponse = {
   },
   fearGreed: {
     value: null,
-    status: '',
+    status: "",
   },
 };
 
@@ -136,40 +136,40 @@ const FEAR_GREED_MAP: FearGreedConfig[] = [
     max: 25,
     label: "กลัวขั้นสุด",
     emoji: "😱",
-    bg: "!bg-red-100",
-    text: "!text-red-800",
+    bg: "!bg-red-900/60",
+    text: "!text-red-300",
   },
   {
     min: 25,
     max: 45,
     label: "กลัว",
     emoji: "😟",
-    bg: "!bg-orange-100",
-    text: "!text-orange-800",
+    bg: "!bg-orange-900/60",
+    text: "!text-orange-300",
   },
   {
     min: 45,
     max: 55,
     label: "เป็นกลาง",
     emoji: "😐",
-    bg: "!bg-gray-100",
-    text: "!text-gray-700",
+    bg: "!bg-zinc-700/60",
+    text: "!text-zinc-300",
   },
   {
     min: 55,
     max: 75,
     label: "โลภ",
     emoji: "😊",
-    bg: "!bg-green-100",
-    text: "!text-green-800",
+    bg: "!bg-emerald-900/60",
+    text: "!text-emerald-300",
   },
   {
     min: 75,
     max: 101,
     label: "โลภขั้นสุด",
     emoji: "🤑",
-    bg: "!bg-green-200 animate-pulse",
-    text: "!text-green-900",
+    bg: "!bg-emerald-800/70 animate-pulse",
+    text: "!text-emerald-200",
   },
 ];
 
@@ -249,39 +249,74 @@ export function GraphPrice({
   return (
     <div className="mt-[90px] flex flex-col">
       {/* HEADER */}
-      <div className="fixed top-[160px] left-1/2 -translate-x-1/2 max-w-[450px] w-full gap-3 py-2 px-3 text-[12px] text-gray-400 bg-black z-[99] border-b border-black-lighter2">
+      <div
+        className="fixed top-[160px] left-1/2 -translate-x-1/2 max-w-[450px] w-full gap-3 py-2 px-3 text-[12px] text-gray-400 bg-black z-[99]"
+        style={{
+          borderBottom: "1px solid rgba(255,255,255,0.06)",
+          background: "linear-gradient(180deg, #0a0a0a 0%, #050505 100%)",
+        }}
+      >
         {market && (
-          <div className="mt-[5px] overflow-x-auto">
-            <div className="flex items-center gap-3 min-w-max">
+          <div
+            className="mt-[5px] overflow-x-auto"
+            style={{ scrollbarWidth: "none" }}
+          >
+            <div className="flex items-center gap-2.5 min-w-max">
               {MARKET_ITEMS.map((item) => {
                 if (item.type === "price") {
                   const data = market[
                     item.key as keyof MarketResponse
                   ] as MarketItem;
                   if (!data?.price) return null;
-
                   const isUp = (data.changePercent ?? 0) >= 0;
 
                   return (
                     <div
                       key={item.key}
-                      className="flex items-center gap-2 bg-white rounded-lg px-3 py-1 shadow-sm shrink-0"
+                      className="flex items-center gap-2 shrink-0"
+                      style={{
+                        background: "rgba(255,255,255,0.04)",
+                        border: "1px solid rgba(255,255,255,0.08)",
+                        borderRadius: "10px",
+                        padding: "5px 10px",
+                        backdropFilter: "blur(12px)",
+                        boxShadow:
+                          "0 1px 3px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)",
+                        transition: "background 0.2s",
+                      }}
                     >
                       <img
                         src={item.img}
                         alt={item.label}
-                        className="w-5 h-5 rounded-full object-cover border border-gray-500"
+                        className="w-5 h-5 rounded-full object-cover"
+                        style={{
+                          boxShadow: "0 0 0 1px rgba(255,255,255,0.12)",
+                        }}
                       />
-                      <div className="flex flex-col text-sm whitespace-nowrap">
-                        <span className="font-semibold !text-black">
+                      <div
+                        className="flex flex-col whitespace-nowrap"
+                        style={{ gap: "1px" }}
+                      >
+                        <span
+                          style={{
+                            fontSize: "12px",
+                            fontWeight: 600,
+                            color: "#f0f0f0",
+                            letterSpacing: "0.01em",
+                            fontFamily: "'DM Mono', monospace",
+                          }}
+                        >
                           {fNumber(data.price)}
                         </span>
                         <span
-                          className={`text-xs font-medium ${
-                            isUp ? "!text-green-600" : "!text-red-600"
-                          }`}
+                          style={{
+                            fontSize: "10px",
+                            fontWeight: 500,
+                            color: isUp ? "#34d399" : "#f87171",
+                            letterSpacing: "0.02em",
+                          }}
                         >
-                          {isUp ? "+" : ""}
+                          {isUp ? "▲ +" : "▼ "}
                           {fNumber(data.changePercent ?? 0)}%
                         </span>
                       </div>
@@ -295,23 +330,44 @@ export function GraphPrice({
                 return (
                   <div
                     key={item.key}
-                    className={`flex items-center gap-2 bg-white rounded-lg px-3 py-1 shadow-sm shrink-0 ${getFearGreedBg(
-                      fg.value,
-                    )}`}
+                    className={`flex items-center gap-2 shrink-0 ${getFearGreedBg(fg.value)}`}
+                    style={{
+                      border: "1px solid rgba(255,255,255,0.08)",
+                      borderRadius: "10px",
+                      padding: "5px 10px",
+                      backdropFilter: "blur(12px)",
+                      boxShadow:
+                        "0 1px 3px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)",
+                    }}
                   >
                     <img
                       src={item.img}
                       alt={item.label}
-                      className="w-5 h-5 rounded-full object-cover border border-gray-500"
+                      className="w-5 h-5 rounded-full object-cover"
+                      style={{ boxShadow: "0 0 0 1px rgba(255,255,255,0.12)" }}
                     />
-                    <div className="flex flex-col text-sm whitespace-nowrap">
-                      <span className="font-semibold !text-black">
+                    <div
+                      className="flex flex-col whitespace-nowrap"
+                      style={{ gap: "1px" }}
+                    >
+                      <span
+                        style={{
+                          fontSize: "12px",
+                          fontWeight: 600,
+                          color: "#f0f0f0",
+                          letterSpacing: "0.01em",
+                        }}
+                      >
                         Fear & Greed
                       </span>
                       <span
-                        className={`text-left w-fit text-xs font-bold capitalize py-[2px] rounded ${getFearGreedText(
-                          fg.value,
-                        )}`}
+                        className={`text-left w-fit capitalize rounded ${getFearGreedText(fg.value)}`}
+                        style={{
+                          fontSize: "10px",
+                          fontWeight: 700,
+                          letterSpacing: "0.04em",
+                          textTransform: "uppercase",
+                        }}
                       >
                         {mapFearGreed(fg.value)}
                       </span>
@@ -323,16 +379,35 @@ export function GraphPrice({
           </div>
         )}
 
-        <div className="mt-[15px] grid grid-cols-[2fr_1fr_1fr]">
+        <div
+          className="mt-[15px] grid grid-cols-[2fr_1fr_1fr] !text-gray-500"
+          style={{
+            fontSize: "11px",
+            fontWeight: 500,
+            color: "rgba(255,255,255,0.3)",
+            letterSpacing: "0.06em",
+            textTransform: "uppercase",
+            paddingBottom: "6px",
+          }}
+        >
           <div>สินทรัพย์</div>
           <div></div>
           <div
             onClick={toggleProfitSort}
             className="text-right cursor-pointer select-none flex justify-end gap-1"
+            style={{
+              color:
+                sortBy === "profit"
+                  ? "rgba(255,255,255,0.7)"
+                  : "rgba(255,255,255,0.3)",
+              transition: "color 0.15s",
+            }}
           >
             % กำไร
             {sortBy === "profit" && (
-              <span>{sortOrder === "asc" ? "▲" : "▼"}</span>
+              <span style={{ color: "#a78bfa" }}>
+                {sortOrder === "asc" ? "▲" : "▼"}
+              </span>
             )}
           </div>
         </div>
