@@ -47,26 +47,11 @@ type FearGreedItem = {
 };
 
 export const defaultMarketResponse: MarketResponse = {
-  sp500: {
-    price: null,
-    changePercent: null,
-  },
-  gold: {
-    price: null,
-    changePercent: null,
-  },
-  set: {
-    price: null,
-    changePercent: null,
-  },
-  btc: {
-    price: null,
-    changePercent: null,
-  },
-  fearGreed: {
-    value: null,
-    status: "",
-  },
+  sp500: { price: null, changePercent: null },
+  gold: { price: null, changePercent: null },
+  set: { price: null, changePercent: null },
+  btc: { price: null, changePercent: null },
+  fearGreed: { value: null, status: "" },
 };
 
 export type MarketResponse = {
@@ -77,7 +62,8 @@ export type MarketResponse = {
   fearGreed: FearGreedItem;
 };
 
-type SortBy = "holding" | "profit";
+// "none" = default API order
+type SortBy = "holding" | "profit" | "none";
 type SortOrder = "asc" | "desc";
 
 /* =======================
@@ -186,9 +172,39 @@ export function mapFearGreed(value: number) {
 }
 
 export const getFearGreedBg = (value: number) => getFearGreedConfig(value).bg;
-
 export const getFearGreedText = (value: number) =>
   getFearGreedConfig(value).text;
+
+/* =======================
+   Sort Icon Helper
+======================= */
+
+function SortIcon({
+  active,
+  order,
+}: {
+  active: boolean;
+  order: SortOrder | null;
+}) {
+  if (!active) {
+    return (
+      <span
+        style={{
+          color: "rgba(255,255,255,0.2)",
+          fontSize: "9px",
+          lineHeight: 1,
+        }}
+      >
+        ▲▼
+      </span>
+    );
+  }
+  return (
+    <span style={{ color: "#a78bfa", fontSize: "10px", lineHeight: 1 }}>
+      {order === "asc" ? "▲" : "▼"}
+    </span>
+  );
+}
 
 /* =======================
    Component
@@ -201,10 +217,9 @@ export function GraphPrice({
   previousPrice,
   market,
 }: Props) {
-  const [sortBy, setSortBy] = useState<SortBy>("holding");
+  const [sortBy, setSortBy] = useState<SortBy>("none");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
 
-  // ✅ FIXED: getProfitPercent defined BEFORE useMemo so the closure is correct
   const getProfitPercent = (symbol: string) => {
     const currentPrice = prices?.[symbol];
     const prevPrice = previousPrice?.[symbol];
@@ -212,16 +227,23 @@ export function GraphPrice({
     return ((currentPrice - prevPrice) / prevPrice) * 100;
   };
 
-  // ✅ FIXED: useMemo is always called (no early return before this)
+  const getHoldingValue = (asset: Asset) => asset.quantity * asset.costPerShare;
+
   const sortedAssets = useMemo(() => {
+    // "none" = keep original API order
+    if (sortBy === "none") return [...assets];
+
     const list = [...assets];
 
     if (sortBy === "holding") {
-      return list.sort(
-        (a, b) => b.quantity * b.costPerShare - a.quantity * a.costPerShare,
+      return list.sort((a, b) =>
+        sortOrder === "desc"
+          ? getHoldingValue(b) - getHoldingValue(a)
+          : getHoldingValue(a) - getHoldingValue(b),
       );
     }
 
+    // sortBy === "profit"
     return list.sort((a, b) => {
       const pa = getProfitPercent(a.symbol);
       const pb = getProfitPercent(b.symbol);
@@ -229,21 +251,25 @@ export function GraphPrice({
     });
   }, [assets, prices, previousPrice, sortBy, sortOrder]);
 
-  // ✅ FIXED: guard is AFTER all hooks — no more Rules of Hooks violation
   if (!graphs || Object.keys(graphs).length === 0) return null;
 
-  const toggleProfitSort = () => {
-    if (sortBy === "holding") {
-      setSortBy("profit");
+  /**
+   * 3-state cycle for a column:
+   *   inactive → desc → asc → inactive (none)
+   */
+  const handleSortColumn = (col: "holding" | "profit") => {
+    if (sortBy !== col) {
+      // Switch to this column, start desc
+      setSortBy(col);
       setSortOrder("desc");
-      return;
-    }
-    if (sortOrder === "desc") {
+    } else if (sortOrder === "desc") {
+      // Already desc → flip to asc
       setSortOrder("asc");
-      return;
+    } else {
+      // Already asc → cancel sort (back to default)
+      setSortBy("none");
+      setSortOrder("desc");
     }
-    setSortBy("holding");
-    setSortOrder("desc");
   };
 
   return (
@@ -297,24 +323,13 @@ export function GraphPrice({
                         className="flex flex-col whitespace-nowrap"
                         style={{ gap: "1px" }}
                       >
-                        <span
-                          style={{
-                            fontSize: "12px",
-                            fontWeight: 600,
-                            color: "#f0f0f0",
-                            letterSpacing: "0.01em",
-                            fontFamily: "'DM Mono', monospace",
-                          }}
-                        >
+                        <span className="text-[12px] font-semibold text-[#f0f0f0] tracking-[0.01em] font-mono">
                           {fNumber(data.price)}
                         </span>
                         <span
-                          style={{
-                            fontSize: "10px",
-                            fontWeight: 500,
-                            color: isUp ? "#34d399" : "#f87171",
-                            letterSpacing: "0.02em",
-                          }}
+                          className={`text-[10px] font-medium tracking-[0.02em] ${
+                            isUp ? "!text-emerald-600" : "!text-red-600"
+                          }`}
                         >
                           {isUp ? "▲ +" : "▼ "}
                           {fNumber(data.changePercent ?? 0)}%
@@ -379,22 +394,43 @@ export function GraphPrice({
           </div>
         )}
 
+        {/* Column Headers */}
         <div
-          className="mt-[15px] grid grid-cols-[2fr_1fr_1fr] !text-gray-500"
+          className="mt-[15px] grid grid-cols-[2fr_1fr_1fr]"
           style={{
             fontSize: "11px",
             fontWeight: 500,
-            color: "rgba(255,255,255,0.3)",
             letterSpacing: "0.06em",
             textTransform: "uppercase",
             paddingBottom: "6px",
           }}
         >
-          <div>สินทรัพย์</div>
-          <div></div>
+          {/* สินทรัพย์ — sortable */}
           <div
-            onClick={toggleProfitSort}
-            className="text-right cursor-pointer select-none flex justify-end gap-1"
+            onClick={() => handleSortColumn("holding")}
+            className="cursor-pointer select-none flex items-center gap-1"
+            style={{
+              color:
+                sortBy === "holding"
+                  ? "rgba(255,255,255,0.7)"
+                  : "rgba(255,255,255,0.3)",
+              transition: "color 0.15s",
+            }}
+          >
+            สินทรัพย์
+            <SortIcon
+              active={sortBy === "holding"}
+              order={sortBy === "holding" ? sortOrder : null}
+            />
+          </div>
+
+          {/* Graph column — no sort */}
+          <div />
+
+          {/* % กำไร — sortable */}
+          <div
+            onClick={() => handleSortColumn("profit")}
+            className="text-right cursor-pointer select-none flex justify-end items-center gap-1"
             style={{
               color:
                 sortBy === "profit"
@@ -404,11 +440,10 @@ export function GraphPrice({
             }}
           >
             % กำไร
-            {sortBy === "profit" && (
-              <span style={{ color: "#a78bfa" }}>
-                {sortOrder === "asc" ? "▲" : "▼"}
-              </span>
-            )}
+            <SortIcon
+              active={sortBy === "profit"}
+              order={sortBy === "profit" ? sortOrder : null}
+            />
           </div>
         </div>
       </div>
@@ -418,7 +453,6 @@ export function GraphPrice({
           const symbol = asset.symbol;
           const graph = graphs[symbol];
 
-          // ✅ Skip assets whose graph isn't ready yet — doesn't break other rows
           if (!graph || graph.data.length <= 1) return null;
 
           const { data } = graph;
@@ -463,15 +497,13 @@ export function GraphPrice({
 
                 {/* GRAPH */}
                 <div
-                  className={`w-full pointer-events-none rounded-md
-                    ${
-                      percentChange > 0
-                        ? "bg-gradient-to-b from-green-500/25 via-green-400/10 to-transparent"
-                        : percentChange < 0
-                          ? "bg-gradient-to-b from-red-500/25 via-red-400/10 to-transparent"
-                          : "bg-gradient-to-b from-gray-400/20 to-transparent"
-                    }
-                  `}
+                  className={`w-full pointer-events-none rounded-md ${
+                    percentChange > 0
+                      ? "bg-gradient-to-b from-green-500/25 via-green-400/10 to-transparent"
+                      : percentChange < 0
+                        ? "bg-gradient-to-b from-red-500/25 via-red-400/10 to-transparent"
+                        : "bg-gradient-to-b from-gray-400/20 to-transparent"
+                  }`}
                 >
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart
