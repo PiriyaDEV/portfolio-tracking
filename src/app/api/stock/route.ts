@@ -255,7 +255,7 @@ async function processAsset(
     symbol,
     currentPrice: levels.currentPrice ?? null,
     previousClose: levels.previousClose ?? null,
-    advancedLevel: { ...levels, recommendation },
+    advancedLevel: { shortName, ...levels, recommendation },
     dividend,
     graph, // carry the already-fetched graph result forward
   };

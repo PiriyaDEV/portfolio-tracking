@@ -1,5 +1,6 @@
 export interface AdvancedLevels {
   symbol: string;
+  shortName?: string;
   currentPrice: number;
   previousClose: number;
   ema20: number;
@@ -52,6 +53,7 @@ export async function getAdvancedLevels(
     const data = await response.json();
     const result = data?.chart?.result?.[0];
     const quotes = result?.indicators?.quote?.[0];
+    const shortName = result?.meta?.shortName || result?.meta?.symbol || symbol
 
     if (!quotes) return INITIAL_LEVELS(symbol);
 
@@ -126,6 +128,7 @@ export async function getAdvancedLevels(
 
     const value: AdvancedLevels = {
       symbol,
+      shortName,
       currentPrice: Number(currentPrice.toFixed(2)),
       previousClose: Number(previousClose.toFixed(2)),
       ema20: Number(ema20.toFixed(2)),

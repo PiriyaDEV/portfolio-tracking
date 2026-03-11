@@ -1,6 +1,5 @@
 "use client";
 
-import { AdvancedLevels } from "@/app/api/stock/support.function";
 import { getLogo, getName, fNumber } from "@/app/lib/utils";
 import {
   isStrongBuy,
@@ -9,7 +8,16 @@ import {
   getAnalystLabel,
   getAnalystView,
 } from "@/app/lib/market.logic";
-import { FaMapPin, FaThumbtack } from "react-icons/fa6";
+import { FaThumbtack } from "react-icons/fa6";
+import {
+  TrendingUp,
+  TrendingDown,
+  Minus,
+  Target,
+  Zap,
+  Shield,
+  BarChart2,
+} from "lucide-react";
 
 interface Props {
   symbol: string;
@@ -41,104 +49,205 @@ export default function StockCard({
   const isUp = percentChange > 0;
   const isDown = percentChange < 0;
 
+  // ── Card wrapper ──────────────────────────────────────────────────────
+  const cardVariant = strongBuy
+    ? "bg-gradient-to-br from-emerald-950/80 via-[#0d1a14] to-[#0d0f14] border-emerald-500/40 shadow-[0_0_0_1px_rgba(52,211,153,0.15),0_8px_32px_rgba(16,185,129,0.12)]"
+    : buyZone
+      ? "bg-gradient-to-br from-emerald-950/30 to-[#0d0f14] border-emerald-500/20"
+      : takeProfit
+        ? "bg-gradient-to-br from-red-950/40 to-[#0d0f14] border-red-500/25"
+        : "bg-[#0d0f14] border-white/5";
+
+  // ── Change pill ───────────────────────────────────────────────────────
+  const pillVariant = isUp
+    ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+    : isDown
+      ? "bg-red-500/10 text-red-400 border border-red-500/20"
+      : "bg-white/5 text-slate-500 border border-white/10";
+
+  // ── Signal badge ──────────────────────────────────────────────────────
+  const badgeVariant = strongBuy
+    ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+    : buyZone
+      ? "bg-emerald-500/[0.06] border-emerald-500/15 text-emerald-300"
+      : "bg-red-500/[0.08] border-red-500/20 text-red-400";
+
+  // ── Accent bar ────────────────────────────────────────────────────────
+  const accentBar =
+    strongBuy || buyZone
+      ? "from-transparent via-emerald-500/60 to-transparent"
+      : takeProfit
+        ? "from-transparent via-red-500/50 to-transparent"
+        : "from-transparent via-white/[0.08] to-transparent";
+
   return (
     <div
-      className={`
-        relative rounded-lg p-4 grid grid-cols-[auto_1fr] gap-4 border
-        ${
-          strongBuy
-            ? "bg-gradient-to-b from-green-500/30 via-green-400/15 to-transparent border-green-400 shadow-[0_0_12px_rgba(34,197,94,0.35)]"
-            : buyZone
-              ? "bg-gradient-to-b from-green-500/5 via-green-400/5 to-transparent border-green-500/40 shadow-sm"
-              : takeProfit
-                ? "bg-gradient-to-b from-red-500/5 via-red-400/5 to-transparent border-red-400/40 shadow-sm"
-                : "bg-black-lighter border-transparent"
-        }
-      `}
+      className={`relative rounded-2xl border p-5 overflow-hidden transition-all duration-200 hover:-translate-y-0.5 cursor-default ${cardVariant}`}
     >
-      {/* Logo */}
+      {/* Top accent line */}
       <div
-        className="w-[40px] h-[40px] rounded-full bg-cover bg-center bg-white"
-        style={{
-          backgroundImage: `url(${getLogo(symbol)})`,
-        }}
+        className={`absolute top-0 left-5 right-5 h-px bg-gradient-to-r ${accentBar}`}
       />
 
-      {/* Content */}
-      <div className="flex flex-col gap-2">
-        <div className="flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <div className="font-bold text-[16px]">{getName(symbol)}</div>
+      {/* Ticker watermark */}
+      <span
+        aria-hidden
+        className="pointer-events-none select-none absolute -bottom-3 -right-2 text-[80px] font-black leading-none tracking-tighter !text-white/[0.02] z-0"
+      >
+        {symbol}
+      </span>
 
-            <div
-              className={`text-[13px] font-semibold ${
-                isUp
-                  ? "text-green-400"
-                  : isDown
-                    ? "text-red-400"
-                    : "text-gray-300"
+      {/* Pulse ring for STRONG BUY */}
+      {strongBuy && (
+        <span className="absolute left-5 top-5 h-11 w-11 rounded-xl animate-ping bg-emerald-500/20 z-0" />
+      )}
+
+      {/* ─── Content ─────────────────────────────────────────────── */}
+      <div className="relative z-10 flex flex-col gap-3.5">
+        {/* Header */}
+        <div className="flex items-center gap-3">
+          {/* Logo */}
+          <div
+            className="w-[40px] h-[40px] rounded-full bg-cover bg-center bg-white border-[1px] border-white/20"
+            style={{
+              backgroundImage: `url(${getLogo(symbol)})`,
+            }}
+          />
+
+          {/* Name + symbol */}
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[15px] font-bold leading-tight text-slate-100 tracking-tight">
+              {getName(symbol)}
+            </p>
+            <div className="mt-1 flex items-center gap-2">
+              <span className="font-normal !text-gray-400 text-[12px] max-w-[120px] truncate">
+                {levels.shortName ?? getName(symbol)}
+              </span>
+              <span
+                className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold ${pillVariant}`}
+              >
+                {isUp ? (
+                  <TrendingUp size={9} />
+                ) : isDown ? (
+                  <TrendingDown size={9} />
+                ) : (
+                  <Minus size={9} />
+                )}
+                {isUp && "+"}
+                {percentChange.toFixed(2)}%
+              </span>
+            </div>
+          </div>
+
+          {/* Price */}
+          <div className="shrink-0 text-right">
+            <p className="text-[18px] font-bold leading-none tracking-tight text-slate-100">
+              {fNumber(price)}
+            </p>
+            <p className="mt-1 text-[9px] font-semibold tracking-widest text-slate-700 uppercase">
+              USD
+            </p>
+          </div>
+
+          {/* Pin */}
+          {onTogglePin && (
+            <button
+              onClick={() => onTogglePin(symbol)}
+              title="Pin to watchlist"
+              className={`shrink-0 rounded-lg p-1.5 transition-all hover:bg-white/5 ${
+                pinned
+                  ? "text-amber-400"
+                  : "text-slate-700 hover:text-amber-400"
               }`}
             >
-              ({isUp && "+"}
-              {percentChange.toFixed(2)}%)
-            </div>
+              <FaThumbtack size={12} />
+            </button>
+          )}
+        </div>
+
+        {/* Signal badge */}
+        {(strongBuy || buyZone || takeProfit) && (
+          <div
+            className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-[11px] font-semibold tracking-wide ${badgeVariant}`}
+          >
+            <span className="relative flex h-[7px] w-[7px] shrink-0">
+              {strongBuy && (
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
+              )}
+              <span
+                className={`relative inline-flex h-[7px] w-[7px] rounded-full ${
+                  strongBuy
+                    ? "bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.9)]"
+                    : buyZone
+                      ? "bg-emerald-300 shadow-[0_0_5px_rgba(110,231,183,0.7)]"
+                      : "bg-red-400 shadow-[0_0_5px_rgba(248,113,113,0.7)]"
+                }`}
+              />
+            </span>
+            {strongBuy && "🔥 จุดที่ต้องซื้อ — STRONG BUY"}
+            {buyZone && "👀 โซนที่น่าสนใจในการซื้อ"}
+            {takeProfit && "⚠️ เข้าใกล้แนวต้าน — TAKE PROFIT"}
           </div>
+        )}
 
-          <div className="flex items-center gap-2">
-            <div className="text-[14px] font-semibold">
-              ราคา: <span className="text-white">{fNumber(price)} USD</span>
-            </div>
+        {/* Divider */}
+        <div className="h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
 
-            {/* 📌 Pin */}
-            {onTogglePin && (
-              <button
-                onClick={() => onTogglePin(symbol)}
-                title="Pin to wishlist"
+        {/* Levels */}
+        <div className="grid grid-cols-2 gap-2">
+          {[
+            {
+              label: "จุดซื้อ 1",
+              value: levels.entry1,
+              icon: <Target size={9} />,
+              color: "text-emerald-500",
+            },
+            {
+              label: "จุดซื้อ 2",
+              value: levels.entry2,
+              icon: <Zap size={9} />,
+              color: "text-emerald-500",
+            },
+            {
+              label: "จุดตัดขาดทุน",
+              value: levels.stopLoss,
+              icon: <Shield size={9} />,
+              color: "text-red-500",
+            },
+            {
+              label: "แนวต้าน",
+              value: levels.resistance,
+              icon: <TrendingUp size={9} />,
+              color: "text-orange-500",
+            },
+          ].map(({ label, value, icon, color }) => (
+            <div
+              key={label}
+              className="rounded-xl border border-white/5 bg-white/[0.025] p-2.5 transition-colors hover:bg-white/[0.04]"
+            >
+              <div
+                className={`mb-1.5 flex items-center gap-1.5 text-[9px] font-semibold uppercase tracking-widest ${color}`}
               >
-                {pinned ? (
-                  <FaThumbtack className="!text-accent-yellow" />
-                ) : (
-                  <FaThumbtack />
-                )}
-              </button>
-            )}
-          </div>
+                {icon} {label}
+              </div>
+              <p className="text-[14px] font-bold tracking-tight text-slate-200">
+                {fNumber(value)}
+              </p>
+            </div>
+          ))}
         </div>
 
-        {strongBuy && (
-          <div className="text-green-400 text-[12px] font-semibold">
-            🟢🔥 จุดที่ต้องซื้อ (STRONG BUY)
-          </div>
-        )}
-        {buyZone && (
-          <div className="text-green-300 text-[12px] font-semibold">
-            🟢👀 โซนที่น่าสนใจในการซื้อ
-          </div>
-        )}
-        {takeProfit && (
-          <div className="text-red-400 text-[12px] font-semibold">
-            🔴⚠️ เข้าใกล้แนวต้าน (TAKE PROFIT)
-          </div>
-        )}
-
+        {/* Analyst */}
         {showAnalyst && levels.recommendation && (
-          <div className="text-[12px] font-semibold text-gray-200">
-            นักวิเคราะห์:{" "}
-            {getAnalystLabel(getAnalystView(levels.recommendation))}
+          <div className="flex items-center justify-between rounded-lg border border-white/5 bg-white/[0.02] px-3 py-2">
+            <span className="flex items-center gap-1.5 text-[9px] font-semibold uppercase tracking-widest text-slate-700">
+              <BarChart2 size={9} /> Analyst View
+            </span>
+            <span className="text-[11px] font-semibold text-slate-400">
+              {getAnalystLabel(getAnalystView(levels.recommendation))}
+            </span>
           </div>
         )}
-
-        <div className="grid grid-cols-1 gap-3 text-[13px]">
-          <div className="bg-green-900/40 rounded p-2 grid grid-cols-2 gap-2">
-            <div>จุดซื้อ 1: {fNumber(levels.entry1)}</div>
-            <div>จุดซื้อ 2: {fNumber(levels.entry2)}</div>
-          </div>
-
-          <div className="bg-red-900/40 rounded p-2 grid grid-cols-2 gap-2">
-            <div>จุดตัดขาดทุน: {fNumber(levels.stopLoss)}</div>
-            <div>แนวต้าน: {fNumber(levels.resistance)}</div>
-          </div>
-        </div>
       </div>
     </div>
   );
