@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
 import { AdvancedLevels } from "@/app/api/stock/support.function";
 import StockCard from "../AnalystScreen/components/StockCard";
+import StockSearchSelect from "./components/StockSearchSelect";
 
 export interface StockResult {
   symbol: string;
@@ -11,7 +11,7 @@ export interface StockResult {
 }
 
 interface Props {
-  data?: StockResult[]; // 👈 allow undefined
+  data?: StockResult[];
   wishlist: string[];
   loading: boolean;
   searchedSymbol: string | null;
@@ -27,49 +27,24 @@ export default function ViewScreen({
   onSearch,
   onTogglePin,
 }: Props) {
-  const [query, setQuery] = useState("");
-
-  /* -------------------- SAFE DATA -------------------- */
   const safeData: StockResult[] = Array.isArray(data) ? data : [];
 
-  /* -------------------- Derived -------------------- */
   const searchedItem = searchedSymbol
     ? safeData.find((d) => d.symbol === searchedSymbol)
     : null;
 
   const wishlistItems = safeData.filter(
-    (d) => wishlist.includes(d.symbol) && d.symbol !== searchedSymbol
+    (d) => wishlist.includes(d.symbol) && d.symbol !== searchedSymbol,
   );
 
-  /* -------------------- Handlers -------------------- */
-  const handleSearch = () => {
-    if (!query) return;
-    onSearch(query);
-  };
-
-  /* -------------------- Render -------------------- */
   return (
     <div className="w-full px-4 mt-4 space-y-4 pb-[120px]">
       {/* Search */}
-      <div className="flex gap-2">
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value.toUpperCase())}
-          onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-          placeholder="ค้นหาหุ้น (เช่น AAPL)"
-          className="flex-1 rounded-lg bg-black-lighter border border-gray-700 px-3 py-2 text-sm"
-        />
-        <button
-          onClick={handleSearch}
-          className="px-4 py-2 rounded-lg bg-green-600 text-sm font-semibold"
-        >
-          ค้นหา
-        </button>
-      </div>
+      <StockSearchSelect onSelect={onSearch} value={searchedSymbol ?? ""} />
 
       {loading && <div className="text-gray-400">กำลังโหลด...</div>}
 
-      {/* 🔍 Search Result */}
+      {/* Search Result */}
       <div className="text-sm font-semibold text-gray-300 mt-2">ผลการค้นหา</div>
 
       {!searchedSymbol && (
@@ -90,7 +65,7 @@ export default function ViewScreen({
         />
       )}
 
-      {/* ⭐ Wishlist */}
+      {/* Wishlist */}
       {wishlistItems.length > 0 && (
         <div className="text-sm font-semibold text-gray-300 mt-4">
           รายการโปรด ({wishlistItems.length} / 12)

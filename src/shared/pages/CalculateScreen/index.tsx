@@ -16,6 +16,7 @@ import {
   isThaiStock,
 } from "@/app/lib/utils";
 import DividendSummary from "../AnalystScreen/components/Dividend";
+import StockSelect from "@/shared/components/common/StockSelect";
 
 export type Asset = {
   symbol: string;
@@ -222,26 +223,20 @@ export default function CalculatorScreen({
       {(activeTab === "calculator" || activeTab === "estimate") && (
         <div className="pt-[85px] mb-6 flex flex-col gap-2">
           <label className="text-gray-400 text-sm">🔍 เลือกหุ้น</label>
-          <select
+          <StockSelect
+            options={assets
+              .filter((a) => !isCash(a.symbol))
+              .map((a) => ({ value: a.symbol, label: getName(a.symbol) }))}
             value={selectedSymbol}
-            onChange={(e) => {
-              setSelectedSymbol(e.target.value);
+            onChange={(val) => {
+              setSelectedSymbol(val);
               setAfterData(null);
               setNewInvestment("");
               setNewPrice("");
               setEstimatePrice("");
               setNewCostPerShare(null);
             }}
-            className="p-2 rounded-lg bg-black-lighter2 border border-white/10 text-white w-full outline-none focus:border-yellow-500/40 transition-colors cursor-pointer"
-          >
-            {assets
-              .filter((a) => !isCash(a.symbol))
-              .map((a) => (
-                <option key={a.symbol} value={a.symbol}>
-                  {getName(a.symbol)}
-                </option>
-              ))}
-          </select>
+          />
 
           <div>
             <label className="text-gray-400 text-sm">
