@@ -1,3 +1,4 @@
+// ViewScreen/index.tsx
 "use client";
 
 import { AdvancedLevels } from "@/app/api/stock/support.function";
@@ -37,10 +38,17 @@ export default function ViewScreen({
     (d) => wishlist.includes(d.symbol) && d.symbol !== searchedSymbol,
   );
 
+  const handleSearch = (symbol: string) => {
+    onSearch(symbol);
+  };
+
   return (
     <div className="w-full px-4 mt-4 space-y-4 pb-[120px]">
       {/* Search */}
-      <StockSearchSelect onSelect={onSearch} value={searchedSymbol ?? ""} />
+      <StockSearchSelect
+        onSelect={handleSearch}
+        clearAfterSelect
+      />
 
       {loading && <div className="text-gray-400">กำลังโหลด...</div>}
 

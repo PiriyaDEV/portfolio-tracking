@@ -1,3 +1,4 @@
+// ViewScreen/components/StockSearchSelect.tsx
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -17,17 +18,14 @@ const EXCHANGES: { value: Exchange; label: string; flag: string }[] = [
 ];
 
 interface StockSearchSelectProps {
-  /** Called when user confirms a selection (Enter, button click, or dropdown pick) */
   onSelect: (symbol: string) => void;
-  /** Controlled value — shows in the input when set externally */
   value?: string;
   placeholder?: string;
-  /** Hide the exchange chips (default: false) */
   hideExchangeChips?: boolean;
-  /** Default exchange (default: "US") */
   defaultExchange?: Exchange;
-  /** Max height of the suggestions dropdown e.g. 200 or "40vh" (default: unconstrained) */
   maxDropdownHeight?: number | string;
+  /** Clear the input text after a symbol is selected/confirmed */
+  clearAfterSelect?: boolean;
 }
 
 export default function StockSearchSelect({
@@ -37,6 +35,7 @@ export default function StockSearchSelect({
   hideExchangeChips = false,
   defaultExchange = "US",
   maxDropdownHeight = 150,
+  clearAfterSelect = false,
 }: StockSearchSelectProps) {
   const [query, setQuery] = useState(value ?? "");
   const [exchange, setExchange] = useState<Exchange>(defaultExchange);
@@ -48,10 +47,10 @@ export default function StockSearchSelect({
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  /* Sync external value → input */
+  /* Sync external value → input (only when clearAfterSelect is false) */
   useEffect(() => {
-    if (value !== undefined) setQuery(value);
-  }, [value]);
+    if (!clearAfterSelect && value !== undefined) setQuery(value);
+  }, [value, clearAfterSelect]);
 
   /* -------------------- Fetch -------------------- */
   const fetchSuggestions = useCallback(async (q: string, ex: Exchange) => {
@@ -103,20 +102,30 @@ export default function StockSearchSelect({
 
   /* -------------------- Handlers -------------------- */
   const handleSelect = (s: SymbolSuggestion) => {
-    setQuery(s.displaySymbol);
     setSuggestions([]);
     setShowDropdown(false);
+    if (clearAfterSelect) {
+      setQuery("");
+    } else {
+      setQuery(s.displaySymbol);
+    }
     onSelect(s.symbol);
   };
 
   const handleConfirm = () => {
     if (!query.trim()) return;
+    const symbol = query.trim().toUpperCase();
     setShowDropdown(false);
-    onSelect(query.trim().toUpperCase());
+    if (clearAfterSelect) {
+      setQuery("");
+    }
+    onSelect(symbol);
   };
 
+  // Clear input + suggestions when switching exchange
   const handleExchangeChange = (ex: Exchange) => {
     setExchange(ex);
+    setQuery("");
     setSuggestions([]);
     setShowDropdown(false);
     setActiveIndex(-1);
@@ -271,12 +280,6 @@ export default function StockSearchSelect({
                       {s.description}
                     </span>
                   </div>
-                  {/* <span
-                    className="text-xs ml-2 shrink-0"
-                    style={{ color: "#555" }}
-                  >
-                    {s.type}
-                  </span> */}
                 </li>
               ))}
           </ul>
