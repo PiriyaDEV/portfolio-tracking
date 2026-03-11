@@ -61,8 +61,8 @@ export default function FooterPortfolio({
   const totalProfitPercent =
     totalCostThb > 0 ? (totalProfitThb / totalCostThb) * 100 : 0;
 
-  const totalPercentChange = (): number => {
-    if (!assets || assets.length === 0) return 0;
+  const totalDailyChange = (): { percent: number; value: number } => {
+    if (!assets || assets.length === 0) return { percent: 0, value: 0 };
 
     let totalPreviousValue = 0;
     let totalCurrentValue = 0;
@@ -87,29 +87,45 @@ export default function FooterPortfolio({
         ? ((totalCurrentValue - totalPreviousValue) / totalPreviousValue) * 100
         : 0;
 
-    return percentChange;
+    return {
+      percent: percentChange,
+      value: totalCurrentValue - totalPreviousValue,
+    };
   };
 
+  const totalPercentChange = (): number => totalDailyChange().percent;
+
   return (
-    <div className="fixed bottom-[52px] left-1/2 -translate-x-1/2 w-full sm:w-[450px] bg-black-lighter">
-      <div className="container mx-auto px-4 pt-4 pb-7 text-center">
+    <div className="fixed bottom-[52px] left-1/2 -translate-x-1/2 w-full sm:w-[450px] bg-black-lighter shadow-[0_-8px_32px_rgba(0,0,0,0.6)] border-t border-white/[0.05]">
+      <div
+        className="container mx-auto px-5 pt-4 pb-7 text-center"
+        onClick={() => setIsOpen(!isOpen)}
+      >
         {/* Total Value - always visible */}
         <div>
-          <div className="font-bold text-[10px] text-gray-300">
-            มูลค่าเงินทั้งหมด ({formattedDate})
+          <div className="font-medium text-[9px] uppercase text-gray-300">
+            มูลค่าเงินทั้งหมด{" "}
+            <span className="normal-case tracking-normal opacity-60">
+              ({formattedDate})
+            </span>
           </div>
-          <div className="font-bold text-[26px] mt-1 flex items-center justify-center gap-2">
-            {isNumbersHidden ? (
-              "*****"
-            ) : isFullyLoaded ? (
-              fNumber(totalMarketThb)
-            ) : (
-              <span className="inline-block w-32 h-7 bg-white/10 rounded animate-pulse align-middle" />
-            )}{" "}
-            บาท{" "}
+          <div className="font-bold text-[27px] mt-1 flex items-center justify-center gap-2 tracking-tight">
+            <span className="text-white/90">
+              {isNumbersHidden ? (
+                <span className="tracking-[0.2em] text-white/20 text-xl">
+                  •••••
+                </span>
+              ) : isFullyLoaded ? (
+                fNumber(totalMarketThb)
+              ) : (
+                <span className="inline-block w-32 h-7 bg-white/10 rounded animate-pulse align-middle" />
+              )}
+            </span>
+            <span className="text-[12px] font-medium text-gray-600 self-end mb-1.5">
+              บาท
+            </span>
             <HiChevronDown
-              onClick={() => setIsOpen(!isOpen)}
-              className={`mt-2 !text-[16px] text-gray-300 transition-transform duration-200 ${
+              className={`self-end mb-1.5 !text-[14px] text-gray-700 hover:text-gray-400 cursor-pointer transition-all duration-300 ${
                 !isOpen ? "rotate-180" : "rotate-0"
               }`}
             />
@@ -118,44 +134,59 @@ export default function FooterPortfolio({
 
         {/* Collapsible Change & Profit */}
         {isOpen && (
-          <div className="mt-3 border-t border-accent-yellow pt-2 flex flex-col items-center gap-2 justify-center">
+          <div className="mt-3 pt-2.5 border-t !border-accent-yellow/80 flex flex-col items-center gap-2 justify-center">
             {/* Daily Change */}
-            <div className="font-bold text-[10px] flex items-center gap-1">
-              % เปลี่ยนจากวันก่อน :{" "}
+            <div className="flex items-center gap-2 text-[10px]">
+              <span className="text-gray-600 tracking-wide">
+                เปลี่ยนจากวันก่อน
+              </span>
+              <span className="w-px h-3 bg-white/10" />
               <span
-                className={`flex items-center gap-1 ${getProfitColor(totalPercentChange())}`}
+                className={`flex items-center gap-1 font-bold ${getProfitColor(totalDailyChange().percent)}`}
               >
                 {isFullyLoaded ? (
                   <>
-                    {totalPercentChange() > 0 ? (
-                      <UpIcon className="text-[12px]" />
-                    ) : totalPercentChange() < 0 ? (
-                      <DownIcon className="text-[12px]" />
+                    {totalDailyChange().percent > 0 ? (
+                      <UpIcon className="text-[10px]" />
+                    ) : totalDailyChange().percent < 0 ? (
+                      <DownIcon className="text-[10px]" />
                     ) : null}
-                    {fNumber(totalPercentChange())}%
+                    {fNumber(totalDailyChange().percent)}%
+                    <span className="!text-white/30 font-normal">
+                      ({totalDailyChange().value > 0 ? "+" : ""}
+                      {isNumbersHidden
+                        ? "•••••"
+                        : fNumber(totalDailyChange().value)}{" "}
+                      บาท)
+                    </span>
                   </>
                 ) : (
-                  <span className="inline-block w-12 h-3 bg-white/10 rounded animate-pulse" />
+                  <span className="inline-block w-16 h-3 bg-white/10 rounded animate-pulse" />
                 )}
               </span>
             </div>
 
             {/* Holding Profit */}
-            <div className="font-bold text-[10px] flex items-center gap-1">
-              % กำไรของทรัพย์ที่ถืออยู่ :{" "}
+            <div className="flex items-center gap-2 text-[10px]">
+              <span className="text-gray-600 tracking-wide">
+                กำไรที่ถืออยู่ทั้งหมด
+              </span>
+              <span className="w-px h-3 bg-white/10" />
               <span
-                className={`flex items-center gap-1 ${getProfitColor(totalProfitThb)}`}
+                className={`flex items-center gap-1 font-bold ${getProfitColor(totalProfitThb)}`}
               >
                 {isFullyLoaded ? (
                   <>
                     {totalProfitPercent > 0 ? (
-                      <UpIcon className="text-[12px]" />
+                      <UpIcon className="text-[10px]" />
                     ) : totalProfitPercent < 0 ? (
-                      <DownIcon className="text-[12px]" />
+                      <DownIcon className="text-[10px]" />
                     ) : null}
-                    {fNumber(totalProfitPercent)}% (
-                    {totalProfitPercent > 0 ? "+" : ""}
-                    {isNumbersHidden ? "*****" : fNumber(totalProfitThb)} บาท)
+                    {fNumber(totalProfitPercent)}%
+                    <span className="text-white/20 font-normal">
+                      ({totalProfitPercent > 0 ? "+" : ""}
+                      {isNumbersHidden ? "•••••" : fNumber(totalProfitThb)} บาท)
+                    </span>
                   </>
                 ) : (
                   <span className="inline-block w-24 h-3 bg-white/10 rounded animate-pulse" />

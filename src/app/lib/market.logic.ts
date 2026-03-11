@@ -89,7 +89,7 @@ export const isNormalBuy = (
   if (price == null || entry1 == null || entry2 == null) return false;
 
   const nearEntry1 =
-    price >= entry1 * (1 - percent) && price <= entry1 * (1 + percent);
+    price >= entry1 && price <= entry1;
 
   const aboveEntry2ButBelowEntry1 = price >= entry2 && price < entry1;
 
