@@ -279,7 +279,6 @@ export function GraphPrice({
         className="fixed top-[160px] left-1/2 -translate-x-1/2 max-w-[450px] w-full gap-3 py-2 px-3 text-[12px] text-gray-400 bg-black z-[99]"
         style={{
           borderBottom: "1px solid rgba(255,255,255,0.06)",
-          background: "linear-gradient(180deg, #0a0a0a 0%, #050505 100%)",
         }}
       >
         {market && (
