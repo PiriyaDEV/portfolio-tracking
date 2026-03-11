@@ -26,6 +26,8 @@ interface StockSearchSelectProps {
   hideExchangeChips?: boolean;
   /** Default exchange (default: "US") */
   defaultExchange?: Exchange;
+  /** Max height of the suggestions dropdown e.g. 200 or "40vh" (default: unconstrained) */
+  maxDropdownHeight?: number | string;
 }
 
 export default function StockSearchSelect({
@@ -34,6 +36,7 @@ export default function StockSearchSelect({
   placeholder,
   hideExchangeChips = false,
   defaultExchange = "US",
+  maxDropdownHeight = 150,
 }: StockSearchSelectProps) {
   const [query, setQuery] = useState(value ?? "");
   const [exchange, setExchange] = useState<Exchange>(defaultExchange);
@@ -222,12 +225,18 @@ export default function StockSearchSelect({
         {/* Dropdown */}
         {showDropdown && suggestions.length > 0 && (
           <ul
-            className="absolute top-full left-0 right-0 mt-1 z-50 overflow-hidden"
+            className="absolute top-full left-0 right-0 mt-1 z-50 overflow-y-auto"
             style={{
               background: "#0d0d0d",
               border: "1px solid #2a2a2a",
               borderRadius: "12px",
               boxShadow: "0 8px 32px rgba(0,0,0,0.8)",
+              ...(maxDropdownHeight !== undefined && {
+                maxHeight:
+                  typeof maxDropdownHeight === "number"
+                    ? `${maxDropdownHeight}px`
+                    : maxDropdownHeight,
+              }),
             }}
           >
             {suggestions
@@ -262,12 +271,12 @@ export default function StockSearchSelect({
                       {s.description}
                     </span>
                   </div>
-                  <span
+                  {/* <span
                     className="text-xs ml-2 shrink-0"
                     style={{ color: "#555" }}
                   >
                     {s.type}
-                  </span>
+                  </span> */}
                 </li>
               ))}
           </ul>

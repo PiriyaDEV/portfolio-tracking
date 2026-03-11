@@ -2,7 +2,23 @@
 
 import { Asset } from "@/app/lib/interface";
 import { getLogo } from "@/app/lib/utils";
+import StockSearchSelect from "@/shared/pages/ViewScreen/components/StockSearchSelect";
 import { useState } from "react";
+
+type AssetType = "US" | "TH" | "GOLD" | "BTC";
+
+const ASSET_TYPES: {
+  value: AssetType;
+  label: string;
+  emoji: string;
+  exchange?: "US" | "BK";
+  forcedSymbol?: string;
+}[] = [
+  { value: "US", label: "หุ้น US", emoji: "🇺🇸", exchange: "US" },
+  { value: "TH", label: "หุ้นไทย", emoji: "🇹🇭", exchange: "BK" },
+  { value: "GOLD", label: "ทอง", emoji: "🥇", forcedSymbol: "GOLD-USD" },
+  { value: "BTC", label: "Bitcoin", emoji: "₿", forcedSymbol: "BTC-USD" },
+];
 
 const EditModal = ({
   editAssets,
@@ -20,6 +36,10 @@ const EditModal = ({
   setIsEditOpen: React.Dispatch<React.SetStateAction<boolean>>;
 }) => {
   const [isSaving, setIsSaving] = useState(false);
+  // Track asset type per card (index → AssetType)
+  const [assetTypes, setAssetTypes] = useState<Record<number, AssetType>>({});
+  // Track which cards are "new" (showing type picker + search)
+  const [newCardIndices, setNewCardIndices] = useState<Set<number>>(new Set());
 
   const updateAsset = (
     index: number,
@@ -31,8 +51,18 @@ const EditModal = ({
     setEditAssets(updated);
   };
 
+  // Cards that are still in "new" state (incomplete) block saving
+  const hasIncompleteCards = newCardIndices.size > 0;
+
+  // Also block if any existing asset is missing symbol, quantity, or costPerShare
+  const hasInvalidAssets = editAssets.some(
+    (a) => !a.symbol?.trim() || !a.quantity || !a.costPerShare,
+  );
+
+  const canSave = !isSaving && !hasIncompleteCards && !hasInvalidAssets;
+
   const handleSave = async () => {
-    if (isSaving) return;
+    if (!canSave) return;
     try {
       setIsSaving(true);
       await saveAssets();
@@ -42,6 +72,36 @@ const EditModal = ({
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleAddNew = () => {
+    addNewAsset();
+    // The new asset will be at the end
+    const newIndex = editAssets.length;
+    setNewCardIndices((prev) => new Set(prev).add(newIndex));
+  };
+
+  const handleSelectAssetType = (cardIndex: number, type: AssetType) => {
+    setAssetTypes((prev) => ({ ...prev, [cardIndex]: type }));
+    const config = ASSET_TYPES.find((t) => t.value === type)!;
+    if (config.forcedSymbol) {
+      updateAsset(cardIndex, "symbol", config.forcedSymbol);
+      // Remove from new cards — symbol is set
+      setNewCardIndices((prev) => {
+        const next = new Set(prev);
+        next.delete(cardIndex);
+        return next;
+      });
+    }
+  };
+
+  const handleSymbolSearch = (cardIndex: number, symbol: string) => {
+    updateAsset(cardIndex, "symbol", symbol);
+    setNewCardIndices((prev) => {
+      const next = new Set(prev);
+      next.delete(cardIndex);
+      return next;
+    });
   };
 
   return (
@@ -72,7 +132,7 @@ const EditModal = ({
         </div>
 
         {/* Asset List */}
-        <div className="overflow-y-auto flex-1 px-5 py-4 space-y-3">
+        <div className="overflow-y-auto flex-1 px-5 py-4 pb-[140px] space-y-3">
           {editAssets.length === 0 && (
             <div className="flex flex-col items-center justify-center py-12 gap-2">
               <div className="text-4xl opacity-20">📂</div>
@@ -84,6 +144,11 @@ const EditModal = ({
 
           {editAssets.map((asset, index) => {
             const logoUrl = asset.symbol ? getLogo(asset.symbol) : null;
+            const isNew = newCardIndices.has(index);
+            const selectedType = assetTypes[index];
+            const typeConfig = selectedType
+              ? ASSET_TYPES.find((t) => t.value === selectedType)
+              : null;
 
             return (
               <div
@@ -93,13 +158,10 @@ const EditModal = ({
                 {/* Card Header */}
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-3">
-                    {/* Logo */}
                     <div className="w-8 h-8 rounded-full bg-black-lighter border border-accent-yellow border-opacity-20 overflow-hidden flex items-center justify-center shrink-0">
                       {logoUrl ? (
                         <div
-                          className={`w-[30px] h-[30px] rounded-full bg-cover bg-center border border-gray-600 ${
-                            getLogo(asset.symbol) ? "" : "bg-white"
-                          }`}
+                          className="w-[30px] h-[30px] rounded-full bg-cover bg-center border border-gray-600"
                           style={{
                             backgroundImage: `url(${getLogo(asset.symbol)})`,
                           }}
@@ -110,7 +172,6 @@ const EditModal = ({
                         </span>
                       )}
                     </div>
-
                     <span className="text-white font-semibold text-sm">
                       {asset.symbol || (
                         <span className="text-gray-500 font-normal">
@@ -118,8 +179,12 @@ const EditModal = ({
                         </span>
                       )}
                     </span>
+                    {typeConfig && (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-white bg-opacity-5 text-gray-400">
+                        {typeConfig.emoji} {typeConfig.label}
+                      </span>
+                    )}
                   </div>
-
                   <button
                     onClick={() => removeAsset(index)}
                     disabled={isSaving}
@@ -129,59 +194,124 @@ const EditModal = ({
                   </button>
                 </div>
 
-                {/* Fields */}
-                <div className="space-y-2">
-                  <FieldGroup label="Symbol" emoji="🔤">
-                    <input
-                      type="text"
-                      className="w-full px-3 py-2 rounded-lg bg-black border border-accent-yellow border-opacity-30 text-accent-yellow font-bold tracking-widest text-sm outline-none focus:border-opacity-70 transition-all placeholder-gray-600 uppercase"
-                      value={asset.symbol}
-                      onChange={(e) =>
-                        updateAsset(
-                          index,
-                          "symbol",
-                          e.target.value.toUpperCase(),
-                        )
-                      }
-                      placeholder="เช่น AAPL"
-                      disabled={isSaving}
-                    />
-                  </FieldGroup>
+                {/* New card: show type chips first */}
+                {isNew && (
+                  <div className="space-y-2">
+                    <p className="text-xs text-gray-500">
+                      เลือกประเภทสินทรัพย์
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {ASSET_TYPES.map((t) => {
+                        const active = selectedType === t.value;
+                        return (
+                          <button
+                            key={t.value}
+                            type="button"
+                            onClick={() =>
+                              handleSelectAssetType(index, t.value)
+                            }
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200"
+                            style={{
+                              background: active ? "#1a2e1a" : "#1a1a1a",
+                              border: `1px solid ${active ? "#4ade80" : "#2a2a2a"}`,
+                              color: active ? "#4ade80" : "#888",
+                              boxShadow: active
+                                ? "0 0 8px rgba(74,222,128,0.15)"
+                                : "none",
+                            }}
+                          >
+                            <span>{t.emoji}</span>
+                            <span>{t.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
 
-                  <div className="grid grid-cols-2 gap-2">
-                    <FieldGroup label="จำนวนหุ้น" emoji="📦">
-                      <input
-                        type="number"
-                        step="any"
-                        className="w-full px-3 py-2 rounded-lg bg-black border border-accent-yellow border-opacity-30 text-white text-sm outline-none focus:border-opacity-70 transition-all placeholder-gray-600"
-                        value={asset.quantity || ""}
-                        onChange={(e) =>
-                          updateAsset(index, "quantity", Number(e.target.value))
-                        }
-                        placeholder="0"
-                        disabled={isSaving}
-                      />
-                    </FieldGroup>
+                    {/* Show search only for US/TH stocks */}
+                    {selectedType &&
+                      (selectedType === "US" || selectedType === "TH") && (
+                        <div className="pt-1">
+                          {/* key={selectedType} forces remount when toggling US↔TH,
+                            so defaultExchange is always picked up fresh */}
+                          <StockSearchSelect
+                            key={`search-${index}-${selectedType}`}
+                            onSelect={(symbol) =>
+                              handleSymbolSearch(index, symbol)
+                            }
+                            defaultExchange={
+                              typeConfig?.exchange as "US" | "BK"
+                            }
+                            hideExchangeChips
+                            placeholder={
+                              selectedType === "US"
+                                ? "ค้นหาหุ้น US เช่น AAPL"
+                                : "ค้นหาหุ้นไทย เช่น PTT"
+                            }
+                          />
+                        </div>
+                      )}
+                  </div>
+                )}
 
-                    <FieldGroup label="ต้นทุน/หุ้น (USD)" emoji="💵">
+                {/* Fields — show once symbol is set */}
+                {!isNew && (
+                  <div className="space-y-2">
+                    <FieldGroup label="Symbol" emoji="🔤">
                       <input
-                        type="number"
-                        step="any"
-                        className="w-full px-3 py-2 rounded-lg bg-black border border-accent-yellow border-opacity-30 text-white text-sm outline-none focus:border-opacity-70 transition-all placeholder-gray-600"
-                        value={asset.costPerShare || ""}
+                        type="text"
+                        className="w-full px-3 py-2 rounded-lg bg-black border border-accent-yellow border-opacity-30 text-accent-yellow font-bold tracking-widest text-sm outline-none focus:border-opacity-70 transition-all placeholder-gray-600 uppercase"
+                        value={asset.symbol}
                         onChange={(e) =>
                           updateAsset(
                             index,
-                            "costPerShare",
-                            Number(e.target.value),
+                            "symbol",
+                            e.target.value.toUpperCase(),
                           )
                         }
-                        placeholder="0.00"
+                        placeholder="เช่น AAPL"
                         disabled={isSaving}
                       />
                     </FieldGroup>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <FieldGroup label="จำนวนหุ้น" emoji="📦">
+                        <input
+                          type="number"
+                          step="any"
+                          className="w-full px-3 py-2 rounded-lg bg-black border border-accent-yellow border-opacity-30 text-white text-sm outline-none focus:border-opacity-70 transition-all placeholder-gray-600"
+                          value={asset.quantity || ""}
+                          onChange={(e) =>
+                            updateAsset(
+                              index,
+                              "quantity",
+                              Number(e.target.value),
+                            )
+                          }
+                          placeholder="0"
+                          disabled={isSaving}
+                        />
+                      </FieldGroup>
+
+                      <FieldGroup label="ต้นทุน/หุ้น (USD)" emoji="💵">
+                        <input
+                          type="number"
+                          step="any"
+                          className="w-full px-3 py-2 rounded-lg bg-black border border-accent-yellow border-opacity-30 text-white text-sm outline-none focus:border-opacity-70 transition-all placeholder-gray-600"
+                          value={asset.costPerShare || ""}
+                          onChange={(e) =>
+                            updateAsset(
+                              index,
+                              "costPerShare",
+                              Number(e.target.value),
+                            )
+                          }
+                          placeholder="0.00"
+                          disabled={isSaving}
+                        />
+                      </FieldGroup>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             );
           })}
@@ -190,7 +320,7 @@ const EditModal = ({
         {/* Footer */}
         <div className="px-5 py-4 border-t border-accent-yellow border-opacity-10 space-y-3">
           <button
-            onClick={addNewAsset}
+            onClick={handleAddNew}
             disabled={isSaving}
             className="w-full py-2.5 rounded-xl border border-dashed border-accent-yellow border-opacity-40 text-accent-yellow text-sm font-semibold flex items-center justify-center gap-2 hover:bg-accent-yellow hover:bg-opacity-5 transition-all disabled:opacity-40"
           >
@@ -211,10 +341,19 @@ const EditModal = ({
                 ${
                   isSaving
                     ? "bg-gray-600 text-gray-400 cursor-not-allowed"
-                    : "bg-accent-yellow text-black hover:opacity-90"
+                    : !canSave
+                      ? "bg-gray-700 text-gray-500 cursor-not-allowed opacity-50"
+                      : "bg-accent-yellow text-black hover:opacity-90"
                 }`}
               onClick={handleSave}
-              disabled={isSaving}
+              disabled={!canSave}
+              title={
+                hasIncompleteCards
+                  ? "กรุณาเลือก symbol ให้ครบก่อนบันทึก"
+                  : hasInvalidAssets
+                    ? "กรุณากรอกข้อมูลให้ครบทุกช่อง"
+                    : undefined
+              }
             >
               {isSaving ? (
                 <span className="flex items-center justify-center gap-2">
