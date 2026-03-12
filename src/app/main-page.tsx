@@ -44,6 +44,12 @@ import {
   MarketResponse,
 } from "@/shared/pages/AnalystScreen/components/GraphPrice";
 import NotificationModal from "@/shared/components/modal/NotificationModal";
+import {
+  MAX_WISHLIST_PINS,
+  SESSION_COOKIE_MAX_AGE,
+  SESSION_DURATION_MS,
+  SESSION_KEY,
+} from "./lib/constants";
 
 const thaiMonths = [
   "ม.ค",
@@ -61,8 +67,6 @@ const thaiMonths = [
 ];
 
 const isMock = false;
-const SESSION_KEY = "portfolio_session";
-const SESSION_DURATION = 30 * 24 * 60 * 60 * 1000;
 
 interface SessionData {
   userId: string;
@@ -117,15 +121,20 @@ export default function MainApp() {
     const sessionData: SessionData = {
       userId: uid,
       userColId: colId,
-      expiresAt: Date.now() + SESSION_DURATION,
+      expiresAt: Date.now() + SESSION_DURATION_MS,
     };
     localStorage.setItem(SESSION_KEY, JSON.stringify(sessionData));
-    document.cookie = `${SESSION_KEY}=1; max-age=${30 * 24 * 60 * 60}; path=/`;
+    document.cookie = `${SESSION_KEY}=1; max-age=${SESSION_COOKIE_MAX_AGE}; path=/`;
   };
 
   const clearSession = () => {
     localStorage.removeItem(SESSION_KEY);
     document.cookie = `${SESSION_KEY}=; max-age=0; path=/`;
+  };
+
+  const handleLogout = () => {
+    clearSession();
+    router.replace("/");
   };
 
   // ─── On mount: read session, redirect if missing ───────────────────────────
@@ -176,14 +185,12 @@ export default function MainApp() {
     loadWishlist();
   }, [userColId]);
 
-  const MAX_PINS = 12;
-
   const togglePin = (symbol: string) => {
     setWishlist((prev) => {
       const isPinned = prev.includes(symbol);
       const next = isPinned
         ? prev.filter((s) => s !== symbol)
-        : prev.length < MAX_PINS
+        : prev.length < MAX_WISHLIST_PINS
           ? [...prev, symbol]
           : prev;
       if (!isPinned) {
@@ -564,6 +571,7 @@ export default function MainApp() {
         )}
         {isEditProfileOpen && (
           <EditProfileModal
+            onLogout={handleLogout}
             username={username}
             userId={userId}
             profileImage={profileImage}
@@ -641,6 +649,7 @@ export default function MainApp() {
       )}
       {isEditProfileOpen && (
         <EditProfileModal
+          onLogout={handleLogout}
           username={username}
           userId={userId}
           profileImage={profileImage}

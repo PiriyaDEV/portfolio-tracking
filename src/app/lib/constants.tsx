@@ -25,3 +25,8 @@ export const MODE = {
   VIEW: "VIEW",
   EDIT: "EDIT",
 };
+
+export const SESSION_KEY = "portfolio_session";
+export const SESSION_DURATION_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+export const SESSION_COOKIE_MAX_AGE = 30 * 24 * 60 * 60; // 30 days in seconds
+export const MAX_WISHLIST_PINS = 12;

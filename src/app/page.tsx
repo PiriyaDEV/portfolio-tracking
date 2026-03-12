@@ -4,9 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import LoginModal from "@/shared/components/modal/LoginModal";
 import CommonLoading from "@/shared/components/common/CommonLoading";
-
-const SESSION_KEY = "portfolio_session";
-const SESSION_DURATION = 30 * 24 * 60 * 60 * 1000;
+import { SESSION_COOKIE_MAX_AGE, SESSION_DURATION_MS, SESSION_KEY } from "./lib/constants";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -62,12 +60,12 @@ export default function LoginPage() {
         JSON.stringify({
           userId,
           userColId,
-          expiresAt: Date.now() + SESSION_DURATION,
+          expiresAt: Date.now() + SESSION_DURATION_MS,
         }),
       );
 
       // Set lightweight cookie for middleware guard
-      document.cookie = `${SESSION_KEY}=1; max-age=${30 * 24 * 60 * 60}; path=/`;
+      document.cookie = `${SESSION_KEY}=1; max-age=${SESSION_COOKIE_MAX_AGE}; path=/`;
 
       router.replace("/main");
     } catch (err: any) {

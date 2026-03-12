@@ -1,5 +1,5 @@
 import { useRef, useState, useCallback } from "react";
-import { FaTimes } from "react-icons/fa";
+import { FaTimes, FaSignOutAlt } from "react-icons/fa";
 import { FaCamera, FaCheck, FaUser, FaCrop } from "react-icons/fa6";
 import Cropper from "react-easy-crop";
 
@@ -163,6 +163,7 @@ export function EditProfileModal({
   profileImage,
   onClose,
   onSave,
+  onLogout,
 }: {
   userId: string;
   profileImage: string | null;
@@ -173,17 +174,18 @@ export function EditProfileModal({
     newPassword: string;
     imageUrl: string | null;
   }) => Promise<void>;
+  onLogout: () => void;
 }) {
   const [newUsername, setNewUsername] = useState(username);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [imagePreview, setImagePreview] = useState<string | null>(profileImage);
-  const [rawImageSrc, setRawImageSrc] = useState<string | null>(null); // for cropper
+  const [rawImageSrc, setRawImageSrc] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Open file picker → show crop modal
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -194,7 +196,6 @@ export function EditProfileModal({
     const reader = new FileReader();
     reader.onload = () => setRawImageSrc(reader.result as string);
     reader.readAsDataURL(file);
-    // reset input so same file can be reselected
     e.target.value = "";
   };
 
@@ -351,7 +352,11 @@ export function EditProfileModal({
                   />
                   {confirmPassword && (
                     <span
-                      className={`absolute right-3 top-1/2 -translate-y-1/2 text-[12px] ${confirmPassword === newPassword ? "text-green-400" : "text-red-400"}`}
+                      className={`absolute right-3 top-1/2 -translate-y-1/2 text-[12px] ${
+                        confirmPassword === newPassword
+                          ? "text-green-400"
+                          : "text-red-400"
+                      }`}
                     >
                       {confirmPassword === newPassword ? (
                         <FaCheck />
@@ -373,20 +378,54 @@ export function EditProfileModal({
           </div>
 
           {/* Footer */}
-          <div className="px-5 pb-5 flex gap-2">
-            <button
-              onClick={onClose}
-              className="flex-1 py-2.5 rounded-xl border border-white/10 text-gray-400 text-[13px] hover:bg-white/5 transition-all"
-            >
-              ยกเลิก
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={isSaving}
-              className="flex-1 py-2.5 rounded-xl bg-accent-yellow text-black font-semibold text-[13px] hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isSaving ? "กำลังบันทึก..." : "บันทึก"}
-            </button>
+          <div className="px-5 pb-5 space-y-2">
+            {/* Save / Cancel */}
+            <div className="flex gap-2">
+              <button
+                onClick={onClose}
+                className="flex-1 py-2.5 rounded-xl border border-white/10 text-gray-400 text-[13px] hover:bg-white/5 transition-all"
+              >
+                ยกเลิก
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={isSaving}
+                className="flex-1 py-2.5 rounded-xl bg-accent-yellow text-black font-semibold text-[13px] hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSaving ? "กำลังบันทึก..." : "บันทึก"}
+              </button>
+            </div>
+
+            {/* Logout */}
+            {!showLogoutConfirm ? (
+              <button
+                onClick={() => setShowLogoutConfirm(true)}
+                className="w-full py-2.5 rounded-xl border border-red-500/20 text-red-400/70 text-[13px] hover:border-red-500/40 hover:text-red-400 hover:bg-red-500/5 transition-all flex items-center justify-center gap-2"
+              >
+                <FaSignOutAlt />
+                ออกจากระบบ
+              </button>
+            ) : (
+              <div className="rounded-xl border border-red-500/30 bg-red-500/5 px-3 py-2.5 space-y-2">
+                <p className="text-red-400 text-[12px] text-center">
+                  ยืนยันการออกจากระบบ?
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setShowLogoutConfirm(false)}
+                    className="flex-1 py-1.5 rounded-lg border border-white/10 text-gray-400 text-[12px] hover:bg-white/5 transition-all"
+                  >
+                    ยกเลิก
+                  </button>
+                  <button
+                    onClick={onLogout}
+                    className="flex-1 py-1.5 rounded-lg bg-red-500/80 text-white font-semibold text-[12px] hover:bg-red-500 transition-all"
+                  >
+                    ออกจากระบบ
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
