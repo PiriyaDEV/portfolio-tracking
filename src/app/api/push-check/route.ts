@@ -96,7 +96,7 @@ export async function GET(req: Request) {
         } else if (type === "support1" || type === "support2") {
           const supportLevel =
             type === "support1" ? levels.entry1 : levels.entry2;
-          const supportLabel = type === "support1" ? "Support 1" : "Support 2";
+          const supportLabel = type === "support1" ? "แนวรับ 1" : "แนวรับ 2";
 
           if (currentPrice <= supportLevel) {
             shouldNotify = true;

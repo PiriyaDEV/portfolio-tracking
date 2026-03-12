@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Asset } from "@/app/lib/interface";
 import { fNumber, getLogo, getName } from "@/app/lib/utils";
 import {
@@ -10,8 +10,13 @@ import {
   ResponsiveContainer,
   ReferenceLine,
 } from "recharts";
-import CommonLoading from "@/shared/components/common/CommonLoading";
 import React from "react";
+import {
+  FearGreedGauge,
+  getFearGreedBg,
+  getFearGreedText,
+  mapFearGreed,
+} from "../FearGreedGauge";
 
 /* =======================
    Types
@@ -104,78 +109,6 @@ const MARKET_ITEMS = [
 ] as const;
 
 /* =======================
-   Helpers
-======================= */
-
-type FearGreedConfig = {
-  min: number;
-  max: number;
-  label: string;
-  emoji: string;
-  bg: string;
-  text: string;
-};
-
-const FEAR_GREED_MAP: FearGreedConfig[] = [
-  {
-    min: 0,
-    max: 25,
-    label: "กลัวขั้นสุด",
-    emoji: "😱",
-    bg: "!bg-red-900/60",
-    text: "!text-red-300",
-  },
-  {
-    min: 25,
-    max: 45,
-    label: "กลัว",
-    emoji: "😟",
-    bg: "!bg-orange-900/60",
-    text: "!text-orange-300",
-  },
-  {
-    min: 45,
-    max: 55,
-    label: "เป็นกลาง",
-    emoji: "😐",
-    bg: "!bg-zinc-700/60",
-    text: "!text-zinc-300",
-  },
-  {
-    min: 55,
-    max: 75,
-    label: "โลภ",
-    emoji: "😊",
-    bg: "!bg-emerald-900/60",
-    text: "!text-emerald-300",
-  },
-  {
-    min: 75,
-    max: 101,
-    label: "โลภขั้นสุด",
-    emoji: "🤑",
-    bg: "!bg-emerald-800/70 animate-pulse",
-    text: "!text-emerald-200",
-  },
-];
-
-function getFearGreedConfig(value: number): FearGreedConfig {
-  return (
-    FEAR_GREED_MAP.find((r) => value >= r.min && value < r.max) ??
-    FEAR_GREED_MAP[0]
-  );
-}
-
-export function mapFearGreed(value: number) {
-  const { emoji, label } = getFearGreedConfig(value);
-  return `${emoji} ${label} (${fNumber(value, { decimalNumber: 0 })})`;
-}
-
-export const getFearGreedBg = (value: number) => getFearGreedConfig(value).bg;
-export const getFearGreedText = (value: number) =>
-  getFearGreedConfig(value).text;
-
-/* =======================
    Sort Icon Helper
 ======================= */
 
@@ -219,6 +152,7 @@ export function GraphPrice({
 }: Props) {
   const [sortBy, setSortBy] = useState<SortBy>("none");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
+  const [showFearGreedModal, setShowFearGreedModal] = useState(false);
 
   const getProfitPercent = (symbol: string) => {
     const currentPrice = prices?.[symbol];
@@ -230,7 +164,6 @@ export function GraphPrice({
   const getHoldingValue = (asset: Asset) => asset.quantity * asset.costPerShare;
 
   const sortedAssets = useMemo(() => {
-    // "none" = keep original API order
     if (sortBy === "none") return [...assets];
 
     const list = [...assets];
@@ -243,7 +176,6 @@ export function GraphPrice({
       );
     }
 
-    // sortBy === "profit"
     return list.sort((a, b) => {
       const pa = getProfitPercent(a.symbol);
       const pb = getProfitPercent(b.symbol);
@@ -253,20 +185,13 @@ export function GraphPrice({
 
   if (!graphs || Object.keys(graphs).length === 0) return null;
 
-  /**
-   * 3-state cycle for a column:
-   *   inactive → desc → asc → inactive (none)
-   */
   const handleSortColumn = (col: "holding" | "profit") => {
     if (sortBy !== col) {
-      // Switch to this column, start desc
       setSortBy(col);
       setSortOrder("desc");
     } else if (sortOrder === "desc") {
-      // Already desc → flip to asc
       setSortOrder("asc");
     } else {
-      // Already asc → cancel sort (back to default)
       setSortBy("none");
       setSortOrder("desc");
     }
@@ -274,6 +199,14 @@ export function GraphPrice({
 
   return (
     <div className="mt-[90px] flex flex-col">
+      {/* Fear & Greed Modal */}
+      {showFearGreedModal && market?.fearGreed?.value !== null && (
+        <FearGreedGauge
+          value={market.fearGreed.value!}
+          onClose={() => setShowFearGreedModal(false)}
+        />
+      )}
+
       {/* HEADER */}
       <div
         className="fixed top-[160px] left-1/2 -translate-x-1/2 max-w-[450px] w-full gap-3 py-2 px-3 text-[12px] text-gray-400 bg-black z-[99]"
@@ -344,7 +277,8 @@ export function GraphPrice({
                 return (
                   <div
                     key={item.key}
-                    className={`flex items-center gap-2 shrink-0 ${getFearGreedBg(fg.value)}`}
+                    onClick={() => setShowFearGreedModal(true)}
+                    className={`flex items-center gap-2 shrink-0 cursor-pointer ${getFearGreedBg(fg.value)}`}
                     style={{
                       border: "1px solid rgba(255,255,255,0.08)",
                       borderRadius: "10px",
@@ -352,13 +286,16 @@ export function GraphPrice({
                       backdropFilter: "blur(12px)",
                       boxShadow:
                         "0 1px 3px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)",
+                      transition: "opacity 0.15s",
                     }}
                   >
                     <img
                       src={item.img}
                       alt={item.label}
                       className="w-5 h-5 rounded-full object-cover"
-                      style={{ boxShadow: "0 0 0 1px rgba(255,255,255,0.12)" }}
+                      style={{
+                        boxShadow: "0 0 0 1px rgba(255,255,255,0.12)",
+                      }}
                     />
                     <div
                       className="flex flex-col whitespace-nowrap"
@@ -372,7 +309,7 @@ export function GraphPrice({
                           letterSpacing: "0.01em",
                         }}
                       >
-                        Fear & Greed
+                        กลัว & โลภ
                       </span>
                       <span
                         className={`text-left w-fit capitalize rounded ${getFearGreedText(fg.value)}`}
@@ -404,7 +341,6 @@ export function GraphPrice({
             paddingBottom: "6px",
           }}
         >
-          {/* สินทรัพย์ — sortable */}
           <div
             onClick={() => handleSortColumn("holding")}
             className="cursor-pointer select-none flex items-center gap-1"
@@ -423,10 +359,8 @@ export function GraphPrice({
             />
           </div>
 
-          {/* Graph column — no sort */}
           <div />
 
-          {/* % กำไร — sortable */}
           <div
             onClick={() => handleSortColumn("profit")}
             className="text-right cursor-pointer select-none flex justify-end items-center gap-1"
