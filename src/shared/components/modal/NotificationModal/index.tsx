@@ -135,7 +135,7 @@ export default function NotificationModal({
       }
     }
     try {
-      await fetch(`/api/notification/${userColId}`, {
+      const res = await fetch(`/api/notification/${userColId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -143,6 +143,8 @@ export default function NotificationModal({
           notifications: settings.filter((s) => s.enabled),
         }),
       });
+      const data = await res.json(); // ← read response
+      await ensureSubscription(data.hasSubscription ?? false); // ← await + pass arg
       onClose();
     } catch (err) {
       console.error("Failed to save", err);
