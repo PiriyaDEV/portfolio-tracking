@@ -16,6 +16,16 @@ export async function GET(req: Request, context: any) {
   try {
     const { id } = await context.params;
     const spreadsheetId = process.env.GOOGLE_SHEET_ID;
+    const url = new URL(req.url);
+    const symbolsParam = url.searchParams.get("symbols");
+    const validSymbols = symbolsParam
+      ? new Set(
+          symbolsParam
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean),
+        )
+      : null;
 
     if (!spreadsheetId) {
       return Response.json(
@@ -25,34 +35,53 @@ export async function GET(req: Request, context: any) {
     }
 
     const sheets = await getGoogleSheets();
-
-    // A:J เพื่อดึง Column I (subscription) และ Column J (notified log) มาด้วย
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId,
       range: "Sheet1!A:J",
     });
 
     const rows = response.data.values || [];
-    const userRow = rows
-      .slice(1)
-      .find((row) => row[0]?.toString() === id.toString());
+    const dataRows = rows.slice(1);
+    const userRowIndex = dataRows.findIndex(
+      (row) => row[0]?.toString() === id.toString(),
+    );
 
-    if (!userRow) {
+    if (userRowIndex === -1) {
       return Response.json({ error: "User not found" }, { status: 404 });
     }
 
-    // Column H = index 7 — notification settings
-    // Column I = index 8 — push subscription
-    // Column J = index 9 — notified log
+    const userRow = dataRows[userRowIndex];
     const raw = userRow[7];
-    const notification = raw
+    let notification = raw
       ? JSON.parse(raw)
       : { globalEnabled: false, notifications: [] };
 
+    // ── Clean up invalid symbols from Column H ──────────────────────────
+    if (validSymbols && notification.notifications?.length) {
+      const before = notification.notifications.length;
+      notification.notifications = notification.notifications.filter(
+        (n: { symbol: string }) => validSymbols.has(n.symbol),
+      );
+      const after = notification.notifications.length;
+
+      // Only write back if something was actually removed
+      if (before !== after) {
+        const rowNumber = userRowIndex + 2;
+        await sheets.spreadsheets.values.update({
+          spreadsheetId,
+          range: `Sheet1!H${rowNumber}`,
+          valueInputOption: "RAW",
+          requestBody: {
+            values: [[JSON.stringify(notification)]],
+          },
+        });
+      }
+    }
+    // ────────────────────────────────────────────────────────────────────
+
     const hasSubscription = !!userRow[8];
 
-    // คำนวณ notifiedToday จาก Column J
-    const today = new Date().toISOString().split("T")[0]; // "2026-03-12"
+    const today = new Date().toISOString().split("T")[0];
     let notifiedToday: string[] = [];
     try {
       const notifLog = userRow[9] ? JSON.parse(userRow[9]) : {};

@@ -73,7 +73,10 @@ export default function NotificationModal({
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await fetch(`/api/notification/${userColId}`);
+        const symbols = allAssets.map((a) => a.symbol).join(",");
+        const res = await fetch(
+          `/api/notification/${userColId}?symbols=${encodeURIComponent(symbols)}`,
+        );
         if (!res.ok) return;
         const json = await res.json();
         const saved = json.notification;

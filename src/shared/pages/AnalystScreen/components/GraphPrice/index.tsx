@@ -101,6 +101,12 @@ const MARKET_ITEMS = [
     type: "price",
   },
   {
+    key: "oil",
+    label: "OIL",
+    img: "https://static.thenounproject.com/png/1053409-200.png",
+    type: "price",
+  },
+  {
     key: "set",
     label: "SET",
     img: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRe8tM3-t2BDnm-9vKA-mN5yEQci4cOHUBGrw&s",
@@ -246,7 +252,7 @@ export function GraphPrice({
                       <img
                         src={item.img}
                         alt={item.label}
-                        className="w-5 h-5 rounded-full object-cover"
+                        className="w-5 h-5 rounded-full object-cover bg-white"
                         style={{
                           boxShadow: "0 0 0 1px rgba(255,255,255,0.12)",
                         }}

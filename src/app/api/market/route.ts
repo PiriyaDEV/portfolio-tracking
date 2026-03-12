@@ -8,6 +8,7 @@ const SYMBOLS = {
   gold: "GC=F",
   set: "^SET.BK",
   btc: "BTC-USD",
+  oil: "CL=F", // ✅ WTI Crude Oil
 };
 
 /* =======================
@@ -122,7 +123,7 @@ async function getFearAndGreed() {
           Accept: "application/json",
           Referer: "https://edition.cnn.com/",
         },
-        next: { revalidate: 3600 }, // CNN updates daily
+        next: { revalidate: 3600 },
       },
     );
 
@@ -149,11 +150,12 @@ async function getFearAndGreed() {
 ======================= */
 export async function GET() {
   try {
-    const [sp500, gold, set, btc, fearGreed] = await Promise.all([
+    const [sp500, gold, set, btc, oil, fearGreed] = await Promise.all([
       getMarketData(SYMBOLS.sp500), // daily
-      getMarketData(SYMBOLS.gold, "rolling24h"), // ✅ 24h
+      getMarketData(SYMBOLS.gold, "rolling24h"), // 24h
       getMarketData(SYMBOLS.set), // daily
-      getMarketData(SYMBOLS.btc, "rolling24h"), // ✅ 24h
+      getMarketData(SYMBOLS.btc, "rolling24h"), // 24h
+      getMarketData(SYMBOLS.oil, "rolling24h"), // ✅ 24h
       getFearAndGreed(),
     ]);
 
@@ -164,6 +166,7 @@ export async function GET() {
         gold,
         set,
         btc,
+        oil, // ✅ added
         fearGreed,
       },
       timestamp: Date.now(),
