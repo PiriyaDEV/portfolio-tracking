@@ -35,8 +35,6 @@ export default function NotificationModal({
   onClose,
 }: NotificationModalProps) {
   const [globalEnabled, setGlobalEnabled] = useState(false);
-  const [globalVibrate, setGlobalVibrate] = useState(false);
-  console.log("assets", assets);
   const [settings, setSettings] = useState<StockNotifSetting[]>(
     assets.map((a) => ({
       symbol: a.symbol,
@@ -61,7 +59,6 @@ export default function NotificationModal({
         const json = await res.json();
         const saved = json.notification;
         setGlobalEnabled(saved.globalEnabled ?? false);
-        setGlobalVibrate(saved.globalVibrate ?? true);
         setSettings(
           assets.map((a) => {
             const match = saved.notifications?.find(
@@ -134,7 +131,6 @@ export default function NotificationModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           globalEnabled,
-          globalVibrate,
           notifications: settings.filter((s) => s.enabled),
         }),
       });
@@ -210,22 +206,6 @@ export default function NotificationModal({
               enabled={globalEnabled}
               onToggle={() => setGlobalEnabled((v) => !v)}
               accent
-            />
-          </div>
-
-          {/* Global vibrate */}
-          <div className="flex items-center justify-between py-2.5 px-3 rounded-xl bg-white/[0.02] border border-white/8">
-            <div>
-              <p className="text-white text-[13px] font-medium">
-                สั่นเมื่อแจ้งเตือน
-              </p>
-              <p className="text-gray-600 text-[11px] mt-0.5">
-                ใช้กับทุกสินทรัพย์
-              </p>
-            </div>
-            <Toggle
-              enabled={globalVibrate}
-              onToggle={() => setGlobalVibrate((v) => !v)}
             />
           </div>
 

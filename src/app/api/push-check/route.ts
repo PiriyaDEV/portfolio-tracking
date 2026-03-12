@@ -61,9 +61,6 @@ export async function GET(req: Request) {
       const notifSettings = JSON.parse(notifRaw);
       if (!notifSettings.globalEnabled) continue;
 
-      // globalVibrate is a top-level setting saved alongside globalEnabled
-      const globalVibrate: boolean = notifSettings.globalVibrate ?? true;
-
       const subscription = JSON.parse(subscriptionRaw);
 
       let notifiedToday: Record<string, string[]> = {};
@@ -114,7 +111,6 @@ export async function GET(req: Request) {
                 title: `📊 แจ้งเตือน ${symbol}`,
                 body: message,
                 icon: "/apple-icon.png",
-                vibrate: globalVibrate, // ← ใช้ค่า global แทน per-stock
               }),
             );
             newlyNotified.push(symbol);

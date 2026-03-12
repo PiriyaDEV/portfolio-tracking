@@ -58,7 +58,7 @@ export async function POST(req: Request, context: any) {
   try {
     const { id } = await context.params;
     const body = await req.json();
-    const { globalEnabled, globalVibrate, notifications } = body; // เพิ่ม globalVibrate
+    const { globalEnabled, notifications } = body;
 
     const spreadsheetId = process.env.GOOGLE_SHEET_ID;
 
@@ -80,10 +80,8 @@ export async function POST(req: Request, context: any) {
     const dataRows = rows.slice(1);
     const userRowIndex = dataRows.findIndex((r) => r[0]?.toString() === id);
 
-    // เพิ่ม globalVibrate ใน payload
     const payload = JSON.stringify({
       globalEnabled,
-      globalVibrate,
       notifications,
     });
 
