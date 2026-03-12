@@ -1,15 +1,21 @@
-import type { Metadata } from "next";
-
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import BackgroundLayout from "@/shared/components/common/BackgroundLayout";
 
 export const metadata: Metadata = {
   title: "P'Tracker",
   description: "Portfolio Tracking",
-  themeColor: '#171616ff',
   openGraph: {
     images: `https://ptracker.netlify.app/images/metaImg.png`,
   },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1, // prevents iOS zoom on input focus
+  userScalable: false,
+  themeColor: "#171616ff",
 };
 
 export default function AppLayout({
@@ -17,5 +23,11 @@ export default function AppLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  return <BackgroundLayout>{children}</BackgroundLayout>;
+  return (
+    <html lang="en">
+      <body>
+        <BackgroundLayout>{children}</BackgroundLayout>
+      </body>
+    </html>
+  );
 }
