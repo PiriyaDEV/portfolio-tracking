@@ -1,6 +1,7 @@
 import { NOTIFICATION_CONFIG } from "@/shared/components/modal/NotificationModal/config.constants";
 import { google } from "googleapis";
 import webpush from "web-push";
+import { getAdvancedLevels } from "../stock/support.function";
 
 webpush.setVapidDetails(
   NOTIFICATION_CONFIG.VAPID_EMAIL,
@@ -19,42 +20,11 @@ async function getSheets() {
   return google.sheets({ version: "v4", auth });
 }
 
-async function fetchPrice(symbol: string): Promise<number | null> {
-  try {
-    const res = await fetch(
-      `${NOTIFICATION_CONFIG.YAHOO_API_BASE}/${symbol}?interval=1d&range=1d`,
-      { headers: { "User-Agent": "Mozilla/5.0" } },
-    );
-    const json = await res.json();
-    return json?.chart?.result?.[0]?.meta?.regularMarketPrice ?? null;
-  } catch {
-    return null;
-  }
-}
-
-// Simple support level = 52-week low from Yahoo
-async function fetchSupportLevel(symbol: string): Promise<number | null> {
-  try {
-    const res = await fetch(
-      `${NOTIFICATION_CONFIG.YAHOO_API_BASE}/${symbol}?interval=1wk&range=1y`,
-      { headers: { "User-Agent": "Mozilla/5.0" } },
-    );
-    const json = await res.json();
-    const lows: number[] =
-      json?.chart?.result?.[0]?.indicators?.quote?.[0]?.low ?? [];
-    const filtered = lows.filter((v) => v != null && v > 0);
-    return filtered.length ? Math.min(...filtered) : null;
-  } catch {
-    return null;
-  }
-}
-
 function getTodayKey() {
   return new Date().toISOString().split("T")[0]; // "2025-03-12"
 }
 
 export async function GET(req: Request) {
-  // Optional: protect with a secret header for cron
   const authHeader = req.headers.get("x-cron-secret");
   if (process.env.CRON_SECRET && authHeader !== process.env.CRON_SECRET) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
@@ -66,7 +36,7 @@ export async function GET(req: Request) {
 
     const res = await sheets.spreadsheets.values.get({
       spreadsheetId,
-      range: "Sheet1!A:J", // A=id, H=notif settings, I=push subscription, J=notified-today log
+      range: "Sheet1!A:J",
     });
 
     const rows = res.data.values || [];
@@ -81,18 +51,21 @@ export async function GET(req: Request) {
       ) {
         continue;
       }
-      const notifRaw = row[7]; // Column H
-      const subscriptionRaw = row[8]; // Column I
-      const notifiedLogRaw = row[9]; // Column J
+
+      const notifRaw = row[7];       // Column H — notification settings
+      const subscriptionRaw = row[8]; // Column I — push subscription
+      const notifiedLogRaw = row[9];  // Column J — notified-today log
 
       if (!notifRaw || !subscriptionRaw) continue;
 
       const notifSettings = JSON.parse(notifRaw);
       if (!notifSettings.globalEnabled) continue;
 
+      // globalVibrate is a top-level setting saved alongside globalEnabled
+      const globalVibrate: boolean = notifSettings.globalVibrate ?? true;
+
       const subscription = JSON.parse(subscriptionRaw);
 
-      // Parse today's already-notified symbols
       let notifiedToday: Record<string, string[]> = {};
       try {
         notifiedToday = notifiedLogRaw ? JSON.parse(notifiedLogRaw) : {};
@@ -105,10 +78,11 @@ export async function GET(req: Request) {
       for (const setting of notifSettings.notifications) {
         const { symbol, type, targetPrice } = setting;
 
-        // Skip if already notified today
         if (alreadyNotifiedSymbols.includes(symbol)) continue;
 
-        const currentPrice = await fetchPrice(symbol);
+        // getAdvancedLevels ดึง Yahoo 3mo และคำนวณ entry1/entry2 — ใช้ครั้งเดียวได้ทุก type
+        const levels = await getAdvancedLevels(symbol);
+        const currentPrice = levels.currentPrice;
         if (!currentPrice) continue;
 
         let shouldNotify = false;
@@ -120,16 +94,15 @@ export async function GET(req: Request) {
             shouldNotify = true;
             message = `${symbol} ราคาถึงเป้า ${target} แล้ว! ราคาปัจจุบัน ${currentPrice.toFixed(2)}`;
           }
-        } else if (type === "support") {
-          const support = await fetchSupportLevel(symbol);
-          if (support) {
-            const threshold =
-              support *
-              (1 + NOTIFICATION_CONFIG.SUPPORT_THRESHOLD_PERCENT / 100);
-            if (currentPrice <= threshold) {
-              shouldNotify = true;
-              message = `${symbol} ใกล้แนวรับ! ราคาปัจจุบัน ${currentPrice.toFixed(2)} (แนวรับ ~${support.toFixed(2)})`;
-            }
+        } else if (type === "support1" || type === "support2") {
+          const supportLevel = type === "support1" ? levels.entry1 : levels.entry2;
+          const supportLabel = type === "support1" ? "แนวรับ 1" : "แนวรับ 2";
+
+          const threshold =
+            supportLevel * (1 + NOTIFICATION_CONFIG.SUPPORT_THRESHOLD_PERCENT / 100);
+          if (currentPrice <= threshold) {
+            shouldNotify = true;
+            message = `${symbol} ใกล้${supportLabel}! ราคาปัจจุบัน ${currentPrice.toFixed(2)} (${supportLabel} ~${supportLevel.toFixed(2)})`;
           }
         }
 
@@ -141,7 +114,7 @@ export async function GET(req: Request) {
                 title: `📊 แจ้งเตือน ${symbol}`,
                 body: message,
                 icon: "/apple-icon.png",
-                vibrate: setting.vibrate ?? false,
+                vibrate: globalVibrate, // ← ใช้ค่า global แทน per-stock
               }),
             );
             newlyNotified.push(symbol);
@@ -152,7 +125,6 @@ export async function GET(req: Request) {
         }
       }
 
-      // Save updated notified-today log back to column J
       if (didNotify) {
         notifiedToday[todayKey] = newlyNotified;
         const rowNumber = rowIdx + 2;

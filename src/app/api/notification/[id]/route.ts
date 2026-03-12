@@ -58,7 +58,7 @@ export async function POST(req: Request, context: any) {
   try {
     const { id } = await context.params;
     const body = await req.json();
-    const { globalEnabled, notifications } = body;
+    const { globalEnabled, globalVibrate, notifications } = body; // เพิ่ม globalVibrate
 
     const spreadsheetId = process.env.GOOGLE_SHEET_ID;
 
@@ -80,10 +80,14 @@ export async function POST(req: Request, context: any) {
     const dataRows = rows.slice(1);
     const userRowIndex = dataRows.findIndex((r) => r[0]?.toString() === id);
 
-    const payload = JSON.stringify({ globalEnabled, notifications });
+    // เพิ่ม globalVibrate ใน payload
+    const payload = JSON.stringify({
+      globalEnabled,
+      globalVibrate,
+      notifications,
+    });
 
     if (userRowIndex === -1) {
-      // New user row — fill A, leave B-G empty, set H
       await sheets.spreadsheets.values.append({
         spreadsheetId,
         range: "Sheet1!A:H",
@@ -94,7 +98,6 @@ export async function POST(req: Request, context: any) {
       });
     } else {
       const rowNumber = userRowIndex + 2;
-      // Update column H only
       await sheets.spreadsheets.values.update({
         spreadsheetId,
         range: `Sheet1!H${rowNumber}`,

@@ -652,6 +652,7 @@ export default function MainApp() {
         <NotificationModal
           assets={assets}
           userColId={userColId}
+          advancedLevels={advancedLevels}
           onClose={() => setIsNotificationOpen(false)}
         />
       )}

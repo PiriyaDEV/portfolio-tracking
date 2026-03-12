@@ -6,35 +6,43 @@ import { useEffect, useState } from "react";
 import { FaTimes, FaCheck, FaBell, FaRedo } from "react-icons/fa";
 import { usePushNotification } from "@/shared/hooks/usePushNotification";
 
-type NotifType = "support" | "price" | null;
+type NotifType = "support1" | "support2" | "price" | null;
+
+interface AdvancedLevel {
+  entry1?: number;
+  entry2?: number;
+  [key: string]: any;
+}
 
 interface StockNotifSetting {
   symbol: string;
   enabled: boolean;
   type: NotifType;
   targetPrice: string;
-  vibrate: boolean;
 }
 
 interface NotificationModalProps {
   assets: Asset[];
   userColId: string;
+  advancedLevels?: Record<string, AdvancedLevel>;
   onClose: () => void;
 }
 
 export default function NotificationModal({
   assets,
   userColId,
+  advancedLevels = {},
   onClose,
 }: NotificationModalProps) {
   const [globalEnabled, setGlobalEnabled] = useState(false);
+  const [globalVibrate, setGlobalVibrate] = useState(false);
+  console.log("assets", assets);
   const [settings, setSettings] = useState<StockNotifSetting[]>(
     assets.map((a) => ({
       symbol: a.symbol,
       enabled: false,
       type: null,
       targetPrice: "",
-      vibrate: true,
     })),
   );
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -53,19 +61,24 @@ export default function NotificationModal({
         const json = await res.json();
         const saved = json.notification;
         setGlobalEnabled(saved.globalEnabled ?? false);
+        setGlobalVibrate(saved.globalVibrate ?? true);
         setSettings(
           assets.map((a) => {
             const match = saved.notifications?.find(
               (n: StockNotifSetting) => n.symbol === a.symbol,
             );
             return match
-              ? { vibrate: true, ...match }
+              ? {
+                  symbol: match.symbol,
+                  enabled: match.enabled,
+                  type: match.type,
+                  targetPrice: match.targetPrice ?? "",
+                }
               : {
                   symbol: a.symbol,
                   enabled: false,
                   type: null,
                   targetPrice: "",
-                  vibrate: true,
                 };
           }),
         );
@@ -121,6 +134,7 @@ export default function NotificationModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           globalEnabled,
+          globalVibrate,
           notifications: settings.filter((s) => s.enabled),
         }),
       });
@@ -176,9 +190,10 @@ export default function NotificationModal({
           </button>
         </div>
 
-        {/* Global toggle + Reset */}
+        {/* Global toggles + Reset */}
         <div className="px-6 py-4 border-b border-accent-yellow/10 space-y-3">
-          <div className="flex items-center justify-between">
+          {/* Global enable */}
+          <div className="flex items-center justify-between py-2.5 px-3 rounded-xl bg-white/[0.02] border border-white/8">
             <div>
               <p className="text-white text-[13px] font-semibold">
                 ใช้งานการแจ้งเตือน
@@ -195,6 +210,22 @@ export default function NotificationModal({
               enabled={globalEnabled}
               onToggle={() => setGlobalEnabled((v) => !v)}
               accent
+            />
+          </div>
+
+          {/* Global vibrate */}
+          <div className="flex items-center justify-between py-2.5 px-3 rounded-xl bg-white/[0.02] border border-white/8">
+            <div>
+              <p className="text-white text-[13px] font-medium">
+                สั่นเมื่อแจ้งเตือน
+              </p>
+              <p className="text-gray-600 text-[11px] mt-0.5">
+                ใช้กับทุกสินทรัพย์
+              </p>
+            </div>
+            <Toggle
+              enabled={globalVibrate}
+              onToggle={() => setGlobalVibrate((v) => !v)}
             />
           </div>
 
@@ -255,6 +286,11 @@ export default function NotificationModal({
           ) : (
             settings.map((s) => {
               const logoUrl = getLogo(s.symbol);
+              const levels = advancedLevels[s.symbol];
+              const shortName = levels.shortName ?? s.symbol;
+              const entry1 = levels?.entry1;
+              const entry2 = levels?.entry2;
+
               return (
                 <div
                   key={s.symbol}
@@ -271,12 +307,14 @@ export default function NotificationModal({
                         className={`w-7 h-7 rounded-full bg-cover bg-center border border-white/10 shrink-0 ${logoUrl ? "" : "bg-white"}`}
                         style={{ backgroundImage: `url(${logoUrl})` }}
                       />
-                      <span className="text-white font-semibold text-[13px]">
-                        {getName(s.symbol)}
-                      </span>
-                      <span className="text-gray-600 text-[11px]">
-                        {s.symbol}
-                      </span>
+                      <div className="flex flex-col gap-1">
+                        <span className="text-white font-semibold text-[13px]">
+                          {getName(s.symbol)}
+                        </span>
+                        <span className="!text-gray-400 text-[11px]">
+                          {shortName}
+                        </span>
+                      </div>
                     </div>
                     <Toggle
                       enabled={s.enabled}
@@ -292,22 +330,47 @@ export default function NotificationModal({
 
                   {s.enabled && (
                     <div className="space-y-2.5 pt-1">
-                      {/* Type chips */}
-                      <div className="flex gap-2">
+                      {/* Type chips — 3 options */}
+                      <div className="flex gap-1.5">
                         <button
                           onClick={() =>
                             updateSetting(s.symbol, {
-                              type: "support",
+                              type: "support1",
                               targetPrice: "",
                             })
                           }
                           className={`flex-1 py-1.5 rounded-lg text-[11px] font-semibold border transition-all ${
-                            s.type === "support"
+                            s.type === "support1"
                               ? "bg-accent-yellow/10 text-accent-yellow border-accent-yellow/40"
                               : "bg-transparent text-gray-500 border-white/10 hover:border-white/20"
                           }`}
                         >
-                          ตามแนวรับ
+                          แนวรับ 1
+                          {entry1 != null && (
+                            <span className="block text-[10px] font-normal opacity-60 mt-0.5">
+                              {entry1.toFixed(2)}
+                            </span>
+                          )}
+                        </button>
+                        <button
+                          onClick={() =>
+                            updateSetting(s.symbol, {
+                              type: "support2",
+                              targetPrice: "",
+                            })
+                          }
+                          className={`flex-1 py-1.5 rounded-lg text-[11px] font-semibold border transition-all ${
+                            s.type === "support2"
+                              ? "bg-accent-yellow/10 text-accent-yellow border-accent-yellow/40"
+                              : "bg-transparent text-gray-500 border-white/10 hover:border-white/20"
+                          }`}
+                        >
+                          แนวรับ 2
+                          {entry2 != null && (
+                            <span className="block text-[10px] font-normal opacity-60 mt-0.5">
+                              {entry2.toFixed(2)}
+                            </span>
+                          )}
                         </button>
                         <button
                           onClick={() =>
@@ -337,20 +400,6 @@ export default function NotificationModal({
                           className="w-full bg-black border border-accent-yellow/30 rounded-lg px-3 py-2 text-white text-[12px] placeholder-gray-600 focus:outline-none focus:border-accent-yellow/60 transition-colors"
                         />
                       )}
-
-                      {/* Vibrate toggle */}
-                      <div className="flex items-center justify-between pt-1 border-t border-white/5">
-                        <span className="text-gray-500 text-[11px]">
-                          สั่นเมื่อแจ้งเตือน
-                        </span>
-                        <Toggle
-                          enabled={s.vibrate}
-                          onToggle={() =>
-                            updateSetting(s.symbol, { vibrate: !s.vibrate })
-                          }
-                          small
-                        />
-                      </div>
 
                       {errors[s.symbol] && (
                         <p className="text-red-400 text-[11px]">
