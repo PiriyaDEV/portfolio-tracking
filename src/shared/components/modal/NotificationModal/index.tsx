@@ -48,7 +48,7 @@ export default function NotificationModal({
   const [isSaving, setIsSaving] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [resetDone, setResetDone] = useState(false);
-  const { permission, isSubscribed, subscribe } =
+  const { permission, isSubscribed, subscribe, syncSubscriptionIfNeeded } =
     usePushNotification(userColId);
 
   useEffect(() => {
@@ -58,7 +58,8 @@ export default function NotificationModal({
         if (!res.ok) return;
         const json = await res.json();
         const saved = json.notification;
-        setGlobalEnabled(saved.globalEnabled ?? false);
+        const isGlobalEnabled = saved.globalEnabled ?? false;
+        setGlobalEnabled(isGlobalEnabled);
         setSettings(
           assets.map((a) => {
             const match = saved.notifications?.find(
@@ -79,6 +80,11 @@ export default function NotificationModal({
                 };
           }),
         );
+
+        // ถ้า globalEnabled อยู่ → sync subscription ขึ้น sheet ใหม่เผื่อ Column I หาย
+        if (isGlobalEnabled) {
+          await syncSubscriptionIfNeeded();
+        }
       } catch (err) {
         console.error("Failed to load notification settings", err);
       } finally {
