@@ -48,6 +48,7 @@ export default function NotificationModal({
   const [isSaving, setIsSaving] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [resetDone, setResetDone] = useState(false);
+  const [notifiedToday, setNotifiedToday] = useState<string[]>([]);
   const { permission, isSubscribed, subscribe, ensureSubscription } =
     usePushNotification(userColId);
 
@@ -59,10 +60,10 @@ export default function NotificationModal({
         const json = await res.json();
         const saved = json.notification;
         const isGlobalEnabled = saved.globalEnabled ?? false;
-        // API ต้อง return hasSubscription: boolean (มีค่าใน Column I หรือเปล่า)
         const hasSubscriptionInSheet = json.hasSubscription ?? false;
 
         setGlobalEnabled(isGlobalEnabled);
+        setNotifiedToday(json.notifiedToday ?? []);
         setSettings(
           assets.map((a) => {
             const match = saved.notifications?.find(
@@ -84,9 +85,6 @@ export default function NotificationModal({
           }),
         );
 
-        // ถ้า globalEnabled → ให้ ensureSubscription จัดการ
-        // - Column I ว่าง → ขอ permission + subscribe ใหม่อัตโนมัติ
-        // - Column I มีค่า → sync เงียบๆ
         if (isGlobalEnabled) {
           await ensureSubscription(hasSubscriptionInSheet);
         }
@@ -158,6 +156,7 @@ export default function NotificationModal({
     try {
       await fetch(`/api/notification-reset/${userColId}`, { method: "POST" });
       setResetDone(true);
+      setNotifiedToday([]); // clear banner ทันทีหลัง reset
       setTimeout(() => setResetDone(false), 3000);
     } catch (err) {
       console.error("Reset failed", err);
@@ -219,6 +218,21 @@ export default function NotificationModal({
               accent
             />
           </div>
+
+          {/* วันนี้แจ้งเตือนแล้ว banner */}
+          {notifiedToday.length > 0 && (
+            <div className="flex items-start gap-2 py-2.5 px-3 rounded-xl bg-accent-yellow/5 border border-accent-yellow/20">
+              <FaBell className="text-accent-yellow text-[11px] mt-0.5 shrink-0" />
+              <div className="flex items-center gap-1">
+                <p className="text-accent-yellow text-[12px] font-semibold leading-tight">
+                  วันนี้แจ้งเตือนแล้ว
+                </p>
+                <p className="text-accent-yellow/60 text-[11px] mt-0.5">
+                  {notifiedToday.join(", ")}
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Reset button */}
           <button

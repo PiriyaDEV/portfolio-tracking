@@ -75,6 +75,7 @@ export async function GET(req: Request) {
 
       for (const setting of notifSettings.notifications) {
         const { symbol, type, targetPrice } = setting;
+        let emoji = "🎯";
 
         if (alreadyNotifiedSymbols.includes(symbol)) continue;
 
@@ -90,6 +91,7 @@ export async function GET(req: Request) {
           if (currentPrice <= target) {
             shouldNotify = true;
             message = `${symbol} ราคาถึงเป้า ${target.toFixed(2)} — ราคาปัจจุบัน ${currentPrice.toFixed(2)}`;
+            emoji = '🎯';
           }
         } else if (type === "support1" || type === "support2") {
           const supportLevel =
@@ -99,6 +101,7 @@ export async function GET(req: Request) {
           if (currentPrice <= supportLevel) {
             shouldNotify = true;
             message = `${symbol} ราคาต่ำกว่า ${supportLabel} — ราคาปัจจุบัน ${currentPrice.toFixed(2)} | ${supportLabel} ${supportLevel.toFixed(2)}`;
+            emoji = '📉';
           }
         }
 
@@ -107,7 +110,7 @@ export async function GET(req: Request) {
             await webpush.sendNotification(
               subscription,
               JSON.stringify({
-                title: `${symbol} — Price Alert`,
+                title: `${emoji} ${symbol} — Price Alert`,
                 body: message,
                 icon: "/apple-icon.png",
               }),

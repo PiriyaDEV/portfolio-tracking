@@ -26,10 +26,10 @@ export async function GET(req: Request, context: any) {
 
     const sheets = await getGoogleSheets();
 
-    // เปลี่ยนจาก A:H → A:I เพื่อดึง Column I (subscription) มาด้วย
+    // A:J เพื่อดึง Column I (subscription) และ Column J (notified log) มาด้วย
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId,
-      range: "Sheet1!A:I",
+      range: "Sheet1!A:J",
     });
 
     const rows = response.data.values || [];
@@ -43,14 +43,30 @@ export async function GET(req: Request, context: any) {
 
     // Column H = index 7 — notification settings
     // Column I = index 8 — push subscription
+    // Column J = index 9 — notified log
     const raw = userRow[7];
     const notification = raw
       ? JSON.parse(raw)
       : { globalEnabled: false, notifications: [] };
 
-    const hasSubscription = !!userRow[8]; // มีค่าใน Column I หรือเปล่า
+    const hasSubscription = !!userRow[8];
 
-    return Response.json({ userId: id, notification, hasSubscription });
+    // คำนวณ notifiedToday จาก Column J
+    const today = new Date().toISOString().split("T")[0]; // "2026-03-12"
+    let notifiedToday: string[] = [];
+    try {
+      const notifLog = userRow[9] ? JSON.parse(userRow[9]) : {};
+      notifiedToday = notifLog[today] ?? [];
+    } catch {
+      notifiedToday = [];
+    }
+
+    return Response.json({
+      userId: id,
+      notification,
+      hasSubscription,
+      notifiedToday,
+    });
   } catch (err: any) {
     console.error(err);
     return Response.json({ error: "Internal Server Error" }, { status: 500 });
