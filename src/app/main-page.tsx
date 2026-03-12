@@ -661,6 +661,18 @@ export default function MainApp() {
         <NotificationModal
           assets={assets}
           userColId={userColId}
+          wishlist={wishlist}
+          wishlistAdvancedLevels={data.reduce<Record<string, any>>(
+            (acc, item) => {
+              acc[item.symbol] = {
+                shortName: item.levels?.shortName ?? item.symbol,
+                entry1: item.levels?.entry1 ?? null,
+                entry2: item.levels?.entry2 ?? null,
+              };
+              return acc;
+            },
+            {},
+          )}
           advancedLevels={advancedLevels}
           onClose={() => setIsNotificationOpen(false)}
         />
