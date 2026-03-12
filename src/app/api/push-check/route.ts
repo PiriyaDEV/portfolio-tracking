@@ -81,24 +81,21 @@ export async function GET(req: Request) {
 
         const levels = await getAdvancedLevels(symbol);
         const currentPrice = levels.currentPrice;
+        const previousClose = levels.previousClose;
         if (!currentPrice) continue;
 
         // Resolve level1 threshold from the user's chosen type
         let level1: number | null = null;
-        let baseEmoji = "🎯";
         let baseLabel = "";
 
         if (type === "price") {
           level1 = Number(targetPrice);
-          baseEmoji = "🎯";
           baseLabel = `ราคาเป้า ${level1.toFixed(2)}`;
         } else if (type === "support1") {
           level1 = levels.entry1;
-          baseEmoji = "📉";
           baseLabel = `แนวรับ 1 (${level1.toFixed(2)})`;
         } else if (type === "support2") {
           level1 = levels.entry2;
-          baseEmoji = "📉";
           baseLabel = `แนวรับ 2 (${level1.toFixed(2)})`;
         }
 
@@ -121,30 +118,35 @@ export async function GET(req: Request) {
         if (reachedLevel === 0) continue;
 
         const lastNotifiedLevel = todayLevels[settingKey] || 0;
-
-        // Only notify if we've gone DEEPER than last notified level today.
-        // This naturally handles the "skip" case:
-        //   - First cron: price at level3 → lastNotified=0, reachedLevel=3 → notify level3 only
-        //   - Next cron: still level3 → 3 <= 3 → skip ✓
-        //   - If price recovers then drops to level2 next day → new todayKey → lastNotified=0 → notify level2
         if (reachedLevel <= lastNotifiedLevel) continue;
 
-        const levelLabels: Record<number, string> = {
-          1: `⚠️ Level 1`,
-          2: `🔴 Level 2 (-2.5%)`,
-          3: `🚨 Level 3 (-5%)`,
+        const levelEmojis: Record<number, string> = {
+          1: `👀`,
+          2: `⚠️`,
+          3: `🚨`,
         };
 
+        const levelLabels: Record<number, string> = {
+          1: `แตะจุดน่าสนใจ`,
+          2: `ร่วงแรง`,
+          3: `ร่วงเกินคาด!`,
+        };
+
+        const dailyChangePct = previousClose
+          ? ((currentPrice - previousClose) / previousClose) * 100
+          : 0;
+        const pctSign = dailyChangePct >= 0 ? "+" : "";
+        const pctStr = `${pctSign}${dailyChangePct.toFixed(2)}%`;
+
         const message =
-          `${symbol} ต่ำกว่า ${baseLabel} — ${levelLabels[reachedLevel]}\n` +
-          `ราคาปัจจุบัน ${currentPrice.toFixed(2)} | ` +
-          `L1: ${level1.toFixed(2)} | L2: ${level2.toFixed(2)} | L3: ${level3.toFixed(2)}`;
+          `${symbol} ต่ำกว่า ${baseLabel} — ` +
+          `ราคาปัจจุบัน ${currentPrice.toFixed(2)}`;
 
         try {
           await webpush.sendNotification(
             subscription,
             JSON.stringify({
-              title: `${baseEmoji} ${symbol} — ${levelLabels[reachedLevel]}`,
+              title: `${levelEmojis[reachedLevel]} ${symbol} (${pctStr}) — ${levelLabels[reachedLevel]}`,
               body: message,
               icon: "/apple-icon.png",
             }),
