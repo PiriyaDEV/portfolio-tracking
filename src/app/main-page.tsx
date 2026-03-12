@@ -9,6 +9,7 @@ import {
 import {
   FaArrowTrendUp as UpIcon,
   FaArrowTrendDown as DownIcon,
+  FaBell,
 } from "react-icons/fa6";
 import {
   FaEye as EyeIcon,
@@ -42,6 +43,7 @@ import {
   defaultMarketResponse,
   MarketResponse,
 } from "@/shared/pages/AnalystScreen/components/GraphPrice";
+import NotificationModal from "@/shared/components/modal/NotificationModal";
 
 const thaiMonths = [
   "ม.ค",
@@ -108,6 +110,7 @@ export default function MainApp() {
   const [searchedSymbol, setSearchedSymbol] = useState<string | null>(null);
 
   const { isNumbersHidden, setIsNumbersHidden } = useNumbersHidden();
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
 
   // ─── Session helpers ───────────────────────────────────────────────────────
   const saveSession = (uid: string, colId: string) => {
@@ -525,6 +528,12 @@ export default function MainApp() {
               <FaPen />
             </button>
             <button
+              onClick={() => setIsNotificationOpen(true)}
+              className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-white bg-black-lighter border border-white/10 transition-all text-[13px]"
+            >
+              <FaBell />
+            </button>
+            <button
               onClick={loadData}
               className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-white bg-black-lighter border border-white/10 transition-all text-[18px]"
             >
@@ -637,6 +646,13 @@ export default function MainApp() {
           profileImage={profileImage}
           onClose={() => setIsEditProfileOpen(false)}
           onSave={handleSaveProfile}
+        />
+      )}
+      {isNotificationOpen && (
+        <NotificationModal
+          assets={assets}
+          userColId={userColId}
+          onClose={() => setIsNotificationOpen(false)}
         />
       )}
 
