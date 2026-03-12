@@ -104,8 +104,13 @@ export async function GET(req: Request) {
 
         if (!level1) continue;
 
-        const level2 = level1 * (1 - 0.025); // -2.5% from level1
-        const level3 = level1 * (1 - 0.05); // -5.0% from level1
+        const CONFIG = {
+          level2: 0.5,
+          level3: 0.75,
+        };
+
+        const level2 = level1 * (1 - CONFIG.level2 / 100);
+        const level3 = level1 * (1 - CONFIG.level3 / 100);
 
         // Determine the deepest level reached right now
         let reachedLevel = 0;
