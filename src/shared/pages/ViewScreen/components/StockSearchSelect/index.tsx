@@ -109,7 +109,12 @@ export default function StockSearchSelect({
     } else {
       setQuery(s.displaySymbol);
     }
-    onSelect(s.symbol);
+
+    if (exchange == "US") {
+      onSelect(s.symbol.replace(/\./g, "-"));
+    } else {
+      onSelect(s.symbol);
+    }
   };
 
   const handleConfirm = () => {
