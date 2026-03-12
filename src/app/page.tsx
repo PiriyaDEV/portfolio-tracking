@@ -71,7 +71,7 @@ interface SessionData {
   expiresAt: number;
 }
 
-export default function StockPrice() {
+export default function MainApp() {
   const [prices, setPrices] = useState<Record<string, number | null>>({});
   const [previousPrice, setPreviousPrice] = useState<
     Record<string, number | null>
@@ -689,7 +689,8 @@ export default function StockPrice() {
 
       {/* ── Top Bar ────────────────────────────────────────────── */}
       {currentPage === "portfolio" && (
-        <div className="fixed top-[67px] left-0 right-0 bg-black z-[99] sm:max-w-[450px] mx-auto">
+        <div className="fixed top-[67px] left-0 right-0 bg-black z-[99] sm:max-w-[450px] mx-
+        auto">
           <ProfileHeader showActions={true} />
 
           {/* Sort Header */}
