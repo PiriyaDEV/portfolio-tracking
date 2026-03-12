@@ -22,7 +22,7 @@ async function getSheets() {
 }
 
 function getTodayKey() {
-  return new Date().toISOString().split("T")[0]; // "2025-03-12"
+  return new Date().toISOString().split("T")[0];
 }
 
 export async function GET(req: Request) {
@@ -55,7 +55,7 @@ export async function GET(req: Request) {
 
       const notifRaw = row[7]; // Column H — notification settings
       const subscriptionRaw = row[8]; // Column I — push subscription
-      const notifiedLogRaw = row[9]; // Column J — notified-today log
+      const notifiedLogRaw = row[9]; // Column J — notified log
 
       if (!notifRaw || !subscriptionRaw) continue;
 
@@ -64,73 +64,101 @@ export async function GET(req: Request) {
 
       const subscription = JSON.parse(subscriptionRaw);
 
-      let notifiedToday: Record<string, string[]> = {};
+      // Structure: Record<todayKey, Record<"SYMBOL_type", reachedLevel (1|2|3)>>
+      let notifiedLevels: Record<string, Record<string, number>> = {};
       try {
-        notifiedToday = notifiedLogRaw ? JSON.parse(notifiedLogRaw) : {};
+        notifiedLevels = notifiedLogRaw ? JSON.parse(notifiedLogRaw) : {};
       } catch {}
-      const alreadyNotifiedSymbols: string[] = notifiedToday[todayKey] || [];
+      const todayLevels: Record<string, number> =
+        notifiedLevels[todayKey] || {};
 
-      const newlyNotified: string[] = [...alreadyNotifiedSymbols];
       let didNotify = false;
+      const newTodayLevels = { ...todayLevels };
 
       for (const setting of notifSettings.notifications) {
         const { symbol, type, targetPrice } = setting;
-        let emoji = "🎯";
-
-        if (alreadyNotifiedSymbols.includes(symbol)) continue;
+        const settingKey = `${symbol}_${type}`; // e.g. "PTT_support1", "PTT_price"
 
         const levels = await getAdvancedLevels(symbol);
         const currentPrice = levels.currentPrice;
         if (!currentPrice) continue;
 
-        let shouldNotify = false;
-        let message = "";
+        // Resolve level1 threshold from the user's chosen type
+        let level1: number | null = null;
+        let baseEmoji = "🎯";
+        let baseLabel = "";
 
         if (type === "price") {
-          const target = Number(targetPrice);
-          if (currentPrice <= target) {
-            shouldNotify = true;
-            message = `${symbol} ราคาถึงเป้า ${target.toFixed(2)} — ราคาปัจจุบัน ${currentPrice.toFixed(2)}`;
-            emoji = '🎯';
-          }
-        } else if (type === "support1" || type === "support2") {
-          const supportLevel =
-            type === "support1" ? levels.entry1 : levels.entry2;
-          const supportLabel = type === "support1" ? "แนวรับ 1" : "แนวรับ 2";
-
-          if (currentPrice <= supportLevel) {
-            shouldNotify = true;
-            message = `${symbol} ราคาต่ำกว่า ${supportLabel} — ราคาปัจจุบัน ${currentPrice.toFixed(2)} | ${supportLabel} ${supportLevel.toFixed(2)}`;
-            emoji = '📉';
-          }
+          level1 = Number(targetPrice);
+          baseEmoji = "🎯";
+          baseLabel = `ราคาเป้า ${level1.toFixed(2)}`;
+        } else if (type === "support1") {
+          level1 = levels.entry1;
+          baseEmoji = "📉";
+          baseLabel = `แนวรับ 1 (${level1.toFixed(2)})`;
+        } else if (type === "support2") {
+          level1 = levels.entry2;
+          baseEmoji = "📉";
+          baseLabel = `แนวรับ 2 (${level1.toFixed(2)})`;
         }
 
-        if (shouldNotify) {
-          try {
-            await webpush.sendNotification(
-              subscription,
-              JSON.stringify({
-                title: `${emoji} ${symbol} — Price Alert`,
-                body: message,
-                icon: "/apple-icon.png",
-              }),
-            );
-            newlyNotified.push(symbol);
-            didNotify = true;
-          } catch (err) {
-            console.error(`Push failed for ${userId} / ${symbol}:`, err);
-          }
+        if (!level1) continue;
+
+        const level2 = level1 * (1 - 0.025); // -2.5% from level1
+        const level3 = level1 * (1 - 0.05); // -5.0% from level1
+
+        // Determine the deepest level reached right now
+        let reachedLevel = 0;
+        if (currentPrice <= level3) reachedLevel = 3;
+        else if (currentPrice <= level2) reachedLevel = 2;
+        else if (currentPrice <= level1) reachedLevel = 1;
+
+        if (reachedLevel === 0) continue;
+
+        const lastNotifiedLevel = todayLevels[settingKey] || 0;
+
+        // Only notify if we've gone DEEPER than last notified level today.
+        // This naturally handles the "skip" case:
+        //   - First cron: price at level3 → lastNotified=0, reachedLevel=3 → notify level3 only
+        //   - Next cron: still level3 → 3 <= 3 → skip ✓
+        //   - If price recovers then drops to level2 next day → new todayKey → lastNotified=0 → notify level2
+        if (reachedLevel <= lastNotifiedLevel) continue;
+
+        const levelLabels: Record<number, string> = {
+          1: `⚠️ Level 1`,
+          2: `🔴 Level 2 (-2.5%)`,
+          3: `🚨 Level 3 (-5%)`,
+        };
+
+        const message =
+          `${symbol} ต่ำกว่า ${baseLabel} — ${levelLabels[reachedLevel]}\n` +
+          `ราคาปัจจุบัน ${currentPrice.toFixed(2)} | ` +
+          `L1: ${level1.toFixed(2)} | L2: ${level2.toFixed(2)} | L3: ${level3.toFixed(2)}`;
+
+        try {
+          await webpush.sendNotification(
+            subscription,
+            JSON.stringify({
+              title: `${baseEmoji} ${symbol} — ${levelLabels[reachedLevel]}`,
+              body: message,
+              icon: "/apple-icon.png",
+            }),
+          );
+          newTodayLevels[settingKey] = reachedLevel;
+          didNotify = true;
+        } catch (err) {
+          console.error(`Push failed for ${userId} / ${symbol}:`, err);
         }
       }
 
       if (didNotify) {
-        notifiedToday[todayKey] = newlyNotified;
+        notifiedLevels[todayKey] = newTodayLevels;
         const rowNumber = rowIdx + 2;
         await sheets.spreadsheets.values.update({
           spreadsheetId,
           range: `Sheet1!J${rowNumber}`,
           valueInputOption: "RAW",
-          requestBody: { values: [[JSON.stringify(notifiedToday)]] },
+          requestBody: { values: [[JSON.stringify(notifiedLevels)]] },
         });
       }
     }
