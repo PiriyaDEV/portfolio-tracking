@@ -141,6 +141,7 @@ export async function GET(req: Request) {
                 title: `📊 แจ้งเตือน ${symbol}`,
                 body: message,
                 icon: "/apple-icon.png",
+                vibrate: setting.vibrate ?? false,
               }),
             );
             newlyNotified.push(symbol);

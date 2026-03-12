@@ -5,11 +5,7 @@ self.addEventListener("push", (event) => {
       body: data.body || "",
       icon: data.icon || "/apple-icon.png",
       badge: "/apple-icon.png",
+      vibrate: data.vibrate ? [200, 100, 200] : [], // ← สั่น 3 ครั้ง หรือไม่สั่นเลย
     }),
   );
-});
-
-self.addEventListener("notificationclick", (event) => {
-  event.notification.close();
-  event.waitUntil(clients.openWindow("/main"));
 });

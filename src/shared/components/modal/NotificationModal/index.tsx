@@ -3,7 +3,7 @@
 import { Asset } from "@/app/lib/interface";
 import { getLogo, getName } from "@/app/lib/utils";
 import { useEffect, useState } from "react";
-import { FaTimes, FaCheck, FaBell } from "react-icons/fa";
+import { FaTimes, FaCheck, FaBell, FaRedo } from "react-icons/fa";
 import { usePushNotification } from "@/shared/hooks/usePushNotification";
 
 type NotifType = "support" | "price" | null;
@@ -13,6 +13,7 @@ interface StockNotifSetting {
   enabled: boolean;
   type: NotifType;
   targetPrice: string;
+  vibrate: boolean;
 }
 
 interface NotificationModalProps {
@@ -33,11 +34,14 @@ export default function NotificationModal({
       enabled: false,
       type: null,
       targetPrice: "",
+      vibrate: true,
     })),
   );
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isFetching, setIsFetching] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
+  const [resetDone, setResetDone] = useState(false);
   const { permission, isSubscribed, subscribe } =
     usePushNotification(userColId);
 
@@ -55,12 +59,13 @@ export default function NotificationModal({
               (n: StockNotifSetting) => n.symbol === a.symbol,
             );
             return match
-              ? { ...match }
+              ? { vibrate: true, ...match }
               : {
                   symbol: a.symbol,
                   enabled: false,
                   type: null,
                   targetPrice: "",
+                  vibrate: true,
                 };
           }),
         );
@@ -103,8 +108,6 @@ export default function NotificationModal({
   const handleSave = async () => {
     if (!validate()) return;
     setIsSaving(true);
-
-    // If turning on and not yet subscribed → ask for push permission
     if (globalEnabled && !isSubscribed) {
       const ok = await subscribe();
       if (!ok) {
@@ -112,7 +115,6 @@ export default function NotificationModal({
         return;
       }
     }
-
     try {
       await fetch(`/api/notification/${userColId}`, {
         method: "POST",
@@ -124,9 +126,22 @@ export default function NotificationModal({
       });
       onClose();
     } catch (err) {
-      console.error("Failed to save notification settings", err);
+      console.error("Failed to save", err);
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleReset = async () => {
+    setIsResetting(true);
+    try {
+      await fetch(`/api/notification-reset/${userColId}`, { method: "POST" });
+      setResetDone(true);
+      setTimeout(() => setResetDone(false), 3000);
+    } catch (err) {
+      console.error("Reset failed", err);
+    } finally {
+      setIsResetting(false);
     }
   };
 
@@ -161,8 +176,8 @@ export default function NotificationModal({
           </button>
         </div>
 
-        {/* Master on/off — just this user's global switch, doesn't touch individual settings */}
-        <div className="px-6 py-4 border-b border-accent-yellow/10">
+        {/* Global toggle + Reset */}
+        <div className="px-6 py-4 border-b border-accent-yellow/10 space-y-3">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-white text-[13px] font-semibold">
@@ -182,6 +197,30 @@ export default function NotificationModal({
               accent
             />
           </div>
+
+          {/* Reset button */}
+          <button
+            onClick={handleReset}
+            disabled={isResetting}
+            className={`w-full py-2 rounded-xl border text-[12px] font-medium flex items-center justify-center gap-2 transition-all ${
+              resetDone
+                ? "border-green-500/40 text-green-400 bg-green-500/5"
+                : "border-white/10 text-gray-400 hover:text-white hover:border-white/20 bg-white/[0.02]"
+            } disabled:opacity-40`}
+          >
+            {isResetting ? (
+              <span className="inline-block w-3 h-3 rounded-full border-2 border-gray-500 border-t-white animate-spin" />
+            ) : resetDone ? (
+              <>
+                <FaCheck className="text-[11px]" /> รีเซ็ตแล้ว
+                สามารถแจ้งเตือนใหม่ได้วันนี้
+              </>
+            ) : (
+              <>
+                <FaRedo className="text-[11px]" /> รีเซ็ตการแจ้งเตือนวันนี้
+              </>
+            )}
+          </button>
         </div>
 
         {/* Stock list */}
@@ -225,6 +264,7 @@ export default function NotificationModal({
                       : "border-accent-yellow/10 bg-black"
                   }`}
                 >
+                  {/* Symbol row */}
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <div
@@ -252,6 +292,7 @@ export default function NotificationModal({
 
                   {s.enabled && (
                     <div className="space-y-2.5 pt-1">
+                      {/* Type chips */}
                       <div className="flex gap-2">
                         <button
                           onClick={() =>
@@ -282,6 +323,7 @@ export default function NotificationModal({
                         </button>
                       </div>
 
+                      {/* Price input */}
                       {s.type === "price" && (
                         <input
                           type="number"
@@ -295,6 +337,20 @@ export default function NotificationModal({
                           className="w-full bg-black border border-accent-yellow/30 rounded-lg px-3 py-2 text-white text-[12px] placeholder-gray-600 focus:outline-none focus:border-accent-yellow/60 transition-colors"
                         />
                       )}
+
+                      {/* Vibrate toggle */}
+                      <div className="flex items-center justify-between pt-1 border-t border-white/5">
+                        <span className="text-gray-500 text-[11px]">
+                          สั่นเมื่อแจ้งเตือน
+                        </span>
+                        <Toggle
+                          enabled={s.vibrate}
+                          onToggle={() =>
+                            updateSetting(s.symbol, { vibrate: !s.vibrate })
+                          }
+                          small
+                        />
+                      </div>
 
                       {errors[s.symbol] && (
                         <p className="text-red-400 text-[11px]">
@@ -341,24 +397,30 @@ function Toggle({
   enabled,
   onToggle,
   accent = false,
+  small = false,
 }: {
   enabled: boolean;
   onToggle: () => void;
   accent?: boolean;
+  small?: boolean;
 }) {
   return (
     <button
       onClick={onToggle}
-      className={`relative w-11 h-6 rounded-full transition-colors duration-200 shrink-0 ${
-        enabled
-          ? accent
-            ? "bg-accent-yellow"
-            : "bg-accent-yellow/80"
-          : "bg-white/10"
-      }`}
+      className={`relative rounded-full transition-colors duration-200 shrink-0 ${
+        small ? "w-8 h-4" : "w-11 h-6"
+      } ${enabled ? (accent ? "bg-accent-yellow" : "bg-accent-yellow/80") : "bg-white/10"}`}
     >
       <span
-        className={`absolute top-0.5 w-5 h-5 rounded-full transition-all duration-200 ${enabled ? "left-[22px] bg-black" : "left-0.5 bg-gray-400"}`}
+        className={`absolute top-0.5 rounded-full transition-all duration-200 ${
+          small ? "w-3 h-3" : "w-5 h-5"
+        } ${
+          enabled
+            ? small
+              ? "left-[18px] bg-black"
+              : "left-[22px] bg-black"
+            : "left-0.5 bg-gray-400"
+        }`}
       />
     </button>
   );
