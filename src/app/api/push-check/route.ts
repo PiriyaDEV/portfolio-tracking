@@ -53,9 +53,9 @@ export async function GET(req: Request) {
         continue;
       }
 
-      const notifRaw = row[7];       // Column H — notification settings
+      const notifRaw = row[7]; // Column H — notification settings
       const subscriptionRaw = row[8]; // Column I — push subscription
-      const notifiedLogRaw = row[9];  // Column J — notified-today log
+      const notifiedLogRaw = row[9]; // Column J — notified-today log
 
       if (!notifRaw || !subscriptionRaw) continue;
 
@@ -78,7 +78,6 @@ export async function GET(req: Request) {
 
         if (alreadyNotifiedSymbols.includes(symbol)) continue;
 
-        // getAdvancedLevels ดึง Yahoo 3mo และคำนวณ entry1/entry2 — ใช้ครั้งเดียวได้ทุก type
         const levels = await getAdvancedLevels(symbol);
         const currentPrice = levels.currentPrice;
         if (!currentPrice) continue;
@@ -90,17 +89,16 @@ export async function GET(req: Request) {
           const target = Number(targetPrice);
           if (currentPrice <= target) {
             shouldNotify = true;
-            message = `${symbol} ราคาถึงเป้า ${target} แล้ว! ราคาปัจจุบัน ${currentPrice.toFixed(2)}`;
+            message = `${symbol} ราคาถึงเป้า ${target.toFixed(2)} — ราคาปัจจุบัน ${currentPrice.toFixed(2)}`;
           }
         } else if (type === "support1" || type === "support2") {
-          const supportLevel = type === "support1" ? levels.entry1 : levels.entry2;
-          const supportLabel = type === "support1" ? "แนวรับ 1" : "แนวรับ 2";
+          const supportLevel =
+            type === "support1" ? levels.entry1 : levels.entry2;
+          const supportLabel = type === "support1" ? "Support 1" : "Support 2";
 
-          const threshold =
-            supportLevel * (1 + NOTIFICATION_CONFIG.SUPPORT_THRESHOLD_PERCENT / 100);
-          if (currentPrice <= threshold) {
+          if (currentPrice <= supportLevel) {
             shouldNotify = true;
-            message = `${symbol} ใกล้${supportLabel}! ราคาปัจจุบัน ${currentPrice.toFixed(2)} (${supportLabel} ~${supportLevel.toFixed(2)})`;
+            message = `${symbol} ราคาต่ำกว่า ${supportLabel} — ราคาปัจจุบัน ${currentPrice.toFixed(2)} | ${supportLabel} ${supportLevel.toFixed(2)}`;
           }
         }
 
@@ -109,7 +107,7 @@ export async function GET(req: Request) {
             await webpush.sendNotification(
               subscription,
               JSON.stringify({
-                title: `📊 แจ้งเตือน ${symbol}`,
+                title: `${symbol} — Price Alert`,
                 body: message,
                 icon: "/apple-icon.png",
               }),
