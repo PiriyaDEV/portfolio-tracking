@@ -177,16 +177,16 @@ export default function MainApp() {
       userColId,
       expiresAt: Date.now() + SESSION_DURATION,
     };
-    sessionStorage.setItem(SESSION_KEY, JSON.stringify(sessionData));
+    localStorage.setItem(SESSION_KEY, JSON.stringify(sessionData));
   };
 
   const getSession = (): SessionData | null => {
     try {
-      const data = sessionStorage.getItem(SESSION_KEY);
+      const data = localStorage.getItem(SESSION_KEY);
       if (!data) return null;
       const session: SessionData = JSON.parse(data);
       if (Date.now() > session.expiresAt) {
-        sessionStorage.removeItem(SESSION_KEY);
+        localStorage.removeItem(SESSION_KEY);
         return null;
       }
       return session;
@@ -196,7 +196,7 @@ export default function MainApp() {
     }
   };
 
-  const clearSession = () => sessionStorage.removeItem(SESSION_KEY);
+  const clearSession = () => localStorage.removeItem(SESSION_KEY);
 
   useEffect(() => {
     const checkSession = async () => {
