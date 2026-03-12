@@ -665,6 +665,7 @@ export default function MainApp() {
           wishlistAdvancedLevels={data.reduce<Record<string, any>>(
             (acc, item) => {
               acc[item.symbol] = {
+                currentPrice: item.levels?.currentPrice ?? null,
                 shortName: item.levels?.shortName ?? item.symbol,
                 entry1: item.levels?.entry1 ?? null,
                 entry2: item.levels?.entry2 ?? null,
