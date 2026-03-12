@@ -75,23 +75,32 @@ export function usePushNotification(userColId: string) {
       if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
 
       if (!hasSubscriptionInSheet) {
-        // Column I ว่าง → ต้องขอ permission ใหม่และ subscribe ใหม่
+        // Column I ว่าง → ขอ permission ใหม่และ subscribe ใหม่
         await subscribe();
         return;
       }
 
-      // Column I มีค่าแล้ว → เช็ค browser ว่ายัง subscribe อยู่มั้ย ถ้ามีก็ sync เงียบๆ
+      // Column I มีค่าแล้ว → replace subscription ใหม่เลย (ไม่ต้องขอ permission ซ้ำถ้า granted อยู่แล้ว)
       if (Notification.permission !== "granted") return;
 
       const reg = await navigator.serviceWorker.register("/sw.js");
       await navigator.serviceWorker.ready;
+
+      // Unsubscribe ของเก่าออกก่อน แล้ว subscribe ใหม่
       const existing = await reg.pushManager.getSubscription();
-      if (!existing) return;
+      if (existing) await existing.unsubscribe();
+
+      const newSub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(
+          NOTIFICATION_CONFIG.VAPID_PUBLIC_KEY,
+        ),
+      });
 
       await fetch("/api/push-subscribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userColId, subscription: existing }),
+        body: JSON.stringify({ userColId, subscription: newSub }),
       });
 
       setIsSubscribed(true);
