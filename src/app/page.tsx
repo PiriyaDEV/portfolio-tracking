@@ -63,7 +63,7 @@ const minutes = now.getMinutes().toString().padStart(2, "0");
 
 const isMock = false;
 const SESSION_KEY = "portfolio_session";
-const SESSION_DURATION = 60 * 60 * 1000;
+const SESSION_DURATION = 30 * 24 * 60 * 60 * 1000;
 
 interface SessionData {
   userId: string;
@@ -352,6 +352,8 @@ export default function MainApp() {
 
   async function loadData() {
     if (!assets || assets.length === 0) return;
+
+    saveSession(userId, userColId);
 
     // Reset everything so skeletons show on refresh too
     setIsLoading(true);
