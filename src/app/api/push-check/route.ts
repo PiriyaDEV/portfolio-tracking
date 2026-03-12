@@ -1,3 +1,4 @@
+// /push-check
 import { NOTIFICATION_CONFIG } from "@/shared/components/modal/NotificationModal/config.constants";
 import { google } from "googleapis";
 import webpush from "web-push";

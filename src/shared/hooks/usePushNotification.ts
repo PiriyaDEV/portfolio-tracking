@@ -24,6 +24,7 @@ export function usePushNotification(userColId: string) {
     checkExisting();
   }, []);
 
+  // subscribe ใหม่ทุกครั้ง — ขอ permission + save ลง Column I
   const subscribe = async (): Promise<boolean> => {
     try {
       if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
@@ -40,8 +41,6 @@ export function usePushNotification(userColId: string) {
       setPermission(perm);
       if (perm !== "granted") return false;
 
-      // ถ้ามี subscription อยู่แล้ว ให้ส่ง re-save ไปที่ server ด้วย
-      // เผื่อ Column I ใน sheet ว่างทั้งที่ browser subscribe อยู่แล้ว
       const existing = await reg.pushManager.getSubscription();
       const sub =
         existing ??
@@ -66,10 +65,22 @@ export function usePushNotification(userColId: string) {
     }
   };
 
-  // เรียกตอน modal load — ถ้า globalEnabled แต่ sheet ไม่มี subscription → re-save
-  const syncSubscriptionIfNeeded = async (): Promise<void> => {
+  // เรียกตอน modal load พร้อมส่ง hasSubscription มาจาก sheet
+  // - ถ้า sheet ไม่มี subscription (Column I ว่าง) → subscribe ใหม่เลย (ขอ permission + save)
+  // - ถ้า sheet มีแล้ว → sync เงียบๆ ไม่ต้องขอ permission ซ้ำ
+  const ensureSubscription = async (
+    hasSubscriptionInSheet: boolean,
+  ): Promise<void> => {
     try {
       if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+
+      if (!hasSubscriptionInSheet) {
+        // Column I ว่าง → ต้องขอ permission ใหม่และ subscribe ใหม่
+        await subscribe();
+        return;
+      }
+
+      // Column I มีค่าแล้ว → เช็ค browser ว่ายัง subscribe อยู่มั้ย ถ้ามีก็ sync เงียบๆ
       if (Notification.permission !== "granted") return;
 
       const reg = await navigator.serviceWorker.register("/sw.js");
@@ -77,7 +88,6 @@ export function usePushNotification(userColId: string) {
       const existing = await reg.pushManager.getSubscription();
       if (!existing) return;
 
-      // ส่ง subscription ขึ้น server ใหม่ เผื่อ Column I หาย
       await fetch("/api/push-subscribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -88,7 +98,7 @@ export function usePushNotification(userColId: string) {
     } catch {}
   };
 
-  return { permission, isSubscribed, subscribe, syncSubscriptionIfNeeded };
+  return { permission, isSubscribed, subscribe, ensureSubscription };
 }
 
 function urlBase64ToUint8Array(base64String: string) {

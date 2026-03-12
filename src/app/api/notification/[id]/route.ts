@@ -26,9 +26,10 @@ export async function GET(req: Request, context: any) {
 
     const sheets = await getGoogleSheets();
 
+    // เปลี่ยนจาก A:H → A:I เพื่อดึง Column I (subscription) มาด้วย
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId,
-      range: "Sheet1!A:H",
+      range: "Sheet1!A:I",
     });
 
     const rows = response.data.values || [];
@@ -40,13 +41,16 @@ export async function GET(req: Request, context: any) {
       return Response.json({ error: "User not found" }, { status: 404 });
     }
 
-    // Column H = index 7
+    // Column H = index 7 — notification settings
+    // Column I = index 8 — push subscription
     const raw = userRow[7];
     const notification = raw
       ? JSON.parse(raw)
       : { globalEnabled: false, notifications: [] };
 
-    return Response.json({ userId: id, notification });
+    const hasSubscription = !!userRow[8]; // มีค่าใน Column I หรือเปล่า
+
+    return Response.json({ userId: id, notification, hasSubscription });
   } catch (err: any) {
     console.error(err);
     return Response.json({ error: "Internal Server Error" }, { status: 500 });

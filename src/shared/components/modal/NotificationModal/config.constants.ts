@@ -9,6 +9,6 @@ export const NOTIFICATION_CONFIG = {
 
   // ─── Admin test mode ───────────────────────────────────────────
   // เปิด true เพื่อทดสอบ → จะส่ง notification เฉพาะ user นี้เท่านั้น
-  IS_ADMIN_TEST: true,
+  IS_ADMIN_TEST: false,
   ADMIN_TEST_USER_ID: "1449",
 };

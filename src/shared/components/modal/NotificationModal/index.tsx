@@ -48,7 +48,7 @@ export default function NotificationModal({
   const [isSaving, setIsSaving] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [resetDone, setResetDone] = useState(false);
-  const { permission, isSubscribed, subscribe, syncSubscriptionIfNeeded } =
+  const { permission, isSubscribed, subscribe, ensureSubscription } =
     usePushNotification(userColId);
 
   useEffect(() => {
@@ -59,6 +59,9 @@ export default function NotificationModal({
         const json = await res.json();
         const saved = json.notification;
         const isGlobalEnabled = saved.globalEnabled ?? false;
+        // API ต้อง return hasSubscription: boolean (มีค่าใน Column I หรือเปล่า)
+        const hasSubscriptionInSheet = json.hasSubscription ?? false;
+
         setGlobalEnabled(isGlobalEnabled);
         setSettings(
           assets.map((a) => {
@@ -81,9 +84,11 @@ export default function NotificationModal({
           }),
         );
 
-        // ถ้า globalEnabled อยู่ → sync subscription ขึ้น sheet ใหม่เผื่อ Column I หาย
+        // ถ้า globalEnabled → ให้ ensureSubscription จัดการ
+        // - Column I ว่าง → ขอ permission + subscribe ใหม่อัตโนมัติ
+        // - Column I มีค่า → sync เงียบๆ
         if (isGlobalEnabled) {
-          await syncSubscriptionIfNeeded();
+          await ensureSubscription(hasSubscriptionInSheet);
         }
       } catch (err) {
         console.error("Failed to load notification settings", err);
@@ -316,7 +321,6 @@ export default function NotificationModal({
 
                   {s.enabled && (
                     <div className="space-y-2.5 pt-1">
-                      {/* Type chips — 3 options */}
                       <div className="flex gap-1.5">
                         <button
                           onClick={() =>
@@ -372,7 +376,6 @@ export default function NotificationModal({
                         </button>
                       </div>
 
-                      {/* Price input */}
                       {s.type === "price" && (
                         <input
                           type="number"
