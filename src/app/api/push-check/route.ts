@@ -105,8 +105,8 @@ export async function GET(req: Request) {
         if (!level1) continue;
 
         const CONFIG = {
-          level2: 0.5,
-          level3: 0.75,
+          level2: 2.5,
+          level3: 5,
         };
 
         const level2 = level1 * (1 - CONFIG.level2 / 100);
