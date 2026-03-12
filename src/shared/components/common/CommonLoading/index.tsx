@@ -1,5 +1,4 @@
 import { FC } from "react";
-import { PuffLoader } from "react-spinners";
 
 interface CommonLoadingProps {
   isLoading?: boolean;
@@ -12,29 +11,44 @@ const CommonLoading: FC<CommonLoadingProps> = ({
 }) => {
   if (!isLoading) return null;
 
-  // Full screen overlay
+  const Loader = () => (
+    <div className="w-12 h-12">
+      <svg className="animate-spin w-full h-full" viewBox="0 0 50 50">
+        <circle
+          cx="25"
+          cy="25"
+          r="20"
+          fill="none"
+          stroke="white"
+          strokeOpacity="0.15"
+          strokeWidth="4"
+        />
+        <circle
+          cx="25"
+          cy="25"
+          r="20"
+          fill="none"
+          stroke="white"
+          strokeWidth="4"
+          strokeLinecap="round"
+          strokeDasharray="80 200"
+          strokeDashoffset="-10"
+        />
+      </svg>
+    </div>
+  );
+
   if (isFullScreen) {
     return (
-      <div className="absolute top-0 left-0 w-full h-full bg-black bg-opacity-50 flex items-center justify-center z-[102]">
-        <PuffLoader
-          color="white"
-          size={80}
-          aria-label="Loading Spinner"
-          data-testid="loader"
-        />
+      <div className="fixed inset-0 bg-black flex items-center justify-center z-[102]">
+        <Loader />
       </div>
     );
   }
 
-  // Inline / component-level loader
   return (
-    <div className="w-full flex justify-center items-center py-2">
-      <PuffLoader
-        color="white"
-        size={80}
-        aria-label="Loading Spinner"
-        data-testid="loader"
-      />
+    <div className="w-full flex justify-center items-center py-8">
+      <Loader />
     </div>
   );
 };
