@@ -250,7 +250,7 @@ export default function MainApp() {
     if (assets && assets.length > 0) {
       loadData();
 
-      fetch("/api/debug-yahoo")
+      fetch("/api/debug-stock")
         .then((res) => res.json())
         .then((debugData) => {
           console.log("Yahoo GSPC raw:", debugData);
