@@ -35,8 +35,6 @@ import { useMarketStore } from "@/store/useMarketStore";
    Types
 ======================= */
 
-type GraphPoint = { time: number; price: number };
-
 type PrePostData = {
   currentPrice: number | null;
   regularMarketPrice: number | null;
@@ -130,6 +128,25 @@ type Props = {
 };
 
 /* =======================
+   Helpers
+======================= */
+
+/**
+ * Compute % change using the same formula used everywhere in the app:
+ *   (currentPrice - previousPrice) / previousPrice * 100
+ *
+ * For market-bar chips we fall back to the API's changePercent only when
+ * we don't have the symbol tracked in the store.
+ */
+function calcPct(
+  current: number | null | undefined,
+  previous: number | null | undefined,
+): number {
+  if (!current || !previous || previous === 0) return 0;
+  return ((current - previous) / previous) * 100;
+}
+
+/* =======================
    Component
 ======================= */
 
@@ -144,6 +161,8 @@ export function GraphPrice({ assets, market }: Props) {
     {},
   );
   const [isLoadingPrePost, setIsLoadingPrePost] = useState(true);
+
+  // ─── Selected symbol for detail modal ────────────────────────────────────
   const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
 
   const isLoading = !graphs || Object.keys(graphs).length === 0;
@@ -200,13 +219,6 @@ export function GraphPrice({ assets, market }: Props) {
     return () => clearInterval(interval);
   }, [assets, isPageVisible]);
 
-  const getProfitPercent = (symbol: string) => {
-    const cur = prices?.[symbol];
-    const prev = previousPrice?.[symbol];
-    if (!cur || !prev) return 0;
-    return ((cur - prev) / prev) * 100;
-  };
-
   const getHoldingValue = (asset: Asset) => asset.quantity * asset.costPerShare;
 
   const sortedAssets = useMemo(() => {
@@ -220,8 +232,9 @@ export function GraphPrice({ assets, market }: Props) {
       );
     }
     return list.sort((a, b) => {
-      const pa = getProfitPercent(a.symbol);
-      const pb = getProfitPercent(b.symbol);
+      // Use same formula as row rendering
+      const pa = calcPct(prices?.[a.symbol], previousPrice?.[a.symbol]);
+      const pb = calcPct(prices?.[b.symbol], previousPrice?.[b.symbol]);
       return sortOrder === "asc" ? pa - pb : pb - pa;
     });
   }, [assets, prices, previousPrice, sortBy, sortOrder]);
@@ -253,12 +266,15 @@ export function GraphPrice({ assets, market }: Props) {
         />
       )}
 
+      {/* ── Detail modal — receive store prices so % is consistent with the row ── */}
       {selectedSymbol && selectedAsset && (
         <StockDetailModal
           symbol={selectedSymbol}
           asset={assets.find((a) => a.symbol === selectedSymbol) ?? null}
           onClose={() => setSelectedSymbol(null)}
           currencyRate={currencyRate}
+          storeCurrentPrice={prices?.[selectedSymbol] ?? null}
+          storePreviousPrice={previousPrice?.[selectedSymbol] ?? null}
         />
       )}
 
@@ -282,18 +298,33 @@ export function GraphPrice({ assets, market }: Props) {
                       item.key as keyof MarketResponse
                     ] as MarketItem;
                     if (!data?.price) return null;
-                    const isUp = (data.changePercent ?? 0) >= 0;
+
+                    // ── Bug 2 fix: use store prices when available, fall back to API ──
+                    const marketSymbol =
+                      item.key in MARKET_SYMBOLS
+                        ? MARKET_SYMBOLS[
+                            item.key as keyof typeof MARKET_SYMBOLS
+                          ]
+                        : null;
+                    const storePrice = marketSymbol
+                      ? (prices?.[marketSymbol] ?? null)
+                      : null;
+                    const storePrev = marketSymbol
+                      ? (previousPrice?.[marketSymbol] ?? null)
+                      : null;
+                    const pct =
+                      storePrice && storePrev
+                        ? calcPct(storePrice, storePrev) // same formula as row
+                        : (data.changePercent ?? 0); // fallback to API value
+                    const displayPrice = storePrice ?? data.price;
+                    const isUp = pct >= 0;
+
                     return (
                       <div
                         key={item.key}
-                        onClick={() => {
-                          item.key in MARKET_SYMBOLS &&
-                            setSelectedSymbol(
-                              MARKET_SYMBOLS[
-                                item.key as keyof typeof MARKET_SYMBOLS
-                              ],
-                            );
-                        }}
+                        onClick={() =>
+                          marketSymbol && setSelectedSymbol(marketSymbol)
+                        }
                         className="flex items-center gap-2 shrink-0"
                         style={{
                           background: "rgba(255,255,255,0.04)",
@@ -318,13 +349,13 @@ export function GraphPrice({ assets, market }: Props) {
                           style={{ gap: "1px" }}
                         >
                           <span className="text-[12px] font-semibold text-[#f0f0f0] tracking-[0.01em] font-mono">
-                            {fNumber(data.price)}
+                            {fNumber(displayPrice)}
                           </span>
                           <span
                             className={`text-[10px] font-medium tracking-[0.02em] ${isUp ? "!text-emerald-600" : "!text-red-600"}`}
                           >
                             {isUp ? "▲ +" : "▼ "}
-                            {fNumber(data.changePercent ?? 0)}%
+                            {fNumber(pct)}%
                           </span>
                         </div>
                       </div>
@@ -457,10 +488,9 @@ export function GraphPrice({ assets, market }: Props) {
           const { data } = graph;
           const currentPrice = prices?.[symbol];
           const prevPrice = previousPrice?.[symbol];
-          const percentChange =
-            prevPrice && currentPrice
-              ? ((currentPrice - prevPrice) / prevPrice) * 100
-              : 0;
+
+          // ── Single source of truth for % in this row ──────────────────────
+          const percentChange = calcPct(currentPrice, prevPrice);
           const color =
             percentChange > 0
               ? "#22c55e"
@@ -539,7 +569,7 @@ export function GraphPrice({ assets, market }: Props) {
                     const pp = prePostData[symbol];
                     const ppChange = pp?.prePostChangePercent;
 
-                    // ── null-safe: coalesce null → undefined so fNumber never receives null ──
+                    // null-safe display price
                     const rawPrice =
                       pp?.regularMarketPrice ?? currentPrice ?? undefined;
                     const displayPrice =

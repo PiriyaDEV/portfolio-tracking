@@ -32,9 +32,19 @@ function buildFormattedDate(): string {
   return `${day} ${month} ${year} ${hours}:${minutes} น.`;
 }
 
+// ─── Market symbol → Yahoo symbol mapping (mirrors MARKET_SYMBOLS in route) ──
+// We need this to inject market data into prices/previousPrice so
+// the chip % and the store % use the exact same formula.
+const MARKET_KEY_TO_SYMBOL: Record<string, string> = {
+  sp500: "^GSPC",
+  gold: "GC=F",
+  set: "^SET.BK",
+  btc: "BTC-USD",
+  oil: "CL=F",
+};
+
 // ─── State shape ──────────────────────────────────────────────────────────────
 export interface MarketState {
-  // Market data (shared across all pages)
   prices: Record<string, number | null>;
   previousPrice: Record<string, number | null>;
   graphs: Record<string, any>;
@@ -44,12 +54,10 @@ export interface MarketState {
   market: MarketResponse;
   formattedDate: string;
 
-  // Loading flags
   isLoading: boolean;
   isFirstBatchLoaded: boolean;
   isSilentRefreshing: boolean;
 
-  // Actions
   loadData: (
     assets: Asset[],
     userId: string,
@@ -65,7 +73,6 @@ let _isSilentRefreshing = false;
 
 // ─── Store ────────────────────────────────────────────────────────────────────
 export const useMarketStore = create<MarketState>((set, get) => ({
-  // Initial state
   prices: {},
   previousPrice: {},
   graphs: {},
@@ -79,7 +86,6 @@ export const useMarketStore = create<MarketState>((set, get) => ({
   isFirstBatchLoaded: false,
   isSilentRefreshing: false,
 
-  // ── Reset (e.g. when user changes or assets change) ─────────────────────────
   resetMarket: () =>
     set({
       prices: {},
@@ -94,7 +100,6 @@ export const useMarketStore = create<MarketState>((set, get) => ({
       isFirstBatchLoaded: false,
     }),
 
-  // ── Full load (shows loading spinner) ───────────────────────────────────────
   loadData: async (assets, userId, userColId, saveSession) => {
     if (!assets || assets.length === 0) {
       set({ isLoading: false });
@@ -115,9 +120,9 @@ export const useMarketStore = create<MarketState>((set, get) => ({
 
     try {
       await Promise.all([
-        fetchFinancialData(assets, set),
-        fetchFxRate(set),
-        fetchMarket(set),
+        fetchFinancialData(assets),
+        fetchFxRate(),
+        fetchMarket(),
       ]);
       set({ formattedDate: buildFormattedDate() });
     } catch (err) {
@@ -127,7 +132,6 @@ export const useMarketStore = create<MarketState>((set, get) => ({
     }
   },
 
-  // ── Silent refresh (no spinner — merges into existing state) ─────────────────
   silentRefresh: async (assets) => {
     if (_isSilentRefreshing) return;
     _isSilentRefreshing = true;
@@ -135,9 +139,9 @@ export const useMarketStore = create<MarketState>((set, get) => ({
 
     try {
       await Promise.all([
-        fetchFinancialData(assets, set),
-        fetchFxRate(set),
-        fetchMarket(set),
+        fetchFinancialData(assets),
+        fetchFxRate(),
+        fetchMarket(),
       ]);
       set({ formattedDate: buildFormattedDate() });
     } catch (err) {
@@ -149,15 +153,12 @@ export const useMarketStore = create<MarketState>((set, get) => ({
   },
 }));
 
-// ─── Shared fetch helpers (outside store — no closure issues) ─────────────────
+// ─── Fetch helpers ────────────────────────────────────────────────────────────
 
 const BATCH_SIZE = 5;
 const isMock = false;
 
-async function fetchFinancialData(
-  assets: Asset[],
-  set: (partial: Partial<MarketState>) => void,
-) {
+async function fetchFinancialData(assets: Asset[]) {
   const batches: Asset[][] = [];
   for (let i = 0; i < assets.length; i += BATCH_SIZE) {
     batches.push(assets.slice(i, i + BATCH_SIZE));
@@ -173,7 +174,6 @@ async function fetchFinancialData(
       if (!res.ok) throw new Error("Failed to fetch /api/stock");
       const data = await res.json();
 
-      // Merge into existing state (works for both full load and silent refresh)
       useMarketStore.setState((prev) => ({
         prices: { ...prev.prices, ...(data.prices ?? {}) },
         previousPrice: { ...prev.previousPrice, ...(data.previousPrice ?? {}) },
@@ -194,7 +194,6 @@ async function fetchFinancialData(
         },
       }));
 
-      // Show content after first batch
       if (index === 0) {
         useMarketStore.setState({ isFirstBatchLoaded: true, isLoading: false });
       }
@@ -204,26 +203,65 @@ async function fetchFinancialData(
   }
 }
 
-async function fetchFxRate(set: (partial: Partial<MarketState>) => void) {
+async function fetchFxRate() {
   if (isMock) {
-    set({ currencyRate: 32.31 });
+    useMarketStore.setState({ currencyRate: 32.31 });
     return;
   }
   try {
     const res = await fetch("/api/rate", { method: "POST" });
     if (!res.ok) throw new Error(`BOT API Error: ${res.status}`);
     const data = await res.json();
-    set({ currencyRate: Number(data.rate) ?? 0 });
+    useMarketStore.setState({ currencyRate: Number(data.rate) ?? 0 });
   } catch (err) {
     console.error("fetchFxRate error:", err);
   }
 }
 
-async function fetchMarket(set: (partial: Partial<MarketState>) => void) {
+async function fetchMarket() {
   try {
     const res = await fetch("/api/market");
     const json = await res.json();
-    set({ market: json.data });
+    const marketData: MarketResponse = json.data;
+
+    useMarketStore.setState({ market: marketData });
+
+    // ── Inject market symbol prices into store so chip % uses same formula ──
+    //
+    // /api/market already computes currentPrice and changePercent for each
+    // symbol. We back-calculate previousPrice so that:
+    //   calcPct(prices[sym], previousPrice[sym])  ===  chip changePercent
+    //
+    // Formula: prev = price / (1 + changePercent/100)
+    //
+    // This means btc/gold/oil (rolling24h) and sp500/set (dailyMeta) all
+    // land in the store with the right baseline — chip, row, and modal
+    // will all use the identical formula and get the same number.
+
+    const pricesPatch: Record<string, number | null> = {};
+    const prevPatch: Record<string, number | null> = {};
+
+    for (const [key, symbol] of Object.entries(MARKET_KEY_TO_SYMBOL)) {
+      const item = (marketData as any)[key] as
+        | { price: number | null; changePercent: number | null }
+        | undefined;
+      if (!item?.price) continue;
+
+      const price = item.price;
+      const pct = item.changePercent;
+
+      pricesPatch[symbol] = price;
+
+      if (pct != null) {
+        // prev = price / (1 + pct/100)
+        prevPatch[symbol] = price / (1 + pct / 100);
+      }
+    }
+
+    useMarketStore.setState((prev) => ({
+      prices: { ...prev.prices, ...pricesPatch },
+      previousPrice: { ...prev.previousPrice, ...prevPatch },
+    }));
   } catch (err) {
     console.error("fetchMarket error:", err);
   }

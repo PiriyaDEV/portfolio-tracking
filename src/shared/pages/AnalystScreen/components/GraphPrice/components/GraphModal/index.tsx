@@ -21,14 +21,6 @@ type PrePostData = {
   prePostChangePercent: number | null;
   latestTimestamp: number | null;
 };
-type HACandle = {
-  time: number;
-  open: number;
-  close: number;
-  high: number;
-  low: number;
-  isUp: boolean;
-};
 
 type ChartHistoryPoint = {
   time: number;
@@ -48,11 +40,25 @@ type ChartHistoryResponse = {
   data: ChartHistoryPoint[];
 };
 
+type HACandle = {
+  time: number;
+  open: number;
+  close: number;
+  high: number;
+  low: number;
+  isUp: boolean;
+};
+
+// ─── Props now accept store-sourced prices so % is always consistent ─────────
 type StockDetailModalProps = {
   symbol: string;
   asset?: Asset | null;
   onClose: () => void;
   currencyRate: number;
+  /** Pass prices[symbol] from useMarketStore — used as the display price */
+  storeCurrentPrice?: number | null;
+  /** Pass previousPrice[symbol] from useMarketStore — used for % change calc */
+  storePreviousPrice?: number | null;
 };
 
 const TIMEFRAMES: { label: string; value: TimeRange }[] = [
@@ -64,25 +70,21 @@ const TIMEFRAMES: { label: string; value: TimeRange }[] = [
 
 function formatTime(ts: number, range: TimeRange): string {
   const d = new Date(ts);
-  if (range === "1m") {
+  if (range === "1m")
     return d.toLocaleTimeString("th-TH", {
       hour: "2-digit",
       minute: "2-digit",
     });
-  }
-  if (range === "1h") {
+  if (range === "1h")
     return d.toLocaleTimeString("th-TH", {
       weekday: "short",
       hour: "2-digit",
       minute: "2-digit",
     });
-  }
-  if (range === "1d") {
+  if (range === "1d")
     return d.toLocaleDateString("th-TH", { day: "numeric", month: "short" });
-  }
-  if (range === "5d") {
+  if (range === "5d")
     return d.toLocaleDateString("th-TH", { day: "numeric", month: "short" });
-  }
   return d.toLocaleDateString("th-TH", { month: "short", year: "2-digit" });
 }
 
@@ -236,35 +238,29 @@ function HAChart({
 
   const chartW = W - PAD.left - PAD.right;
   const chartH = H - PAD.top - PAD.bottom;
-
   const toY = (p: number) => PAD.top + ((maxP - p) / priceRange) * chartH;
   const n = data.length;
   const gap = 1.5;
   const candleW = Math.max(chartW / n - gap, 2);
   const step = chartW / n;
 
-  const refY = prevPrice ? toY(prevPrice) : null;
   const curY = currentPrice ? toY(currentPrice) : null;
 
-  // Horizontal price grid lines — 4 evenly spaced levels
   const GRID_LINES = 4;
   const gridLevels = Array.from({ length: GRID_LINES }, (_, i) => {
     const price = minP + (priceRange * i) / (GRID_LINES - 1);
     return { price, y: toY(price) };
   });
 
-  // Format price label compactly
   function fmtPrice(p: number): string {
     if (p >= 1_000_000) return `${(p / 1_000_000).toFixed(1)}M`;
     if (p >= 1_000) return `${(p / 1_000).toFixed(1)}K`;
-    if (p < 10) return p.toFixed(2);
     return p.toFixed(2);
   }
 
   const labelIndices = [0, 1, 2, 3, 4].map((i) =>
     Math.round((i / 4) * (n - 1)),
   );
-
   const axisY = H - 6;
 
   return (
@@ -274,7 +270,6 @@ function HAChart({
         style={{ width: "100%", height: H, display: "block" }}
         onMouseLeave={() => setTooltip(null)}
       >
-        {/* Horizontal grid lines with price labels */}
         {gridLevels.map(({ price, y }, i) => (
           <g key={i}>
             <line
@@ -298,10 +293,8 @@ function HAChart({
           </g>
         ))}
 
-        {/* Current price dashed line */}
         {curY !== null && (
           <g>
-            {/* dashed line */}
             <line
               x1={PAD.left}
               y1={curY}
@@ -312,8 +305,6 @@ function HAChart({
               strokeWidth={0.8}
               strokeDasharray="3 3"
             />
-
-            {/* label background */}
             <rect
               x={PAD.left - 35}
               y={curY - 6}
@@ -322,8 +313,6 @@ function HAChart({
               rx={3}
               className="fill-accent-yellow"
             />
-
-            {/* label text */}
             <text
               x={PAD.left - 6}
               y={curY + 3.5}
@@ -338,7 +327,6 @@ function HAChart({
           </g>
         )}
 
-        {/* X-axis baseline */}
         <line
           x1={PAD.left}
           y1={H - PAD.bottom + 4}
@@ -348,7 +336,6 @@ function HAChart({
           strokeWidth={0.5}
         />
 
-        {/* Candles */}
         {data.map((c, i) => {
           const cx = PAD.left + i * step + step / 2;
           const bodyTop = toY(Math.max(c.open, c.close));
@@ -395,7 +382,6 @@ function HAChart({
           );
         })}
 
-        {/* X-axis time labels */}
         {labelIndices.map((idx) => {
           const cx = PAD.left + idx * step + step / 2;
           const label = formatTime(data[idx].time, range);
@@ -416,7 +402,6 @@ function HAChart({
         })}
       </svg>
 
-      {/* Tooltip */}
       {tooltip && (
         <div
           style={{
@@ -485,7 +470,7 @@ function HAChart({
 }
 
 /* =======================
-   Timeframe Chips
+   TimeframeChips
 ======================= */
 
 function TimeframeChips({
@@ -643,6 +628,8 @@ export function StockDetailModal({
   onClose,
   currencyRate,
   symbol: symbolProp,
+  storeCurrentPrice,
+  storePreviousPrice,
 }: StockDetailModalProps) {
   const [marketData, setMarketData] = useState<PrePostData | null>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
@@ -660,9 +647,7 @@ export function StockDetailModal({
       `/api/prepost?symbol=${encodeURIComponent(symbolProp)}`,
       { cache: "no-store" },
     );
-
     if (!res.ok) return;
-
     const json = await res.json();
     setMarketData(json);
   }, [symbolProp]);
@@ -670,10 +655,6 @@ export function StockDetailModal({
   useEffect(() => {
     fetchMarketData();
   }, [fetchMarketData]);
-
-  const currentPrice = marketData?.currentPrice ?? null;
-  const prevPrice = marketData?.previousClose ?? null;
-  const pp = marketData;
 
   useEffect(() => {
     requestAnimationFrame(() => setVisible(true));
@@ -711,21 +692,20 @@ export function StockDetailModal({
 
   const isPageVisible = usePageVisible();
   useEffect(() => {
-    if (range !== "1m") return;
-    if (!isPageVisible) return;
-    const id = setInterval(() => {
-      fetchChartHistory(range);
-    }, AUTO_REFRESH_1M_INTERVAL_MS);
+    if (range !== "1m" || !isPageVisible) return;
+    const id = setInterval(
+      () => fetchChartHistory(range),
+      AUTO_REFRESH_1M_INTERVAL_MS,
+    );
     return () => clearInterval(id);
   }, [range, fetchChartHistory, isPageVisible]);
 
   useEffect(() => {
     if (!isPageVisible) return;
-
-    const id = setInterval(() => {
-      fetchMarketData();
-    }, AUTO_REFRESH_1M_INTERVAL_MS);
-
+    const id = setInterval(
+      () => fetchMarketData(),
+      AUTO_REFRESH_1M_INTERVAL_MS,
+    );
     return () => clearInterval(id);
   }, [fetchMarketData, isPageVisible]);
 
@@ -742,13 +722,66 @@ export function StockDetailModal({
 
   const symbol = symbolProp;
   const isThai = isThaiStock(symbol);
+  const pp = marketData;
+
+  // ─── Price resolution priority ────────────────────────────────────────────
+  //
+  // Display price:
+  //   1. prepost regularMarketPrice (most accurate session price)
+  //   2. storeCurrentPrice (from useMarketStore — same source as the row)
+  //   3. prepost currentPrice
+  //
+  // % change — ALWAYS use store values so it matches the row exactly.
+  //   Formula: (storeCurrentPrice - storePreviousPrice) / storePreviousPrice
+  //   Fallback to prepost if store values are not available.
+
+  const displayPrice =
+    pp?.regularMarketPrice ?? storeCurrentPrice ?? pp?.currentPrice ?? null;
+
+  // Use store prices for % calculation to stay in sync with the row
+  const priceForPct =
+    storeCurrentPrice ?? pp?.regularMarketPrice ?? pp?.currentPrice ?? null;
+  const prevForPct = storePreviousPrice ?? pp?.previousClose ?? null;
+
   const percentChange =
-    prevPrice && currentPrice
-      ? ((currentPrice - prevPrice) / prevPrice) * 100
+    priceForPct != null && prevForPct != null && prevForPct !== 0
+      ? ((priceForPct - prevForPct) / prevForPct) * 100
       : 0;
+
   const priceChange =
-    currentPrice != null && prevPrice != null ? currentPrice - prevPrice : 0;
+    priceForPct != null && prevForPct != null ? priceForPct - prevForPct : 0;
+
   const isUp = percentChange >= 0;
+
+  // Pre/post session badge
+  const hasPrePost = pp && pp.session !== "regular" && pp.session !== "closed";
+  const ppChange = pp?.prePostChangePercent ?? null;
+  const sessionLabel: Record<PrePostData["session"], string> = {
+    pre: "ก่อน",
+    post: "หลัง",
+    regular: "ปกติ",
+    closed: "ปิด",
+  };
+
+  // Portfolio stats
+  const holdingValue = asset ? asset.quantity * asset.costPerShare : null;
+  const currentValue =
+    asset && priceForPct != null ? asset.quantity * priceForPct : null;
+  const profitLoss =
+    currentValue != null && holdingValue != null
+      ? currentValue - holdingValue
+      : null;
+  const profitPct =
+    profitLoss != null && holdingValue && holdingValue !== 0
+      ? (profitLoss / holdingValue) * 100
+      : null;
+
+  const minPrice = chartHistory?.data?.length
+    ? Math.min(...chartHistory.data.map((d) => d.price))
+    : null;
+  const maxPrice = chartHistory?.data?.length
+    ? Math.max(...chartHistory.data.map((d) => d.price))
+    : null;
 
   const rawChartData = chartHistory?.data ?? [];
   const chartData = (() => {
@@ -765,39 +798,12 @@ export function StockDetailModal({
     }
     return rawChartData;
   })();
-  const chartPrevPrice = chartHistory?.previousClose ?? prevPrice;
+
+  const chartPrevPrice = chartHistory?.previousClose ?? prevForPct;
   const haData = buildHeikinAshi(
     chartData,
     TARGET_CANDLES_BY_RANGE[displayedRange],
   );
-
-  const hasPrePost = pp && pp.session !== "regular" && pp.session !== "closed";
-  const ppChange = pp?.prePostChangePercent ?? null;
-  const sessionLabel: Record<PrePostData["session"], string> = {
-    pre: "ก่อน",
-    post: "หลัง",
-    regular: "ปกติ",
-    closed: "ปิด",
-  };
-
-  const holdingValue = asset ? asset.quantity * asset.costPerShare : null;
-  const currentValue =
-    asset && currentPrice != null ? asset.quantity * currentPrice : null;
-  const profitLoss =
-    currentValue != null && holdingValue != null
-      ? currentValue - holdingValue
-      : null;
-  const profitPct =
-    profitLoss != null && holdingValue && holdingValue !== 0
-      ? (profitLoss / holdingValue) * 100
-      : null;
-
-  const minPrice = chartHistory?.data?.length
-    ? Math.min(...chartHistory.data.map((d) => d.price))
-    : null;
-  const maxPrice = chartHistory?.data.length
-    ? Math.max(...chartHistory.data.map((d) => d.price))
-    : null;
 
   return (
     <div
@@ -883,9 +889,7 @@ export function StockDetailModal({
                   lineHeight: 1,
                 }}
               >
-                {isThai
-                  ? fmt(pp?.regularMarketPrice ?? currentPrice)
-                  : fmtUsd(pp?.regularMarketPrice ?? currentPrice)}
+                {isThai ? fmt(displayPrice) : fmtUsd(displayPrice)}
               </div>
               <span
                 className={`text-sm font-bold px-3 py-1 rounded-full mb-0.5 font-mono ${isUp ? "!text-green-500" : "!text-red-500"}`}
@@ -905,7 +909,7 @@ export function StockDetailModal({
                 className="mt-1 text-xs font-mono"
                 style={{ color: "rgba(255,255,255,0.3)" }}
               >
-                ≈ {toBaht(pp?.regularMarketPrice ?? currentPrice, currencyRate)}
+                ≈ {toBaht(displayPrice, currencyRate)}
               </div>
             )}
           </div>
@@ -930,7 +934,7 @@ export function StockDetailModal({
                 <HAChart
                   data={haData}
                   prevPrice={chartPrevPrice}
-                  currentPrice={currentPrice}
+                  currentPrice={displayPrice}
                   range={displayedRange}
                   isLoading={isLoadingChart}
                 />
@@ -948,15 +952,15 @@ export function StockDetailModal({
             <SectionLabel>ราคาวันนี้</SectionLabel>
             <StatRow
               label="ราคาปัจจุบัน"
-              value={isThai ? fmt(currentPrice) : fmtUsd(currentPrice)}
+              value={isThai ? fmt(displayPrice) : fmtUsd(displayPrice)}
               subValue={
-                !isThai ? toBaht(currentPrice, currencyRate) : undefined
+                !isThai ? toBaht(displayPrice, currencyRate) : undefined
               }
             />
             <StatRow
               label="ราคาปิดก่อนหน้า"
-              value={isThai ? fmt(prevPrice) : fmtUsd(prevPrice)}
-              subValue={!isThai ? toBaht(prevPrice, currencyRate) : undefined}
+              value={isThai ? fmt(prevForPct) : fmtUsd(prevForPct)}
+              subValue={!isThai ? toBaht(prevForPct, currencyRate) : undefined}
             />
             <StatRow
               label="เปลี่ยนแปลง"

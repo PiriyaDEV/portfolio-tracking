@@ -13,7 +13,8 @@ import {
 } from "recharts";
 import { FaSync } from "react-icons/fa";
 import CommonLoading from "@/shared/components/common/CommonLoading";
-import { isCash } from "@/app/lib/utils";
+import { isCash, isThaiStock } from "@/app/lib/utils";
+import { useMarketStore } from "@/store/useMarketStore";
 
 /* =======================
    Types & constants
@@ -121,10 +122,16 @@ export default function SNPCompare({ assets }: { assets: Asset[] }) {
       const json = await res.json();
       if (!json?.data?.length) return;
 
+      // ใช้ base จาก API (prev close) แทนการหา first point เอง
+      // ทำให้ % ตรงกับ store ที่ใช้ previousPrice เป็น baseline เดียวกัน
       const baseP =
-        json.data.find((d: any) => d.portfolioValue > 0)?.portfolioValue ?? 1;
+        json.base?.portfolio ??
+        json.data.find((d: any) => d.portfolioValue > 0)?.portfolioValue ??
+        1;
       const baseS =
-        json.data.find((d: any) => d.sp500Value > 0)?.sp500Value ?? 1;
+        json.base?.sp500 ??
+        json.data.find((d: any) => d.sp500Value > 0)?.sp500Value ??
+        1;
 
       const normalized = json.data.map((d: any) => ({
         date: formatTime(d.time, range),
@@ -143,7 +150,47 @@ export default function SNPCompare({ assets }: { assets: Asset[] }) {
     fetchData();
   }, [range, assets]);
 
-  const end = data.at(-1) ?? { portfolio: 0, snp500: 0 };
+  const chartEnd = data.at(-1) ?? { portfolio: 0, snp500: 0 };
+
+  // ── 1D summary cards: คำนวณจาก store โดยตรง ──────────────────────────────
+  // ใช้ prices/previousPrice จาก store เหมือนกับ row และ chip
+  // เพื่อให้ % ตรงกันทุกที่
+  const { prices, previousPrice, currencyRate } = useMarketStore();
+
+  const storeEnd1D = (() => {
+    const filteredAssets = assets.filter((a) => !isCash(a.symbol));
+    if (!filteredAssets.length) return null;
+
+    let portfolioNow = 0;
+    let portfolioPrev = 0;
+    let hasAll = true;
+
+    for (const a of filteredAssets) {
+      const cur = prices[a.symbol];
+      const prev = previousPrice[a.symbol];
+      if (!cur || !prev) {
+        hasAll = false;
+        break;
+      }
+      const rate = isThaiStock(a.symbol) ? 1 : currencyRate;
+      portfolioNow += cur * a.quantity * rate;
+      portfolioPrev += prev * a.quantity * rate;
+    }
+
+    const spCur = prices["^GSPC"];
+    const spPrev = previousPrice["^GSPC"];
+
+    if (!hasAll || !spCur || !spPrev || portfolioPrev === 0 || spPrev === 0)
+      return null;
+
+    return {
+      portfolio: (portfolioNow / portfolioPrev - 1) * 100,
+      snp500: (spCur / spPrev - 1) * 100,
+    };
+  })();
+
+  // 1D → ใช้ store, range อื่น → ใช้ chart end point
+  const end = range === "1D" && storeEnd1D ? storeEnd1D : chartEnd;
 
   const getAdvice = (portfolio: number, snp500: number) => {
     const diff = portfolio - snp500;
