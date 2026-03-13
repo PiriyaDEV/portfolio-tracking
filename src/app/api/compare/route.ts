@@ -72,8 +72,14 @@ async function fetchYahooChart(
 }
 
 async function fetchPreviousClose(symbol: string): Promise<number> {
-  const data = await fetchYahooChart(symbol, "2d", "1d");
-  return (data[data.length - 2]?.close ?? data[0].close)!;
+  const data = await fetchYahooChart(symbol, "5d", "1d"); // ← เปลี่ยน 2d → 5d
+  
+  // เช็ค incomplete candle เหมือนกัน
+  const last = data[data.length - 1]?.close;
+  const prev = data[data.length - 2]?.close;
+  const isIncomplete = last != null && prev != null && last === prev;
+  
+  return (isIncomplete ? data[data.length - 3] : data[data.length - 2])?.close ?? data[0].close!;
 }
 
 /* =======================
