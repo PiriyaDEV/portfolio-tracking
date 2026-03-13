@@ -95,8 +95,15 @@ async function getMarketData(symbol: string, mode: MarketMode = "dailyMeta") {
     previousPrice = closes?.[0] ?? null;
   } else {
     currentPrice = meta?.regularMarketPrice ?? closes?.at(-1) ?? null;
-    const stableCloses = closes?.slice(0, -1);
-    previousPrice = stableCloses?.at(-1) ?? null;
+
+    const lastClose = closes?.at(-1);
+    const prevClose = closes?.at(-2);
+    const isIncomplete =
+      lastClose != null && prevClose != null && lastClose === prevClose;
+
+    previousPrice = isIncomplete
+      ? (closes?.at(-3) ?? null) // duplicate → ข้ามไป -3
+      : (closes?.at(-2) ?? null); // ปกติ → ใช้ -2
   }
 
   let changePercent: number | null = null;

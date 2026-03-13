@@ -79,8 +79,28 @@ export async function getAdvancedLevels(
     }
 
     const meta = result.meta;
-    const currentPrice = closes[closes.length - 1];
-    const previousClose = stableCloses[stableCloses.length - 1];
+    const currentPrice = meta?.regularMarketPrice ?? closes[closes.length - 1];
+
+    const lastClose = closes[closes.length - 1];
+    const prevClose = closes[closes.length - 2];
+    const isIncomplete = lastClose === prevClose;
+
+    const previousClose = isIncomplete
+      ? (closes[closes.length - 3] ?? closes[closes.length - 2])
+      : closes[closes.length - 2];
+
+    console.log(
+      "stock",
+      symbol,
+      "lastClose",
+      lastClose,
+      "prevClose",
+      prevClose,
+      "isIncomplete",
+      isIncomplete,
+      "previousClose",
+      previousClose,
+    );
 
     /* ================= EMA ================= */
     function calcEMA(data: number[], period: number): number {
