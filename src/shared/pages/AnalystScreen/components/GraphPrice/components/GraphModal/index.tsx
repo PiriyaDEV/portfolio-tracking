@@ -3,6 +3,8 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { Asset } from "@/app/lib/interface";
 import { fNumber, getLogo, getName, isThaiStock } from "@/app/lib/utils";
+import { TimeRange } from "@/app/api/chart-history/route";
+import { AUTO_REFRESH_INTERVAL_MS } from "@/app/config";
 
 /* =======================
    Types
@@ -27,8 +29,6 @@ type HACandle = {
   low: number;
   isUp: boolean;
 };
-
-export type TimeRange = "1h" | "1d" | "5d" | "1mo" | "6mo" | "1y";
 
 type ChartHistoryPoint = {
   time: number;
@@ -58,55 +58,36 @@ type StockDetailModalProps = {
   currencyRate: number;
 };
 
-/* =======================
-   Timeframe Config
-======================= */
-
 const TIMEFRAMES: { label: string; value: TimeRange }[] = [
-  { label: "ชั่วโมง", value: "1h" },
-  { label: "วัน", value: "1d" },
-  { label: "สัปดาห์", value: "5d" },
-  { label: "เดือน", value: "1mo" },
-  { label: "6 เดือน", value: "6mo" },
-  { label: "ปี", value: "1y" },
+  { label: "1 นาที", value: "1m" },
+  { label: "1 ชั่วโมง", value: "1h" },
+  { label: "1 วัน", value: "1d" },
+  { label: "1 สัปดาห์", value: "5d" },
+  { label: "1 เดือน", value: "1mo" },
 ];
-
-// จำนวนแท่งเป้าหมายที่ต้องการโชว์ในกราฟ
-const TARGET_CANDLES = 30;
-
-/* =======================
-   Helpers
-======================= */
 
 function formatTime(ts: number, range: TimeRange): string {
   const d = new Date(ts);
-  if (range === "1h") {
-    // กราฟชั่วโมง → แสดงเป็น "10:30"
+  if (range === "1m") {
     return d.toLocaleTimeString("th-TH", {
       hour: "2-digit",
       minute: "2-digit",
     });
   }
-  if (range === "1d") {
-    // กราฟวัน → แสดงเป็น "15 มี.ค."
-    return d.toLocaleDateString("th-TH", {
-      day: "numeric",
-      month: "short",
+  if (range === "1h") {
+    return d.toLocaleTimeString("th-TH", {
+      weekday: "short",
+      hour: "2-digit",
+      minute: "2-digit",
     });
+  }
+  if (range === "1d") {
+    return d.toLocaleDateString("th-TH", { day: "numeric", month: "short" });
   }
   if (range === "5d") {
-    // กราฟสัปดาห์ → แสดงเป็น "จ. 10:30"
-    return d.toLocaleDateString("th-TH", {
-      weekday: "short",
-      day: "numeric",
-      month: "short",
-    });
+    return d.toLocaleDateString("th-TH", { day: "numeric", month: "short" });
   }
-  return d.toLocaleDateString("th-TH", {
-    day: "numeric",
-    month: "short",
-    year: range === "1y" ? "numeric" : undefined,
-  });
+  return d.toLocaleDateString("th-TH", { month: "short", year: "2-digit" });
 }
 
 function fmt(value: number | null | undefined): string {
@@ -130,6 +111,16 @@ function toBaht(usd: number | null | undefined, rate: number): string {
   return `${fNumber(usd * rate) ?? "—"} บาท`;
 }
 
+// targetCandles: จำนวนแท่งสูงสุดที่ต้องการโชว์
+// สำหรับ 1m ให้ใช้ค่าสูงๆ เพื่อไม่ให้ bucket รวมแท่ง
+const TARGET_CANDLES_BY_RANGE: Record<TimeRange, number> = {
+  "1m": 9999, // ไม่ bucket — โชว์ทุกแท่ง 1 นาที
+  "1h": 120,
+  "1d": 30,
+  "5d": 26,
+  "1mo": 24,
+};
+
 function buildHeikinAshi(
   data: {
     time: number;
@@ -138,11 +129,10 @@ function buildHeikinAshi(
     high?: number;
     low?: number;
   }[],
+  targetCandles = 30,
 ): HACandle[] {
   if (!data || data.length < 2) return [];
-  // bucket ให้ได้ TARGET_CANDLES แท่ง (หรือน้อยกว่าถ้าข้อมูลไม่พอ)
-  const targetCount = Math.min(TARGET_CANDLES, data.length);
-  const bucketSize = Math.max(Math.floor(data.length / targetCount), 1);
+  const bucketSize = Math.max(Math.floor(data.length / targetCandles), 1);
   const buckets: (typeof data)[] = [];
   for (let i = 0; i < data.length; i += bucketSize)
     buckets.push(data.slice(i, i + bucketSize));
@@ -170,11 +160,6 @@ function buildHeikinAshi(
   return ha;
 }
 
-// ──────────────────────────────────────────────
-// HAChart: เพิ่ม X-axis label แถบด้านล่าง
-// เปลี่ยน H จาก 180 → 204 (เพิ่ม 24px สำหรับ label แกน X)
-// เพิ่ม PAD.bottom จาก 8 → 28
-// ──────────────────────────────────────────────
 function HAChart({
   data,
   prevPrice,
@@ -193,8 +178,8 @@ function HAChart({
   } | null>(null);
 
   const W = 380;
-  const H = 204; // เพิ่มจาก 180 → 204 เพื่อให้มีที่ label แกน X
-  const PAD = { top: 8, bottom: 28, left: 2, right: 2 }; // bottom เพิ่มจาก 8 → 28
+  const H = 204;
+  const PAD = { top: 8, bottom: 28, left: 2, right: 2 };
 
   if (isLoading) {
     return (
@@ -259,20 +244,12 @@ function HAChart({
 
   const refY = prevPrice ? toY(prevPrice) : null;
 
-  // คำนวณ X-axis label positions: แสดงสูงสุด 5 label เว้นระยะสม่ำเสมอ
-  const MAX_LABELS = 5;
-  const labelCount = Math.min(MAX_LABELS, n);
-  // เลือก index ของแท่งที่จะแสดง label
-  const labelIndices: number[] = [];
-  if (labelCount === 1) {
-    labelIndices.push(0);
-  } else {
-    for (let i = 0; i < labelCount; i++) {
-      labelIndices.push(Math.round((i / (labelCount - 1)) * (n - 1)));
-    }
-  }
+  // แสดง 5 label กระจายสม่ำเสมอ: index 0, 25%, 50%, 75%, 100%
+  const labelIndices = [0, 1, 2, 3, 4].map((i) =>
+    Math.round((i / 4) * (n - 1)),
+  );
 
-  const axisY = H - 6; // ตำแหน่ง Y ของ label (ด้านล่างสุด)
+  const axisY = H - 6;
 
   return (
     <div style={{ position: "relative", width: "100%" }}>
@@ -281,7 +258,6 @@ function HAChart({
         style={{ width: "100%", height: H, display: "block" }}
         onMouseLeave={() => setTooltip(null)}
       >
-        {/* เส้น reference ราคาปิดก่อนหน้า */}
         {refY !== null && (
           <line
             x1={PAD.left}
@@ -294,7 +270,6 @@ function HAChart({
           />
         )}
 
-        {/* เส้นแกน X */}
         <line
           x1={PAD.left}
           y1={H - PAD.bottom + 4}
@@ -304,7 +279,6 @@ function HAChart({
           strokeWidth={0.5}
         />
 
-        {/* แท่งเทียน */}
         {data.map((c, i) => {
           const cx = PAD.left + i * step + step / 2;
           const bodyTop = toY(Math.max(c.open, c.close));
@@ -347,11 +321,9 @@ function HAChart({
           );
         })}
 
-        {/* X-axis labels */}
         {labelIndices.map((idx) => {
           const cx = PAD.left + idx * step + step / 2;
           const label = formatTime(data[idx].time, range);
-          // label แรก align left, สุดท้าย align right, กลาง align middle
           const anchor = idx === 0 ? "start" : idx === n - 1 ? "end" : "middle";
           return (
             <text
@@ -369,7 +341,6 @@ function HAChart({
         })}
       </svg>
 
-      {/* Tooltip */}
       {tooltip && (
         <div
           style={{
@@ -451,44 +422,53 @@ function TimeframeChips({
   isLoading: boolean;
 }) {
   return (
-    <div
-      style={{
-        display: "flex",
-        gap: 6,
-        justifyContent: "center",
-        padding: "8px 0 4px",
-      }}
-    >
-      {TIMEFRAMES.map((tf) => {
-        const active = tf.value === value;
-        return (
-          <button
-            key={tf.value}
-            onClick={() => onChange(tf.value)}
-            disabled={isLoading}
-            style={{
-              padding: "4px 12px",
-              borderRadius: 20,
-              fontSize: 12,
-              fontWeight: active ? 700 : 500,
-              fontFamily: "monospace",
-              border: active
-                ? "1px solid rgba(255,198,0,0.6)"
-                : "1px solid rgba(255,255,255,0.1)",
-              background: active
-                ? "rgba(255,198,0,0.15)"
-                : "rgba(255,255,255,0.04)",
-              color: active ? "rgba(255,198,0,0.95)" : "rgba(255,255,255,0.45)",
-              cursor: isLoading ? "default" : "pointer",
-              transition: "all 0.15s",
-              outline: "none",
-              opacity: isLoading && !active ? 0.5 : 1,
-            }}
-          >
-            {tf.label}
-          </button>
-        );
-      })}
+    <div style={{ padding: "8px 0 4px" }}>
+      <div
+        style={{
+          fontSize: 11,
+          letterSpacing: "0.1em",
+          textTransform: "uppercase",
+          fontFamily: "monospace",
+          color: "rgba(255,198,0,0.6)",
+          marginBottom: 6,
+        }}
+      >
+        กรอบเวลา
+      </div>
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+        {TIMEFRAMES.map((tf) => {
+          const active = tf.value === value;
+          return (
+            <button
+              key={tf.value}
+              onClick={() => onChange(tf.value)}
+              disabled={isLoading}
+              style={{
+                padding: "4px 12px",
+                borderRadius: 20,
+                fontSize: 12,
+                fontWeight: active ? 700 : 500,
+                fontFamily: "monospace",
+                border: active
+                  ? "1px solid rgba(255,198,0,0.6)"
+                  : "1px solid rgba(255,255,255,0.1)",
+                background: active
+                  ? "rgba(255,198,0,0.15)"
+                  : "rgba(255,255,255,0.04)",
+                color: active
+                  ? "rgba(255,198,0,0.95)"
+                  : "rgba(255,255,255,0.45)",
+                cursor: isLoading ? "default" : "pointer",
+                transition: "all 0.15s",
+                outline: "none",
+                opacity: isLoading && !active ? 0.5 : 1,
+              }}
+            >
+              {tf.label}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -592,7 +572,7 @@ export function StockDetailModal({
 }: StockDetailModalProps) {
   const overlayRef = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
-  const [range, setRange] = useState<TimeRange>("1h");
+  const [range, setRange] = useState<TimeRange>("1m");
   const [chartHistory, setChartHistory] = useState<ChartHistoryResponse | null>(
     null,
   );
@@ -607,7 +587,6 @@ export function StockDetailModal({
     };
   }, []);
 
-  // Fetch chart history when range changes
   const fetchChartHistory = useCallback(
     async (r: TimeRange) => {
       setIsLoadingChart(true);
@@ -633,6 +612,14 @@ export function StockDetailModal({
     fetchChartHistory(range);
   }, [range, fetchChartHistory]);
 
+  // Auto-refresh ตาม AUTO_REFRESH_INTERVAL_MS
+  useEffect(() => {
+    const id = setInterval(() => {
+      fetchChartHistory(range);
+    }, AUTO_REFRESH_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, [range, fetchChartHistory]);
+
   const handleOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target === overlayRef.current) {
       setVisible(false);
@@ -654,10 +641,17 @@ export function StockDetailModal({
     currentPrice != null && prevPrice != null ? currentPrice - prevPrice : 0;
   const isUp = percentChange >= 0;
 
-  // Use chart history data for the chart, fall back to intraday graph
-  const chartData = chartHistory?.data ?? graph.data;
+  const rawChartData = chartHistory?.data ?? graph.data;
+  const chartData =
+    range === "1m" && rawChartData.length > 0
+      ? (() => {
+          const cutoff = Date.now() - 30 * 60 * 1000;
+          const filtered = rawChartData.filter((d) => d.time >= cutoff);
+          return filtered.length > 0 ? filtered : rawChartData.slice(-30);
+        })()
+      : rawChartData;
   const chartPrevPrice = chartHistory?.previousClose ?? prevPrice;
-  const haData = buildHeikinAshi(chartData);
+  const haData = buildHeikinAshi(chartData, TARGET_CANDLES_BY_RANGE[range]);
 
   const pp = prePostData;
   const hasPrePost = pp && pp.session !== "regular" && pp.session !== "closed";
@@ -708,7 +702,7 @@ export function StockDetailModal({
           transition: "transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)",
         }}
       >
-        {/* ── Header ── */}
+        {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-accent-yellow border-opacity-10">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full overflow-hidden border border-accent-yellow border-opacity-20 flex items-center justify-center shrink-0 bg-black">
@@ -756,7 +750,7 @@ export function StockDetailModal({
           </button>
         </div>
 
-        {/* ── Scrollable Body ── */}
+        {/* Scrollable Body */}
         <div
           className="overflow-y-auto flex-1 px-5"
           style={{ scrollbarWidth: "none" }}
@@ -802,14 +796,11 @@ export function StockDetailModal({
 
           {/* Chart + Chips */}
           <div className="py-3 border-b border-accent-yellow border-opacity-10">
-            {/* Timeframe Chips */}
             <TimeframeChips
               value={range}
               onChange={setRange}
               isLoading={isLoadingChart}
             />
-
-            {/* Chart */}
             <div style={{ marginTop: 8 }}>
               {chartError ? (
                 <div

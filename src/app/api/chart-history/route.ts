@@ -2,27 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "edge";
 
-type Range = "1h" | "1d" | "5d" | "1mo" | "6mo" | "1y";
+export type TimeRange = "1m" | "1h" | "1d" | "5d" | "1mo";
 
-const RANGE_CONFIG: Record<Range, { interval: string; range: string }> = {
-  // ~30 แท่ง: ดึง 1 วัน แบ่งทีละ 15 นาที → ~26 แท่ง (ตลาดเปิด ~6.5h)
-  "1h": { interval: "15m", range: "1d" },
-  // ~22 แท่ง: ดึง 1 เดือน แบ่งทีละวัน
+const RANGE_CONFIG: Record<TimeRange, { interval: string; range: string }> = {
+  "1m": { interval: "1m", range: "1d" },
+  "1h": { interval: "1h", range: "5d" },
   "1d": { interval: "1d", range: "1mo" },
-  // ~26 แท่ง: ดึง 6 เดือน แบ่งทีละสัปดาห์
   "5d": { interval: "1wk", range: "6mo" },
-  // ~24 แท่ง: ดึง 2 ปี แบ่งทีละเดือน
   "1mo": { interval: "1mo", range: "2y" },
-  // ~24 แท่ง: ดึง 6 ปี แบ่งทีละไตรมาส
-  "6mo": { interval: "3mo", range: "6y" },
-  // ~36 แท่ง: ดึง 3 ปี แบ่งทีละเดือน
-  "1y": { interval: "1mo", range: "3y" },
 };
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const symbol = searchParams.get("symbol");
-  const range = (searchParams.get("range") ?? "1d") as Range;
+  const range = (searchParams.get("range") ?? "1d") as TimeRange;
 
   if (!symbol) {
     return NextResponse.json({ error: "symbol required" }, { status: 400 });
@@ -30,8 +23,10 @@ export async function GET(req: NextRequest) {
 
   const config = RANGE_CONFIG[range] ?? RANGE_CONFIG["1d"];
 
+  const includePrePost = range === "1m";
+
   try {
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=${config.interval}&range=${config.range}&includePrePost=true`;
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=${config.interval}&range=${config.range}&includePrePost=${includePrePost}`;
 
     const res = await fetch(url, {
       headers: {
