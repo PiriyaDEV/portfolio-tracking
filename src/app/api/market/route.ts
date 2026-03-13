@@ -95,7 +95,7 @@ async function getMarketData(symbol: string, mode: MarketMode = "dailyMeta") {
     previousPrice = closes?.[0] ?? null;
   } else {
     currentPrice = meta?.regularMarketPrice ?? closes?.at(-1) ?? null;
-    previousPrice = meta?.previousClose ?? closes?.at(-2) ?? null;
+    previousPrice = closes?.at(-2) ?? null;
   }
 
   let changePercent: number | null = null;

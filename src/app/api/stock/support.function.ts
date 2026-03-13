@@ -80,7 +80,7 @@ export async function getAdvancedLevels(
 
     const meta = result.meta;
     const currentPrice = closes[closes.length - 1];
-    const previousClose = meta?.previousClose ?? closes[closes.length - 2];
+    const previousClose = closes?.at(-2) ?? null;
 
     /* ================= EMA ================= */
     function calcEMA(data: number[], period: number): number {
