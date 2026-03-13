@@ -178,24 +178,46 @@ export function fTon(number: string | number) {
 
 const DEFAULT_STOCK_LOGO =
   "https://png.pngtree.com/png-vector/20190331/ourmid/pngtree-growth-icon-vector--glyph-or-solid-style-icon-stock-png-image_876941.jpg";
-const DEFAULT_CRYPTO_LOGO =
-  "https://upload.wikimedia.org/wikipedia/commons/thumb/4/46/Bitcoin.svg/1200px-Bitcoin.svg.png";
-const DEFAULT_GOLD_LOGO =
-  "https://media.istockphoto.com/id/1185640227/vector/gold-bars-or-ingot-flat-style-isometric-illustration.jpg?s=612x612&w=0&k=20&c=UchT_VVWg0C1pYQppe4IkvD15bt61XGESS-bq4GiixQ=";
 const DEFAULT_PVD_LOGO =
   "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQiz97SSXXGQFeyG7trM62emx0p3HtM73cjPg&s";
+
+export const DEFAULT_SP500_LOGO =
+  "https://cdn-icons-png.flaticon.com/512/3909/3909383.png";
+
+export const DEFAULT_GOLD_LOGO =
+  "https://cdn-icons-png.flaticon.com/512/9590/9590147.png";
+
+export const DEFAULT_CRYPTO_LOGO =
+  "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRxjVTE3M2v2tGkmuoZKAL7roppVSJuL9IN3w&s";
+
+export const DEFAULT_OIL_LOGO =
+  "https://static.thenounproject.com/png/1053409-200.png";
+
+export const DEFAULT_SET_LOGO =
+  "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRe8tM3-t2BDnm-9vKA-mN5yEQci4cOHUBGrw&s";
 
 export function getLogo(symbol: string): string {
   if (!symbol) return DEFAULT_STOCK_LOGO;
 
-  // Special crypto case
-  if (symbol === "BTC-USD") {
-    return DEFAULT_CRYPTO_LOGO;
-  }
-  if (symbol === "TISCO-PVD") {
-    return DEFAULT_PVD_LOGO;
-  } else if (symbol === "GOLD-USD") {
-    return DEFAULT_GOLD_LOGO;
+  // Special assets
+  switch (symbol) {
+    case "BTC-USD":
+      return DEFAULT_CRYPTO_LOGO;
+
+    case "GC=F":
+      return DEFAULT_GOLD_LOGO;
+
+    case "CL=F":
+      return DEFAULT_OIL_LOGO;
+
+    case "^GSPC":
+      return DEFAULT_SP500_LOGO;
+
+    case "^SET.BK":
+      return DEFAULT_SET_LOGO;
+
+    case "TISCO-PVD":
+      return DEFAULT_PVD_LOGO;
   }
 
   const ticker = symbol.includes(":") ? symbol.split(":")[1] : symbol;
@@ -207,10 +229,22 @@ export function getLogo(symbol: string): string {
 }
 
 export function getName(symbol: string) {
-  if (symbol === "BTC-USD") return "BTC";
-  else if (symbol === "GOLD-USD") return "GOLD";
-  else if (symbol === "TISCO-PVD") return "TISCO-PVD";
-  return symbol;
+  switch (symbol) {
+    case "BTC-USD":
+      return "BTC";
+    case "GC=F":
+      return "GOLD";
+    case "CL=F":
+      return "OIL";
+    case "^GSPC":
+      return "S&P 500";
+    case "^SET.BK":
+      return "SET";
+    case "TISCO-PVD":
+      return "TISCO-PVD";
+    default:
+      return symbol;
+  }
 }
 
 export function getProfitColor(profit: number): string {
@@ -231,10 +265,7 @@ export const isCash = (symbol: string): boolean => {
 // ─── Encrypt Function ─────────────────────────────────────────────
 export function encrypt(text: string) {
   const iv = crypto.randomBytes(IV_LENGTH);
-  const key = crypto
-    .createHash("sha256")
-    .update(ENCRYPT_KEY!)
-    .digest();
+  const key = crypto.createHash("sha256").update(ENCRYPT_KEY!).digest();
 
   const cipher = crypto.createCipheriv("aes-256-cbc", key, iv);
   let encrypted = cipher.update(text, "utf8", "base64");
@@ -249,10 +280,7 @@ export function decrypt(text: string) {
   const [ivBase64, encryptedData] = text.split(":");
 
   const iv = Buffer.from(ivBase64, "base64");
-  const key = crypto
-    .createHash("sha256")
-    .update(ENCRYPT_KEY!)
-    .digest();
+  const key = crypto.createHash("sha256").update(ENCRYPT_KEY!).digest();
 
   const decipher = crypto.createDecipheriv("aes-256-cbc", key, iv);
   let decrypted = decipher.update(encryptedData, "base64", "utf8");

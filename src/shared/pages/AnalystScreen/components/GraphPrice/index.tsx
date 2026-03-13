@@ -28,6 +28,7 @@ import { ProfitBadge } from "./components/ProfitBadge";
 import { SessionBadge } from "./components/SessionBadge";
 import { AUTO_REFRESH_INTERVAL_MS } from "@/app/config";
 import { usePageVisible } from "@/shared/hooks/usePageVisible";
+import { MARKET_SYMBOLS } from "@/app/api/market/route";
 
 /* =======================
    Types
@@ -95,6 +96,34 @@ export type SortOrder = "asc" | "desc";
 /* =======================
    Market Items
 ======================= */
+
+const MARKET_ASSETS: Record<string, Asset> = {
+  "^GSPC": {
+    symbol: "^GSPC",
+    quantity: 0,
+    costPerShare: 0,
+  },
+  "CL=F": {
+    symbol: "CL=F",
+    quantity: 0,
+    costPerShare: 0,
+  },
+  "GC=F": {
+    symbol: "GC=F",
+    quantity: 0,
+    costPerShare: 0,
+  },
+  "BTC-USD": {
+    symbol: "BTC-USD",
+    quantity: 0,
+    costPerShare: 0,
+  },
+  "^SET.BK": {
+    symbol: "^SET.BK",
+    quantity: 0,
+    costPerShare: 0,
+  },
+};
 
 const MARKET_ITEMS = [
   {
@@ -260,10 +289,9 @@ export function GraphPrice({
 
   // ---- selected asset data for modal ----
   const selectedAsset = selectedSymbol
-    ? (assets.find((a) => a.symbol === selectedSymbol) ?? null)
-    : null;
-  const selectedGraph = selectedSymbol
-    ? (graphs[selectedSymbol] ?? null)
+    ? (assets.find((a) => a.symbol === selectedSymbol) ??
+      MARKET_ASSETS[selectedSymbol] ??
+      null)
     : null;
 
   return (
@@ -277,13 +305,10 @@ export function GraphPrice({
       )}
 
       {/* Stock Detail Modal */}
-      {selectedSymbol && selectedAsset && selectedGraph && (
+      {selectedSymbol && selectedAsset && (
         <StockDetailModal
-          asset={selectedAsset}
-          graph={selectedGraph}
-          currentPrice={prices?.[selectedSymbol] ?? null}
-          prevPrice={previousPrice?.[selectedSymbol] ?? null}
-          prePostData={prePostData[selectedSymbol] ?? null}
+          symbol={selectedSymbol}
+          asset={assets.find((a) => a.symbol === selectedSymbol) ?? null}
           onClose={() => setSelectedSymbol(null)}
           currencyRate={currencyRate}
         />
@@ -313,9 +338,20 @@ export function GraphPrice({
                     if (!data?.price) return null;
                     const isUp = (data.changePercent ?? 0) >= 0;
 
+                    console.log(item);
+
                     return (
                       <div
                         key={item.key}
+                        onClick={() => {
+                          console.log("click");
+                          item.key in MARKET_SYMBOLS &&
+                            setSelectedSymbol(
+                              MARKET_SYMBOLS[
+                                item.key as keyof typeof MARKET_SYMBOLS
+                              ],
+                            );
+                        }}
                         className="flex items-center gap-2 shrink-0"
                         style={{
                           background: "rgba(255,255,255,0.04)",

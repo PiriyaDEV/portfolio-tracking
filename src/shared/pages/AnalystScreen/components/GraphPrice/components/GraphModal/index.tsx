@@ -12,7 +12,6 @@ import { usePageVisible } from "@/shared/hooks/usePageVisible";
 ======================= */
 
 type GraphPoint = { time: number; price: number };
-type GraphData = { base: number; shortName: string; data: GraphPoint[] };
 type PrePostData = {
   currentPrice: number | null;
   regularMarketPrice: number | null;
@@ -50,11 +49,8 @@ type ChartHistoryResponse = {
 };
 
 type StockDetailModalProps = {
-  asset: Asset;
-  graph: GraphData;
-  currentPrice: number | null;
-  prevPrice: number | null;
-  prePostData: PrePostData | null;
+  symbol: string;
+  asset?: Asset | null;
   onClose: () => void;
   currencyRate: number;
 };
@@ -644,13 +640,11 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 
 export function StockDetailModal({
   asset,
-  graph,
-  currentPrice,
-  prevPrice,
-  prePostData,
   onClose,
   currencyRate,
+  symbol: symbolProp,
 }: StockDetailModalProps) {
+  const [marketData, setMarketData] = useState<PrePostData | null>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
   const [range, setRange] = useState<TimeRange>("1m");
@@ -660,6 +654,26 @@ export function StockDetailModal({
   const [isLoadingChart, setIsLoadingChart] = useState(false);
   const [chartError, setChartError] = useState<string | null>(null);
   const [displayedRange, setDisplayedRange] = useState<TimeRange>("1m");
+
+  const fetchMarketData = useCallback(async () => {
+    const res = await fetch(
+      `/api/prepost?symbol=${encodeURIComponent(symbolProp)}`,
+      { cache: "no-store" },
+    );
+
+    if (!res.ok) return;
+
+    const json = await res.json();
+    setMarketData(json);
+  }, [symbolProp]);
+
+  useEffect(() => {
+    fetchMarketData();
+  }, [fetchMarketData]);
+
+  const currentPrice = marketData?.currentPrice ?? null;
+  const prevPrice = marketData?.previousClose ?? null;
+  const pp = marketData;
 
   useEffect(() => {
     requestAnimationFrame(() => setVisible(true));
@@ -675,7 +689,7 @@ export function StockDetailModal({
       setChartError(null);
       try {
         const res = await fetch(
-          `/api/chart-history?symbol=${encodeURIComponent(asset.symbol)}&range=${r}`,
+          `/api/chart-history?symbol=${encodeURIComponent(symbolProp)}&range=${r}`,
         );
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json: ChartHistoryResponse = await res.json();
@@ -688,7 +702,7 @@ export function StockDetailModal({
         setIsLoadingChart(false);
       }
     },
-    [asset.symbol],
+    [symbolProp],
   );
 
   useEffect(() => {
@@ -705,6 +719,16 @@ export function StockDetailModal({
     return () => clearInterval(id);
   }, [range, fetchChartHistory, isPageVisible]);
 
+  useEffect(() => {
+    if (!isPageVisible) return;
+
+    const id = setInterval(() => {
+      fetchMarketData();
+    }, AUTO_REFRESH_1M_INTERVAL_MS);
+
+    return () => clearInterval(id);
+  }, [fetchMarketData, isPageVisible]);
+
   const handleOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target === overlayRef.current) {
       setVisible(false);
@@ -716,7 +740,7 @@ export function StockDetailModal({
     setTimeout(onClose, 200);
   };
 
-  const symbol = asset.symbol;
+  const symbol = symbolProp;
   const isThai = isThaiStock(symbol);
   const percentChange =
     prevPrice && currentPrice
@@ -726,7 +750,7 @@ export function StockDetailModal({
     currentPrice != null && prevPrice != null ? currentPrice - prevPrice : 0;
   const isUp = percentChange >= 0;
 
-  const rawChartData = chartHistory?.data ?? graph.data;
+  const rawChartData = chartHistory?.data ?? [];
   const chartData = (() => {
     if (displayedRange === "1h" && rawChartData.length > 0) {
       const lastTime = rawChartData[rawChartData.length - 1].time;
@@ -747,7 +771,6 @@ export function StockDetailModal({
     TARGET_CANDLES_BY_RANGE[displayedRange],
   );
 
-  const pp = prePostData;
   const hasPrePost = pp && pp.session !== "regular" && pp.session !== "closed";
   const ppChange = pp?.prePostChangePercent ?? null;
   const sessionLabel: Record<PrePostData["session"], string> = {
@@ -757,25 +780,24 @@ export function StockDetailModal({
     closed: "ปิด",
   };
 
-  const holdingValue = asset.quantity * asset.costPerShare;
+  const holdingValue = asset ? asset.quantity * asset.costPerShare : null;
   const currentValue =
-    currentPrice != null ? asset.quantity * currentPrice : null;
-  const profitLoss = currentValue != null ? currentValue - holdingValue : null;
+    asset && currentPrice != null ? asset.quantity * currentPrice : null;
+  const profitLoss =
+    currentValue != null && holdingValue != null
+      ? currentValue - holdingValue
+      : null;
   const profitPct =
-    profitLoss != null && holdingValue !== 0
+    profitLoss != null && holdingValue && holdingValue !== 0
       ? (profitLoss / holdingValue) * 100
       : null;
 
-  const minPrice = chartHistory?.data.length
+  const minPrice = chartHistory?.data?.length
     ? Math.min(...chartHistory.data.map((d) => d.price))
-    : graph.data.length
-      ? Math.min(...graph.data.map((d) => d.price))
-      : null;
+    : null;
   const maxPrice = chartHistory?.data.length
     ? Math.max(...chartHistory.data.map((d) => d.price))
-    : graph.data.length
-      ? Math.max(...graph.data.map((d) => d.price))
-      : null;
+    : null;
 
   return (
     <div
@@ -832,7 +854,7 @@ export function StockDetailModal({
                 )}
               </div>
               <p className="text-accent-yellow text-opacity-40 text-xs truncate max-w-[200px] mt-0.5">
-                {graph.shortName}
+                {chartHistory?.shortName ?? getName(symbol)}
               </p>
             </div>
           </div>
@@ -957,46 +979,54 @@ export function StockDetailModal({
               subValue={!isThai ? toBaht(minPrice, currencyRate) : undefined}
             />
 
-            <SectionLabel>พอร์ตฉัน</SectionLabel>
-            <StatRow label="จำนวนหุ้น" value={`${asset.quantity} หุ้น`} />
-            <StatRow
-              label="ต้นทุนเฉลี่ย"
-              value={
-                isThai ? fmt(asset.costPerShare) : fmtUsd(asset.costPerShare)
-              }
-              subValue={
-                !isThai ? toBaht(asset.costPerShare, currencyRate) : undefined
-              }
-            />
-            <StatRow
-              label="มูลค่าต้นทุน"
-              value={isThai ? fmt(holdingValue) : fmtUsd(holdingValue)}
-              subValue={
-                !isThai ? toBaht(holdingValue, currencyRate) : undefined
-              }
-            />
-            <StatRow
-              label="มูลค่าปัจจุบัน"
-              value={isThai ? fmt(currentValue) : fmtUsd(currentValue)}
-              subValue={
-                !isThai ? toBaht(currentValue, currencyRate) : undefined
-              }
-            />
-            <StatRow
-              label="กำไร / ขาดทุน"
-              value={signedFmt(profitLoss, false, !isThai)}
-              subValue={
-                !isThai && profitLoss != null
-                  ? `${profitLoss >= 0 ? "+" : ""}${toBaht(profitLoss, currencyRate)}`
-                  : undefined
-              }
-              signed
-            />
-            <StatRow
-              label="% กำไร / ขาดทุน"
-              value={signedFmt(profitPct, true)}
-              signed
-            />
+            {asset && (
+              <>
+                <SectionLabel>พอร์ตฉัน</SectionLabel>
+                <StatRow label="จำนวนหุ้น" value={`${asset.quantity} หุ้น`} />
+                <StatRow
+                  label="ต้นทุนเฉลี่ย"
+                  value={
+                    isThai
+                      ? fmt(asset.costPerShare)
+                      : fmtUsd(asset.costPerShare)
+                  }
+                  subValue={
+                    !isThai
+                      ? toBaht(asset.costPerShare, currencyRate)
+                      : undefined
+                  }
+                />
+                <StatRow
+                  label="มูลค่าต้นทุน"
+                  value={isThai ? fmt(holdingValue) : fmtUsd(holdingValue)}
+                  subValue={
+                    !isThai ? toBaht(holdingValue, currencyRate) : undefined
+                  }
+                />
+                <StatRow
+                  label="มูลค่าปัจจุบัน"
+                  value={isThai ? fmt(currentValue) : fmtUsd(currentValue)}
+                  subValue={
+                    !isThai ? toBaht(currentValue, currencyRate) : undefined
+                  }
+                />
+                <StatRow
+                  label="กำไร / ขาดทุน"
+                  value={signedFmt(profitLoss, false, !isThai)}
+                  subValue={
+                    !isThai && profitLoss != null
+                      ? `${profitLoss >= 0 ? "+" : ""}${toBaht(profitLoss, currencyRate)}`
+                      : undefined
+                  }
+                  signed
+                />
+                <StatRow
+                  label="% กำไร / ขาดทุน"
+                  value={signedFmt(profitPct, true)}
+                  signed
+                />
+              </>
+            )}
 
             {pp && pp.session !== "regular" && (
               <>

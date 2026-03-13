@@ -125,3 +125,30 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
+
+export async function GET(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const symbol = searchParams.get("symbol");
+
+    if (!symbol) {
+      return NextResponse.json(
+        { error: "symbol required" },
+        { status: 400 },
+      );
+    }
+
+    const cached = cache.get(symbol);
+    if (cached && Date.now() - cached.ts < CACHE_TTL_MS) {
+      return NextResponse.json(cached.value);
+    }
+
+    const value = await fetchPrePost(symbol);
+
+    cache.set(symbol, { value, ts: Date.now() });
+
+    return NextResponse.json(value);
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+}

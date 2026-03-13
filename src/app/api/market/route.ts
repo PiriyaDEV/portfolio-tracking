@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 /* =======================
    Yahoo symbols
 ======================= */
-const SYMBOLS = {
+export const MARKET_SYMBOLS = {
   sp500: "^GSPC",
   gold: "GC=F",
   set: "^SET.BK",
@@ -159,11 +159,11 @@ async function getFearAndGreed() {
 export async function GET() {
   try {
     const [sp500, gold, set, btc, oil, fearGreed] = await Promise.all([
-      getMarketData(SYMBOLS.sp500), // daily
-      getMarketData(SYMBOLS.gold, "rolling24h"), // 24h
-      getMarketData(SYMBOLS.set), // daily
-      getMarketData(SYMBOLS.btc, "rolling24h"), // 24h
-      getMarketData(SYMBOLS.oil, "rolling24h"), // ✅ 24h
+      getMarketData(MARKET_SYMBOLS.sp500), // daily
+      getMarketData(MARKET_SYMBOLS.gold, "rolling24h"), // 24h
+      getMarketData(MARKET_SYMBOLS.set), // daily
+      getMarketData(MARKET_SYMBOLS.btc, "rolling24h"), // 24h
+      getMarketData(MARKET_SYMBOLS.oil, "rolling24h"), // ✅ 24h
       getFearAndGreed(),
     ]);
 
