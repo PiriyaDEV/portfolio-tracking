@@ -1,6 +1,6 @@
 export async function GET() {
   const url =
-    "https://query1.finance.yahoo.com/v8/finance/chart/%5EGSPC?interval=1h&range=2d";
+    "https://query1.finance.yahoo.com/v8/finance/chart/TSLA?interval=1d&range=3mo";
 
   const res = await fetch(url, {
     headers: {
