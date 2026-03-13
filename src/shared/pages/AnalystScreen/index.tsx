@@ -168,6 +168,7 @@ export default function AnalystScreen({
             prices={prices}
             previousPrice={previousPrice}
             market={market}
+            currencyRate={currencyRate}
           />
         )}
 

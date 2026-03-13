@@ -17,6 +17,7 @@ import {
   getFearGreedText,
   mapFearGreed,
 } from "../FearGreedGauge";
+import { StockDetailModal } from "./components/GraphModal";
 import {
   SkeletonMarketBar,
   SkeletonPulse,
@@ -47,6 +48,7 @@ type Props = {
   prices: any;
   previousPrice: any;
   market: MarketResponse;
+  currencyRate: number
 };
 
 type PrePostData = {
@@ -85,7 +87,6 @@ export type MarketResponse = {
   fearGreed: FearGreedItem;
 };
 
-// "none" = default API order
 type SortBy = "holding" | "profit" | "none";
 export type SortOrder = "asc" | "desc";
 
@@ -142,6 +143,7 @@ export function GraphPrice({
   prices,
   previousPrice,
   market,
+  currencyRate
 }: Props) {
   const [sortBy, setSortBy] = useState<SortBy>("none");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
@@ -150,6 +152,7 @@ export function GraphPrice({
     {},
   );
   const [isLoadingPrePost, setIsLoadingPrePost] = useState(true);
+  const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
 
   const isLoading = !graphs || Object.keys(graphs).length === 0;
 
@@ -195,9 +198,7 @@ export function GraphPrice({
 
   const sortedAssets = useMemo(() => {
     if (sortBy === "none") return [...assets];
-
     const list = [...assets];
-
     if (sortBy === "holding") {
       return list.sort((a, b) =>
         sortOrder === "desc"
@@ -205,7 +206,6 @@ export function GraphPrice({
           : getHoldingValue(a) - getHoldingValue(b),
       );
     }
-
     return list.sort((a, b) => {
       const pa = getProfitPercent(a.symbol);
       const pb = getProfitPercent(b.symbol);
@@ -225,6 +225,14 @@ export function GraphPrice({
     }
   };
 
+  // ---- selected asset data for modal ----
+  const selectedAsset = selectedSymbol
+    ? (assets.find((a) => a.symbol === selectedSymbol) ?? null)
+    : null;
+  const selectedGraph = selectedSymbol
+    ? (graphs[selectedSymbol] ?? null)
+    : null;
+
   return (
     <div className="mt-[90px] flex flex-col">
       {/* Fear & Greed Modal */}
@@ -232,6 +240,19 @@ export function GraphPrice({
         <FearGreedGauge
           value={market.fearGreed.value!}
           onClose={() => setShowFearGreedModal(false)}
+        />
+      )}
+
+      {/* Stock Detail Modal */}
+      {selectedSymbol && selectedAsset && selectedGraph && (
+        <StockDetailModal
+          asset={selectedAsset}
+          graph={selectedGraph}
+          currentPrice={prices?.[selectedSymbol] ?? null}
+          prevPrice={previousPrice?.[selectedSymbol] ?? null}
+          prePostData={prePostData[selectedSymbol] ?? null}
+          onClose={() => setSelectedSymbol(null)}
+          currencyRate={currencyRate}
         />
       )}
 
@@ -454,7 +475,10 @@ export function GraphPrice({
 
           return (
             <React.Fragment key={symbol}>
-              <div className="w-full grid grid-cols-[2fr_1fr_1fr] gap-3 py-2 items-center">
+              <div
+                className="w-full grid grid-cols-[2fr_1fr_1fr] gap-3 py-2 items-center cursor-pointer active:opacity-60 transition-opacity"
+                onClick={() => setSelectedSymbol(symbol)}
+              >
                 {/* LEFT */}
                 <div className="flex items-center gap-2">
                   <div
