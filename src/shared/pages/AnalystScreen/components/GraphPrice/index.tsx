@@ -17,15 +17,14 @@ import {
   getFearGreedText,
   mapFearGreed,
 } from "../FearGreedGauge";
-import { isNYSEDaylightSaving } from "@/app/api/stock/route";
 import {
-  ProfitBadge,
-  SessionBadge,
   SkeletonMarketBar,
   SkeletonPulse,
   SkeletonRow,
-  SortIcon,
-} from "./graph.component";
+} from "./components/GraphSkeleton";
+import { SortIcon } from "./components/SortIcon";
+import { ProfitBadge } from "./components/ProfitBadge";
+import { SessionBadge } from "./components/SessionBadge";
 
 /* =======================
    Types
