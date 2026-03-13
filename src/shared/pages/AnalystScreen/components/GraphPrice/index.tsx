@@ -520,42 +520,29 @@ export function GraphPrice({
 
                   {(() => {
                     const pp = prePostData[symbol];
-
-                    // Loading state for pre/post
-                    if (isLoadingPrePost && !isThaiStock(symbol)) {
-                      return (
-                        <div className="flex flex-col items-end gap-[4px]">
-                          <SkeletonPulse className="h-[20px] w-[60px] rounded-md" />
-                          <SkeletonPulse className="h-[12px] w-[50px]" />
-                        </div>
-                      );
-                    }
-
-                    if (!pp || pp.session === "regular") {
-                      return (
-                        <div
-                          style={{
-                            fontSize: "10px",
-                            color: "rgba(255,255,255,0.35)",
-                            fontVariantNumeric: "tabular-nums",
-                            letterSpacing: "0.01em",
-                          }}
-                        >
-                          {fNumber(currentPrice) ?? "—"}
-                        </div>
-                      );
-                    }
-
-                    const ppChange = pp.prePostChangePercent;
+                    const ppChange = pp?.prePostChangePercent;
 
                     return (
                       <>
-                        {pp.session !== "closed" && (
-                          <SessionBadge
-                            session={pp.session}
-                            ppChange={ppChange}
-                          />
+                        {/* SessionBadge */}
+                        {!isThaiStock(symbol) && (
+                          <>
+                            {isLoadingPrePost ? (
+                              <SkeletonPulse className="h-[16px] w-[60px] rounded-md" />
+                            ) : (
+                              pp &&
+                              pp.session !== "regular" &&
+                              pp.session !== "closed" && (
+                                <SessionBadge
+                                  session={pp.session}
+                                  ppChange={ppChange}
+                                />
+                              )
+                            )}
+                          </>
                         )}
+
+                        {/* Price (always show) */}
                         <div
                           className="!text-gray-400"
                           style={{
@@ -565,7 +552,7 @@ export function GraphPrice({
                           }}
                         >
                           ราคา:{" "}
-                          {fNumber(pp.regularMarketPrice ?? currentPrice) ??
+                          {fNumber(pp?.regularMarketPrice ?? currentPrice) ??
                             "—"}
                         </div>
                       </>
