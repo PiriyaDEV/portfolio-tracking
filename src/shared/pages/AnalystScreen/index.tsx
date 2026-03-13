@@ -75,6 +75,11 @@ export default function AnalystScreen({
       icon: <FaChartLine size={22} />,
     },
     {
+      key: "compare",
+      label: "เทียบ S&P",
+      icon: <FaChartBar size={22} />,
+    },
+    {
       key: "news",
       label: "ข่าว",
       icon: <FaNewspaper size={22} />,
@@ -83,11 +88,6 @@ export default function AnalystScreen({
       key: "support",
       label: "แนวรับ",
       icon: <FaLayerGroup size={22} />,
-    },
-    {
-      key: "compare",
-      label: "เทียบ S&P",
-      icon: <FaChartBar size={22} />,
     },
     {
       key: "earning",
