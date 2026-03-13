@@ -618,6 +618,7 @@ export function StockDetailModal({
 
   // Auto-refresh ตาม AUTO_REFRESH_INTERVAL_MS
   useEffect(() => {
+    if (range !== "1m") return;
     const id = setInterval(() => {
       fetchChartHistory(range);
     }, AUTO_REFRESH_INTERVAL_MS);
