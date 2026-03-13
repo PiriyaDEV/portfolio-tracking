@@ -186,8 +186,8 @@ export function GraphPrice({
       }
     };
 
+    if (!isPageVisible) return; // ← ขึ้นมาก่อน fetchPrePost()
     fetchPrePost();
-    if (!isPageVisible) return; // ← ไม่ตั้ง interval ถ้าไม่อยู่หน้าจอ
     const interval = setInterval(fetchPrePost, AUTO_REFRESH_INTERVAL_MS);
     return () => clearInterval(interval);
   }, [assets, isPageVisible]);

@@ -209,7 +209,7 @@ export default function MainApp() {
       }
     };
 
-    if (!isPageVisible) return; // ← ไม่ตั้ง interval ถ้าไม่อยู่หน้าจอ
+    if (!isPageVisible) return;
     const interval = setInterval(checkAndRefresh, AUTO_REFRESH_INTERVAL_MS);
     return () => clearInterval(interval);
   }, [assets, isPageVisible]);
