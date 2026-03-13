@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Asset } from "@/app/lib/interface";
-import { fNumber, getLogo, getName } from "@/app/lib/utils";
+import { fNumber, getLogo, getName, isThaiStock } from "@/app/lib/utils";
 import {
   LineChart,
   Line,
@@ -17,6 +17,15 @@ import {
   getFearGreedText,
   mapFearGreed,
 } from "../FearGreedGauge";
+import { isNYSEDaylightSaving } from "@/app/api/stock/route";
+import {
+  ProfitBadge,
+  SessionBadge,
+  SkeletonMarketBar,
+  SkeletonPulse,
+  SkeletonRow,
+  SortIcon,
+} from "./graph.component";
 
 /* =======================
    Types
@@ -39,6 +48,16 @@ type Props = {
   prices: any;
   previousPrice: any;
   market: MarketResponse;
+};
+
+type PrePostData = {
+  currentPrice: number | null;
+  regularMarketPrice: number | null;
+  previousClose: number | null;
+  session: "pre" | "regular" | "post" | "closed";
+  changePercent: number | null;
+  prePostChangePercent: number | null;
+  latestTimestamp: number | null;
 };
 
 type MarketItem = {
@@ -69,7 +88,7 @@ export type MarketResponse = {
 
 // "none" = default API order
 type SortBy = "holding" | "profit" | "none";
-type SortOrder = "asc" | "desc";
+export type SortOrder = "asc" | "desc";
 
 /* =======================
    Market Items
@@ -115,37 +134,6 @@ const MARKET_ITEMS = [
 ] as const;
 
 /* =======================
-   Sort Icon Helper
-======================= */
-
-function SortIcon({
-  active,
-  order,
-}: {
-  active: boolean;
-  order: SortOrder | null;
-}) {
-  if (!active) {
-    return (
-      <span
-        style={{
-          color: "rgba(255,255,255,0.2)",
-          fontSize: "9px",
-          lineHeight: 1,
-        }}
-      >
-        ▲▼
-      </span>
-    );
-  }
-  return (
-    <span style={{ color: "#a78bfa", fontSize: "10px", lineHeight: 1 }}>
-      {order === "asc" ? "▲" : "▼"}
-    </span>
-  );
-}
-
-/* =======================
    Component
 ======================= */
 
@@ -159,6 +147,43 @@ export function GraphPrice({
   const [sortBy, setSortBy] = useState<SortBy>("none");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
   const [showFearGreedModal, setShowFearGreedModal] = useState(false);
+  const [prePostData, setPrePostData] = useState<Record<string, PrePostData>>(
+    {},
+  );
+  const [isLoadingPrePost, setIsLoadingPrePost] = useState(true);
+
+  const isLoading = !graphs || Object.keys(graphs).length === 0;
+
+  useEffect(() => {
+    const usSymbols = assets
+      .map((a) => a.symbol)
+      .filter((s) => !isThaiStock(s));
+
+    if (!usSymbols.length) {
+      setIsLoadingPrePost(false);
+      return;
+    }
+
+    const fetchPrePost = async () => {
+      try {
+        const res = await fetch("/api/prepost", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ symbols: usSymbols }),
+        });
+        const json = await res.json();
+        setPrePostData(json.data ?? {});
+      } catch (err) {
+        console.error("PrePost fetch failed", err);
+      } finally {
+        setIsLoadingPrePost(false);
+      }
+    };
+
+    fetchPrePost();
+    const interval = setInterval(fetchPrePost, 60_000);
+    return () => clearInterval(interval);
+  }, [assets]);
 
   const getProfitPercent = (symbol: string) => {
     const currentPrice = prices?.[symbol];
@@ -189,8 +214,6 @@ export function GraphPrice({
     });
   }, [assets, prices, previousPrice, sortBy, sortOrder]);
 
-  if (!graphs || Object.keys(graphs).length === 0) return null;
-
   const handleSortColumn = (col: "holding" | "profit") => {
     if (sortBy !== col) {
       setSortBy(col);
@@ -220,39 +243,88 @@ export function GraphPrice({
           borderBottom: "1px solid rgba(255,255,255,0.06)",
         }}
       >
-        {market && (
-          <div
-            className="mt-[5px] overflow-x-auto"
-            style={{ scrollbarWidth: "none" }}
-          >
-            <div className="flex items-center gap-2.5 min-w-max">
-              {MARKET_ITEMS.map((item) => {
-                if (item.type === "price") {
-                  const data = market[
-                    item.key as keyof MarketResponse
-                  ] as MarketItem;
-                  if (!data?.price) return null;
-                  const isUp = (data.changePercent ?? 0) >= 0;
+        <div
+          className="mt-[5px] overflow-x-auto"
+          style={{ scrollbarWidth: "none" }}
+        >
+          {isLoading ? (
+            <SkeletonMarketBar />
+          ) : (
+            market && (
+              <div className="flex items-center gap-2.5 min-w-max">
+                {MARKET_ITEMS.map((item) => {
+                  if (item.type === "price") {
+                    const data = market[
+                      item.key as keyof MarketResponse
+                    ] as MarketItem;
+                    if (!data?.price) return null;
+                    const isUp = (data.changePercent ?? 0) >= 0;
+
+                    return (
+                      <div
+                        key={item.key}
+                        className="flex items-center gap-2 shrink-0"
+                        style={{
+                          background: "rgba(255,255,255,0.04)",
+                          border: "1px solid rgba(255,255,255,0.08)",
+                          borderRadius: "10px",
+                          padding: "5px 10px",
+                          backdropFilter: "blur(12px)",
+                          boxShadow:
+                            "0 1px 3px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)",
+                          transition: "background 0.2s",
+                        }}
+                      >
+                        <img
+                          src={item.img}
+                          alt={item.label}
+                          className="w-5 h-5 rounded-full object-cover bg-white"
+                          style={{
+                            boxShadow: "0 0 0 1px rgba(255,255,255,0.12)",
+                          }}
+                        />
+                        <div
+                          className="flex flex-col whitespace-nowrap"
+                          style={{ gap: "1px" }}
+                        >
+                          <span className="text-[12px] font-semibold text-[#f0f0f0] tracking-[0.01em] font-mono">
+                            {fNumber(data.price)}
+                          </span>
+                          <span
+                            className={`text-[10px] font-medium tracking-[0.02em] ${
+                              isUp ? "!text-emerald-600" : "!text-red-600"
+                            }`}
+                          >
+                            {isUp ? "▲ +" : "▼ "}
+                            {fNumber(data.changePercent ?? 0)}%
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  const fg = market.fearGreed;
+                  if (!fg?.value) return null;
 
                   return (
                     <div
                       key={item.key}
-                      className="flex items-center gap-2 shrink-0"
+                      onClick={() => setShowFearGreedModal(true)}
+                      className={`flex items-center gap-2 shrink-0 cursor-pointer ${getFearGreedBg(fg.value)}`}
                       style={{
-                        background: "rgba(255,255,255,0.04)",
                         border: "1px solid rgba(255,255,255,0.08)",
                         borderRadius: "10px",
                         padding: "5px 10px",
                         backdropFilter: "blur(12px)",
                         boxShadow:
                           "0 1px 3px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)",
-                        transition: "background 0.2s",
+                        transition: "opacity 0.15s",
                       }}
                     >
                       <img
                         src={item.img}
                         alt={item.label}
-                        className="w-5 h-5 rounded-full object-cover bg-white"
+                        className="w-5 h-5 rounded-full object-cover"
                         style={{
                           boxShadow: "0 0 0 1px rgba(255,255,255,0.12)",
                         }}
@@ -261,80 +333,35 @@ export function GraphPrice({
                         className="flex flex-col whitespace-nowrap"
                         style={{ gap: "1px" }}
                       >
-                        <span className="text-[12px] font-semibold text-[#f0f0f0] tracking-[0.01em] font-mono">
-                          {fNumber(data.price)}
+                        <span
+                          style={{
+                            fontSize: "12px",
+                            fontWeight: 600,
+                            color: "#f0f0f0",
+                            letterSpacing: "0.01em",
+                          }}
+                        >
+                          กลัว & โลภ
                         </span>
                         <span
-                          className={`text-[10px] font-medium tracking-[0.02em] ${
-                            isUp ? "!text-emerald-600" : "!text-red-600"
-                          }`}
+                          className={`text-left w-fit capitalize rounded ${getFearGreedText(fg.value)}`}
+                          style={{
+                            fontSize: "10px",
+                            fontWeight: 700,
+                            letterSpacing: "0.04em",
+                            textTransform: "uppercase",
+                          }}
                         >
-                          {isUp ? "▲ +" : "▼ "}
-                          {fNumber(data.changePercent ?? 0)}%
+                          {mapFearGreed(fg.value)}
                         </span>
                       </div>
                     </div>
                   );
-                }
-
-                const fg = market.fearGreed;
-                if (!fg?.value) return null;
-
-                return (
-                  <div
-                    key={item.key}
-                    onClick={() => setShowFearGreedModal(true)}
-                    className={`flex items-center gap-2 shrink-0 cursor-pointer ${getFearGreedBg(fg.value)}`}
-                    style={{
-                      border: "1px solid rgba(255,255,255,0.08)",
-                      borderRadius: "10px",
-                      padding: "5px 10px",
-                      backdropFilter: "blur(12px)",
-                      boxShadow:
-                        "0 1px 3px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)",
-                      transition: "opacity 0.15s",
-                    }}
-                  >
-                    <img
-                      src={item.img}
-                      alt={item.label}
-                      className="w-5 h-5 rounded-full object-cover"
-                      style={{
-                        boxShadow: "0 0 0 1px rgba(255,255,255,0.12)",
-                      }}
-                    />
-                    <div
-                      className="flex flex-col whitespace-nowrap"
-                      style={{ gap: "1px" }}
-                    >
-                      <span
-                        style={{
-                          fontSize: "12px",
-                          fontWeight: 600,
-                          color: "#f0f0f0",
-                          letterSpacing: "0.01em",
-                        }}
-                      >
-                        กลัว & โลภ
-                      </span>
-                      <span
-                        className={`text-left w-fit capitalize rounded ${getFearGreedText(fg.value)}`}
-                        style={{
-                          fontSize: "10px",
-                          fontWeight: 700,
-                          letterSpacing: "0.04em",
-                          textTransform: "uppercase",
-                        }}
-                      >
-                        {mapFearGreed(fg.value)}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
+                })}
+              </div>
+            )
+          )}
+        </div>
 
         {/* Column Headers */}
         <div
@@ -387,7 +414,20 @@ export function GraphPrice({
         </div>
       </div>
 
-      {market &&
+      {/* SKELETON ROWS */}
+      {isLoading &&
+        [...Array(5)].map((_, i) => (
+          <React.Fragment key={i}>
+            <SkeletonRow />
+            {i < 4 && (
+              <div className="border-b border-white opacity-10 mx-4 my-2" />
+            )}
+          </React.Fragment>
+        ))}
+
+      {/* ASSET ROWS */}
+      {!isLoading &&
+        market &&
         sortedAssets.map((asset, index) => {
           const symbol = asset.symbol;
           const graph = graphs[symbol];
@@ -415,7 +455,7 @@ export function GraphPrice({
 
           return (
             <React.Fragment key={symbol}>
-              <div className="w-full grid grid-cols-[2fr_1fr_1fr] gap-3 py-2">
+              <div className="w-full grid grid-cols-[2fr_1fr_1fr] gap-3 py-2 items-center">
                 {/* LEFT */}
                 <div className="flex items-center gap-2">
                   <div
@@ -436,7 +476,7 @@ export function GraphPrice({
 
                 {/* GRAPH */}
                 <div
-                  className={`w-full pointer-events-none rounded-md ${
+                  className={`h-[50px] flex items-center w-full pointer-events-none rounded-md ${
                     percentChange > 0
                       ? "bg-gradient-to-b from-green-500/25 via-green-400/10 to-transparent"
                       : percentChange < 0
@@ -475,23 +515,63 @@ export function GraphPrice({
                   </ResponsiveContainer>
                 </div>
 
-                {/* PROFIT */}
-                <div className="flex flex-col items-end">
-                  <div
-                    className={`font-bold text-[16px] text-white px-2 py-1 rounded ${
-                      percentChange > 0
-                        ? "bg-green-600"
-                        : percentChange < 0
-                          ? "bg-red-600"
-                          : "bg-gray-600"
-                    }`}
-                  >
-                    {percentChange > 0 && "+"}
-                    {percentChange.toFixed(2)}%
-                  </div>
-                  <div className="font-normal text-[12px]">
-                    ราคา: {fNumber(currentPrice) ?? "-"}
-                  </div>
+                {/* PROFIT — redesigned */}
+                <div className="flex flex-col items-end gap-[5px]">
+                  <ProfitBadge percentChange={percentChange} />
+
+                  {(() => {
+                    const pp = prePostData[symbol];
+
+                    // Loading state for pre/post
+                    if (isLoadingPrePost && !isThaiStock(symbol)) {
+                      return (
+                        <div className="flex flex-col items-end gap-[4px]">
+                          <SkeletonPulse className="h-[20px] w-[60px] rounded-md" />
+                          <SkeletonPulse className="h-[12px] w-[50px]" />
+                        </div>
+                      );
+                    }
+
+                    if (!pp || pp.session === "regular") {
+                      return (
+                        <div
+                          style={{
+                            fontSize: "10px",
+                            color: "rgba(255,255,255,0.35)",
+                            fontVariantNumeric: "tabular-nums",
+                            letterSpacing: "0.01em",
+                          }}
+                        >
+                          {fNumber(currentPrice) ?? "—"}
+                        </div>
+                      );
+                    }
+
+                    const ppChange = pp.prePostChangePercent;
+
+                    return (
+                      <>
+                        {pp.session !== "closed" && (
+                          <SessionBadge
+                            session={pp.session}
+                            ppChange={ppChange}
+                          />
+                        )}
+                        <div
+                          className="!text-gray-400"
+                          style={{
+                            fontSize: "11px",
+                            fontVariantNumeric: "tabular-nums",
+                            letterSpacing: "0.01em",
+                          }}
+                        >
+                          ราคา:{" "}
+                          {fNumber(pp.regularMarketPrice ?? currentPrice) ??
+                            "—"}
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
 

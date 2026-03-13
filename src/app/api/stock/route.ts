@@ -101,7 +101,7 @@ async function fetchYahooChart(
    Fetch 1D Graph
 ======================= */
 
-function isNYSEDaylightSaving(): boolean {
+export function isNYSEDaylightSaving(): boolean {
   const now = new Date();
   const year = now.getUTCFullYear();
 
