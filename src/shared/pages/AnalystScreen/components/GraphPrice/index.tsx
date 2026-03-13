@@ -177,6 +177,7 @@ export function GraphPrice({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ symbols: usSymbols }),
         });
+
         const json = await res.json();
         setPrePostData(json.data ?? {});
       } catch (err) {
@@ -186,9 +187,36 @@ export function GraphPrice({
       }
     };
 
-    if (!isPageVisible) return; // ← ขึ้นมาก่อน fetchPrePost()
-    fetchPrePost();
-    const interval = setInterval(fetchPrePost, AUTO_REFRESH_INTERVAL_MS);
+    const checkSessionAndFetch = async () => {
+      try {
+        const res = await fetch("/api/market-status");
+        const json = await res.json();
+
+        const session = json?.session;
+
+        const isPrePost = session === "pre-market" || session === "post-market";
+
+        if (!isPrePost) {
+          setIsLoadingPrePost(false);
+          return;
+        }
+
+        fetchPrePost();
+      } catch (err) {
+        console.error("Session check failed", err);
+        setIsLoadingPrePost(false);
+      }
+    };
+
+    if (!isPageVisible) return;
+
+    checkSessionAndFetch();
+
+    const interval = setInterval(
+      checkSessionAndFetch,
+      AUTO_REFRESH_INTERVAL_MS,
+    );
+
     return () => clearInterval(interval);
   }, [assets, isPageVisible]);
 
