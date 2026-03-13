@@ -61,7 +61,6 @@ type StockDetailModalProps = {
 
 const TIMEFRAMES: { label: string; value: TimeRange }[] = [
   { label: "นาที", value: "1m" },
-  // { label: "1 ชั่วโมง", value: "1h" },
   { label: "วัน", value: "1d" },
   { label: "สัปดาห์", value: "5d" },
   { label: "เดือน", value: "1mo" },
@@ -159,14 +158,20 @@ function buildHeikinAshi(
   return ha;
 }
 
+/* =======================
+   HAChart
+======================= */
+
 function HAChart({
   data,
   prevPrice,
+  currentPrice,
   range,
   isLoading,
 }: {
   data: HACandle[];
   prevPrice: number | null;
+  currentPrice: number | null;
   range: TimeRange;
   isLoading: boolean;
 }) {
@@ -178,7 +183,7 @@ function HAChart({
 
   const W = 380;
   const H = 204;
-  const PAD = { top: 8, bottom: 28, left: 2, right: 2 };
+  const PAD = { top: 8, bottom: 28, left: 48, right: 4 };
 
   if (isLoading) {
     return (
@@ -228,20 +233,37 @@ function HAChart({
 
   const allPrices = data.flatMap((c) => [c.high, c.low]);
   if (prevPrice) allPrices.push(prevPrice);
+  if (currentPrice) allPrices.push(currentPrice);
   const minP = Math.min(...allPrices);
   const maxP = Math.max(...allPrices);
-  const range_ = maxP - minP || 1;
+  const priceRange = maxP - minP || 1;
 
   const chartW = W - PAD.left - PAD.right;
   const chartH = H - PAD.top - PAD.bottom;
 
-  const toY = (p: number) => PAD.top + ((maxP - p) / range_) * chartH;
+  const toY = (p: number) => PAD.top + ((maxP - p) / priceRange) * chartH;
   const n = data.length;
   const gap = 1.5;
   const candleW = Math.max(chartW / n - gap, 2);
   const step = chartW / n;
 
   const refY = prevPrice ? toY(prevPrice) : null;
+  const curY = currentPrice ? toY(currentPrice) : null;
+
+  // Horizontal price grid lines — 4 evenly spaced levels
+  const GRID_LINES = 4;
+  const gridLevels = Array.from({ length: GRID_LINES }, (_, i) => {
+    const price = minP + (priceRange * i) / (GRID_LINES - 1);
+    return { price, y: toY(price) };
+  });
+
+  // Format price label compactly
+  function fmtPrice(p: number): string {
+    if (p >= 1_000_000) return `${(p / 1_000_000).toFixed(1)}M`;
+    if (p >= 1_000) return `${(p / 1_000).toFixed(1)}K`;
+    if (p < 10) return p.toFixed(2);
+    return p.toFixed(2);
+  }
 
   const labelIndices = [0, 1, 2, 3, 4].map((i) =>
     Math.round((i / 4) * (n - 1)),
@@ -256,18 +278,71 @@ function HAChart({
         style={{ width: "100%", height: H, display: "block" }}
         onMouseLeave={() => setTooltip(null)}
       >
-        {refY !== null && (
-          <line
-            x1={PAD.left}
-            y1={refY}
-            x2={W - PAD.right}
-            y2={refY}
-            stroke="rgba(255,198,0,0.25)"
-            strokeWidth={0.8}
-            strokeDasharray="4 3"
-          />
+        {/* Horizontal grid lines with price labels */}
+        {gridLevels.map(({ price, y }, i) => (
+          <g key={i}>
+            <line
+              x1={PAD.left}
+              y1={y}
+              x2={W - PAD.right}
+              y2={y}
+              stroke="rgba(255,255,255,0.06)"
+              strokeWidth={0.5}
+            />
+            <text
+              x={PAD.left - 4}
+              y={y + 3.5}
+              textAnchor="end"
+              fontSize={8.5}
+              fill="rgba(255,255,255,0.28)"
+              fontFamily="monospace"
+            >
+              {fmtPrice(price)}
+            </text>
+          </g>
+        ))}
+
+        {/* Current price dashed line */}
+        {curY !== null && (
+          <g>
+            {/* dashed line */}
+            <line
+              x1={PAD.left}
+              y1={curY}
+              x2={W - PAD.right}
+              y2={curY}
+              stroke="currentColor"
+              className="text-accent-yellow"
+              strokeWidth={0.8}
+              strokeDasharray="3 3"
+            />
+
+            {/* label background */}
+            <rect
+              x={PAD.left - 35}
+              y={curY - 6}
+              width={34}
+              height={12}
+              rx={3}
+              className="fill-accent-yellow"
+            />
+
+            {/* label text */}
+            <text
+              x={PAD.left - 6}
+              y={curY + 3.5}
+              textAnchor="end"
+              fontSize={8}
+              fill="black"
+              fontFamily="monospace"
+              fontWeight="bold"
+            >
+              {fmtPrice(currentPrice!)}
+            </text>
+          </g>
         )}
 
+        {/* X-axis baseline */}
         <line
           x1={PAD.left}
           y1={H - PAD.bottom + 4}
@@ -277,6 +352,7 @@ function HAChart({
           strokeWidth={0.5}
         />
 
+        {/* Candles */}
         {data.map((c, i) => {
           const cx = PAD.left + i * step + step / 2;
           const bodyTop = toY(Math.max(c.open, c.close));
@@ -288,7 +364,11 @@ function HAChart({
             <g
               key={i}
               onMouseEnter={() =>
-                setTooltip({ x: (cx / W) * 100, y: bodyTop, candle: c })
+                setTooltip({
+                  x: ((cx - PAD.left) / chartW) * 100,
+                  y: bodyTop,
+                  candle: c,
+                })
               }
             >
               <line
@@ -319,6 +399,7 @@ function HAChart({
           );
         })}
 
+        {/* X-axis time labels */}
         {labelIndices.map((idx) => {
           const cx = PAD.left + idx * step + step / 2;
           const label = formatTime(data[idx].time, range);
@@ -339,12 +420,13 @@ function HAChart({
         })}
       </svg>
 
+      {/* Tooltip */}
       {tooltip && (
         <div
           style={{
             position: "absolute",
             top: 4,
-            left: tooltip.x > 60 ? undefined : `${tooltip.x}%`,
+            left: tooltip.x > 60 ? undefined : `calc(${tooltip.x}% + 48px)`,
             right: tooltip.x > 60 ? `${100 - tooltip.x}%` : undefined,
             background: "#1a1a1a",
             border: "1px solid rgba(255,198,0,0.2)",
@@ -442,7 +524,7 @@ function TimeframeChips({
               onClick={() => onChange(tf.value)}
               disabled={isLoading}
               style={{
-                width: '100%',
+                width: "100%",
                 padding: "4px 12px",
                 borderRadius: 20,
                 fontSize: 12,
@@ -577,9 +659,6 @@ export function StockDetailModal({
   );
   const [isLoadingChart, setIsLoadingChart] = useState(false);
   const [chartError, setChartError] = useState<string | null>(null);
-  // displayedRange tracks which range the *currently visible* chart data belongs to.
-  // We only update it together with new data so the chart never reshapes with stale data
-  // while a new timeframe is loading — eliminating the "stretch" glitch on tab switch.
   const [displayedRange, setDisplayedRange] = useState<TimeRange>("1m");
 
   useEffect(() => {
@@ -600,8 +679,6 @@ export function StockDetailModal({
         );
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json: ChartHistoryResponse = await res.json();
-        // Update data and displayedRange together so the chart only re-renders
-        // once with the correct data — no intermediate stale-data frame.
         setChartHistory(json);
         setDisplayedRange(r);
       } catch (err) {
@@ -621,7 +698,7 @@ export function StockDetailModal({
   const isPageVisible = usePageVisible();
   useEffect(() => {
     if (range !== "1m") return;
-    if (!isPageVisible) return; // ← ถ้า user ไม่อยู่หน้าจอ ไม่ต้อง set interval
+    if (!isPageVisible) return;
     const id = setInterval(() => {
       fetchChartHistory(range);
     }, AUTO_REFRESH_1M_INTERVAL_MS);
@@ -649,13 +726,11 @@ export function StockDetailModal({
     currentPrice != null && prevPrice != null ? currentPrice - prevPrice : 0;
   const isUp = percentChange >= 0;
 
-  // Use displayedRange (not range) for all chart data computations so the chart
-  // always uses the range that matches the data currently in chartHistory.
   const rawChartData = chartHistory?.data ?? graph.data;
   const chartData = (() => {
     if (displayedRange === "1h" && rawChartData.length > 0) {
       const lastTime = rawChartData[rawChartData.length - 1].time;
-      const cutoff = lastTime - 24 * 60 * 60 * 1000; // 24h ย้อนหลังจากแท่งล่าสุด
+      const cutoff = lastTime - 24 * 60 * 60 * 1000;
       const filtered = rawChartData.filter((d) => d.time >= cutoff);
       return filtered.length > 0 ? filtered : rawChartData.slice(-24);
     }
@@ -833,6 +908,7 @@ export function StockDetailModal({
                 <HAChart
                   data={haData}
                   prevPrice={chartPrevPrice}
+                  currentPrice={currentPrice}
                   range={displayedRange}
                   isLoading={isLoadingChart}
                 />
