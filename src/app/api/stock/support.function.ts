@@ -46,14 +46,20 @@ export async function getAdvancedLevels(
 
   try {
     const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=3mo`;
-    const response = await fetch(url);
+    const response = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0",
+        Accept: "application/json",
+      },
+      cache: "no-store",
+    });
 
     if (!response.ok) return INITIAL_LEVELS(symbol);
 
     const data = await response.json();
     const result = data?.chart?.result?.[0];
     const quotes = result?.indicators?.quote?.[0];
-    const shortName = result?.meta?.shortName || result?.meta?.symbol || symbol
+    const shortName = result?.meta?.shortName || result?.meta?.symbol || symbol;
 
     if (!quotes) return INITIAL_LEVELS(symbol);
 

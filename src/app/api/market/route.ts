@@ -35,7 +35,7 @@ async function getMarketData(symbol: string, mode: MarketMode = "dailyMeta") {
       "User-Agent": "Mozilla/5.0",
       Accept: "application/json",
     },
-    next: { revalidate: 60 },
+    cache: "no-store",
   });
 
   if (!res.ok) throw new Error(`Yahoo fetch failed: ${symbol}`);

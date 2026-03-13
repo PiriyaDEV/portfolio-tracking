@@ -411,7 +411,7 @@ export default function MainApp() {
             (prev?.totalAnnualDividend || 0) +
             (data.dividendSummary?.totalAnnualDividend || 0),
         }));
-        if (index === batches.length - 1) {
+        if (index === 0) {
           setIsFirstBatchLoaded(true);
           setIsLoading(false);
         }
