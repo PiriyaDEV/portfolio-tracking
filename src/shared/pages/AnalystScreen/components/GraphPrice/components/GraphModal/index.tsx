@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import { Asset } from "@/app/lib/interface";
 import { fNumber, getLogo, getName, isThaiStock } from "@/app/lib/utils";
 
@@ -28,6 +28,26 @@ type HACandle = {
   isUp: boolean;
 };
 
+export type TimeRange = "1h" | "1d" | "5d" | "1mo" | "6mo" | "1y";
+
+type ChartHistoryPoint = {
+  time: number;
+  price: number;
+  high: number;
+  low: number;
+  open: number;
+  volume: number;
+};
+
+type ChartHistoryResponse = {
+  symbol: string;
+  range: TimeRange;
+  previousClose: number | null;
+  shortName: string;
+  currency: string;
+  data: ChartHistoryPoint[];
+};
+
 type StockDetailModalProps = {
   asset: Asset;
   graph: GraphData;
@@ -39,13 +59,53 @@ type StockDetailModalProps = {
 };
 
 /* =======================
+   Timeframe Config
+======================= */
+
+const TIMEFRAMES: { label: string; value: TimeRange }[] = [
+  { label: "ชั่วโมง", value: "1h" },
+  { label: "วัน", value: "1d" },
+  { label: "สัปดาห์", value: "5d" },
+  { label: "เดือน", value: "1mo" },
+  { label: "6 เดือน", value: "6mo" },
+  { label: "ปี", value: "1y" },
+];
+
+// จำนวนแท่งเป้าหมายที่ต้องการโชว์ในกราฟ
+const TARGET_CANDLES = 30;
+
+/* =======================
    Helpers
 ======================= */
 
-function formatTime(ts: number): string {
-  return new Date(ts).toLocaleTimeString("th-TH", {
-    hour: "2-digit",
-    minute: "2-digit",
+function formatTime(ts: number, range: TimeRange): string {
+  const d = new Date(ts);
+  if (range === "1h") {
+    // กราฟชั่วโมง → แสดงเป็น "10:30"
+    return d.toLocaleTimeString("th-TH", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
+  if (range === "1d") {
+    // กราฟวัน → แสดงเป็น "15 มี.ค."
+    return d.toLocaleDateString("th-TH", {
+      day: "numeric",
+      month: "short",
+    });
+  }
+  if (range === "5d") {
+    // กราฟสัปดาห์ → แสดงเป็น "จ. 10:30"
+    return d.toLocaleDateString("th-TH", {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+    });
+  }
+  return d.toLocaleDateString("th-TH", {
+    day: "numeric",
+    month: "short",
+    year: range === "1y" ? "numeric" : undefined,
   });
 }
 
@@ -70,18 +130,28 @@ function toBaht(usd: number | null | undefined, rate: number): string {
   return `${fNumber(usd * rate) ?? "—"} บาท`;
 }
 
-function buildHeikinAshi(data: GraphPoint[]): HACandle[] {
+function buildHeikinAshi(
+  data: {
+    time: number;
+    price: number;
+    open?: number;
+    high?: number;
+    low?: number;
+  }[],
+): HACandle[] {
   if (!data || data.length < 2) return [];
-  const bucketSize = Math.max(Math.ceil(data.length / 60), 1);
-  const buckets: GraphPoint[][] = [];
+  // bucket ให้ได้ TARGET_CANDLES แท่ง (หรือน้อยกว่าถ้าข้อมูลไม่พอ)
+  const targetCount = Math.min(TARGET_CANDLES, data.length);
+  const bucketSize = Math.max(Math.floor(data.length / targetCount), 1);
+  const buckets: (typeof data)[] = [];
   for (let i = 0; i < data.length; i += bucketSize)
     buckets.push(data.slice(i, i + bucketSize));
   const raw = buckets.map((pts) => ({
     time: pts[Math.floor(pts.length / 2)].time,
-    open: pts[0].price,
+    open: pts[0].open ?? pts[0].price,
     close: pts[pts.length - 1].price,
-    high: Math.max(...pts.map((p) => p.price)),
-    low: Math.min(...pts.map((p) => p.price)),
+    high: pts[0].high ?? Math.max(...pts.map((p) => p.price)),
+    low: pts[0].low ?? Math.min(...pts.map((p) => p.price)),
   }));
   const ha: HACandle[] = [];
   raw.forEach((c, i) => {
@@ -100,16 +170,21 @@ function buildHeikinAshi(data: GraphPoint[]): HACandle[] {
   return ha;
 }
 
-/* =======================
-   SVG Heikin-Ashi Chart
-======================= */
-
+// ──────────────────────────────────────────────
+// HAChart: เพิ่ม X-axis label แถบด้านล่าง
+// เปลี่ยน H จาก 180 → 204 (เพิ่ม 24px สำหรับ label แกน X)
+// เพิ่ม PAD.bottom จาก 8 → 28
+// ──────────────────────────────────────────────
 function HAChart({
   data,
   prevPrice,
+  range,
+  isLoading,
 }: {
   data: HACandle[];
   prevPrice: number | null;
+  range: TimeRange;
+  isLoading: boolean;
 }) {
   const [tooltip, setTooltip] = useState<{
     x: number;
@@ -117,28 +192,87 @@ function HAChart({
     candle: HACandle;
   } | null>(null);
 
-  if (!data.length) return null;
-
   const W = 380;
-  const H = 180;
-  const PAD = { top: 8, bottom: 8, left: 2, right: 2 };
+  const H = 204; // เพิ่มจาก 180 → 204 เพื่อให้มีที่ label แกน X
+  const PAD = { top: 8, bottom: 28, left: 2, right: 2 }; // bottom เพิ่มจาก 8 → 28
+
+  if (isLoading) {
+    return (
+      <div
+        style={{
+          width: "100%",
+          height: H,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "rgba(255,255,255,0.02)",
+          borderRadius: 8,
+        }}
+      >
+        <div
+          style={{
+            width: 24,
+            height: 24,
+            borderRadius: "50%",
+            border: "2px solid rgba(255,198,0,0.15)",
+            borderTopColor: "rgba(255,198,0,0.7)",
+            animation: "spin 0.7s linear infinite",
+          }}
+        />
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
+
+  if (!data.length) {
+    return (
+      <div
+        style={{
+          width: "100%",
+          height: H,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "rgba(255,255,255,0.2)",
+          fontSize: 13,
+        }}
+      >
+        ไม่มีข้อมูล
+      </div>
+    );
+  }
 
   const allPrices = data.flatMap((c) => [c.high, c.low]);
   if (prevPrice) allPrices.push(prevPrice);
   const minP = Math.min(...allPrices);
   const maxP = Math.max(...allPrices);
-  const range = maxP - minP || 1;
+  const range_ = maxP - minP || 1;
 
   const chartW = W - PAD.left - PAD.right;
   const chartH = H - PAD.top - PAD.bottom;
 
-  const toY = (p: number) => PAD.top + ((maxP - p) / range) * chartH;
+  const toY = (p: number) => PAD.top + ((maxP - p) / range_) * chartH;
   const n = data.length;
   const gap = 1.5;
   const candleW = Math.max(chartW / n - gap, 2);
   const step = chartW / n;
 
   const refY = prevPrice ? toY(prevPrice) : null;
+
+  // คำนวณ X-axis label positions: แสดงสูงสุด 5 label เว้นระยะสม่ำเสมอ
+  const MAX_LABELS = 5;
+  const labelCount = Math.min(MAX_LABELS, n);
+  // เลือก index ของแท่งที่จะแสดง label
+  const labelIndices: number[] = [];
+  if (labelCount === 1) {
+    labelIndices.push(0);
+  } else {
+    for (let i = 0; i < labelCount; i++) {
+      labelIndices.push(Math.round((i / (labelCount - 1)) * (n - 1)));
+    }
+  }
+
+  const axisY = H - 6; // ตำแหน่ง Y ของ label (ด้านล่างสุด)
 
   return (
     <div style={{ position: "relative", width: "100%" }}>
@@ -147,7 +281,7 @@ function HAChart({
         style={{ width: "100%", height: H, display: "block" }}
         onMouseLeave={() => setTooltip(null)}
       >
-        {/* Reference line */}
+        {/* เส้น reference ราคาปิดก่อนหน้า */}
         {refY !== null && (
           <line
             x1={PAD.left}
@@ -160,36 +294,39 @@ function HAChart({
           />
         )}
 
-        {/* Candles */}
+        {/* เส้นแกน X */}
+        <line
+          x1={PAD.left}
+          y1={H - PAD.bottom + 4}
+          x2={W - PAD.right}
+          y2={H - PAD.bottom + 4}
+          stroke="rgba(255,255,255,0.08)"
+          strokeWidth={0.5}
+        />
+
+        {/* แท่งเทียน */}
         {data.map((c, i) => {
           const cx = PAD.left + i * step + step / 2;
           const bodyTop = toY(Math.max(c.open, c.close));
           const bodyBot = toY(Math.min(c.open, c.close));
           const bodyH = Math.max(bodyBot - bodyTop, 1.5);
           const color = c.isUp ? "#4ade80" : "#f87171";
-          const wickX = cx;
           const x = cx - candleW / 2;
-
           return (
             <g
               key={i}
-              onMouseEnter={(e) => {
-                const rect = (
-                  e.currentTarget.ownerSVGElement as SVGElement
-                ).getBoundingClientRect();
-                setTooltip({ x: (cx / W) * 100, y: bodyTop, candle: c });
-              }}
+              onMouseEnter={() =>
+                setTooltip({ x: (cx / W) * 100, y: bodyTop, candle: c })
+              }
             >
-              {/* upper wick */}
               <line
-                x1={wickX}
+                x1={cx}
                 y1={toY(c.high)}
-                x2={wickX}
+                x2={cx}
                 y2={bodyTop}
                 stroke={color}
                 strokeWidth={1.2}
               />
-              {/* body */}
               <rect
                 x={x}
                 y={bodyTop}
@@ -198,16 +335,36 @@ function HAChart({
                 fill={color}
                 rx={0.5}
               />
-              {/* lower wick */}
               <line
-                x1={wickX}
+                x1={cx}
                 y1={bodyBot}
-                x2={wickX}
+                x2={cx}
                 y2={toY(c.low)}
                 stroke={color}
                 strokeWidth={1.2}
               />
             </g>
+          );
+        })}
+
+        {/* X-axis labels */}
+        {labelIndices.map((idx) => {
+          const cx = PAD.left + idx * step + step / 2;
+          const label = formatTime(data[idx].time, range);
+          // label แรก align left, สุดท้าย align right, กลาง align middle
+          const anchor = idx === 0 ? "start" : idx === n - 1 ? "end" : "middle";
+          return (
+            <text
+              key={idx}
+              x={cx}
+              y={axisY}
+              textAnchor={anchor}
+              fontSize={9}
+              fill="rgba(255,255,255,0.3)"
+              fontFamily="monospace"
+            >
+              {label}
+            </text>
           );
         })}
       </svg>
@@ -239,7 +396,7 @@ function HAChart({
               fontSize: 10,
             }}
           >
-            {formatTime(tooltip.candle.time)}
+            {formatTime(tooltip.candle.time, range)}
           </div>
           {(["open", "high", "low", "close"] as const).map((k) => (
             <div
@@ -281,7 +438,63 @@ function HAChart({
 }
 
 /* =======================
-   StatRow
+   Timeframe Chips
+======================= */
+
+function TimeframeChips({
+  value,
+  onChange,
+  isLoading,
+}: {
+  value: TimeRange;
+  onChange: (r: TimeRange) => void;
+  isLoading: boolean;
+}) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        gap: 6,
+        justifyContent: "center",
+        padding: "8px 0 4px",
+      }}
+    >
+      {TIMEFRAMES.map((tf) => {
+        const active = tf.value === value;
+        return (
+          <button
+            key={tf.value}
+            onClick={() => onChange(tf.value)}
+            disabled={isLoading}
+            style={{
+              padding: "4px 12px",
+              borderRadius: 20,
+              fontSize: 12,
+              fontWeight: active ? 700 : 500,
+              fontFamily: "monospace",
+              border: active
+                ? "1px solid rgba(255,198,0,0.6)"
+                : "1px solid rgba(255,255,255,0.1)",
+              background: active
+                ? "rgba(255,198,0,0.15)"
+                : "rgba(255,255,255,0.04)",
+              color: active ? "rgba(255,198,0,0.95)" : "rgba(255,255,255,0.45)",
+              cursor: isLoading ? "default" : "pointer",
+              transition: "all 0.15s",
+              outline: "none",
+              opacity: isLoading && !active ? 0.5 : 1,
+            }}
+          >
+            {tf.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/* =======================
+   StatRow / SectionLabel
 ======================= */
 
 function StatRow({
@@ -293,11 +506,10 @@ function StatRow({
   label: string;
   value: string;
   subValue?: string;
-  signed?: boolean; // if true, apply green/red class based on leading + or -
+  signed?: boolean;
 }) {
   const isPositive = signed && value.startsWith("+");
   const isNegative = signed && value.startsWith("-");
-
   return (
     <div
       style={{
@@ -380,6 +592,12 @@ export function StockDetailModal({
 }: StockDetailModalProps) {
   const overlayRef = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
+  const [range, setRange] = useState<TimeRange>("1h");
+  const [chartHistory, setChartHistory] = useState<ChartHistoryResponse | null>(
+    null,
+  );
+  const [isLoadingChart, setIsLoadingChart] = useState(false);
+  const [chartError, setChartError] = useState<string | null>(null);
 
   useEffect(() => {
     requestAnimationFrame(() => setVisible(true));
@@ -388,6 +606,32 @@ export function StockDetailModal({
       document.body.style.overflow = "";
     };
   }, []);
+
+  // Fetch chart history when range changes
+  const fetchChartHistory = useCallback(
+    async (r: TimeRange) => {
+      setIsLoadingChart(true);
+      setChartError(null);
+      try {
+        const res = await fetch(
+          `/api/chart-history?symbol=${encodeURIComponent(asset.symbol)}&range=${r}`,
+        );
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const json: ChartHistoryResponse = await res.json();
+        setChartHistory(json);
+      } catch (err) {
+        console.error("chart-history fetch failed", err);
+        setChartError("โหลดข้อมูลไม่ได้");
+      } finally {
+        setIsLoadingChart(false);
+      }
+    },
+    [asset.symbol],
+  );
+
+  useEffect(() => {
+    fetchChartHistory(range);
+  }, [range, fetchChartHistory]);
 
   const handleOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target === overlayRef.current) {
@@ -410,7 +654,10 @@ export function StockDetailModal({
     currentPrice != null && prevPrice != null ? currentPrice - prevPrice : 0;
   const isUp = percentChange >= 0;
 
-  const haData = buildHeikinAshi(graph.data);
+  // Use chart history data for the chart, fall back to intraday graph
+  const chartData = chartHistory?.data ?? graph.data;
+  const chartPrevPrice = chartHistory?.previousClose ?? prevPrice;
+  const haData = buildHeikinAshi(chartData);
 
   const pp = prePostData;
   const hasPrePost = pp && pp.session !== "regular" && pp.session !== "closed";
@@ -431,16 +678,16 @@ export function StockDetailModal({
       ? (profitLoss / holdingValue) * 100
       : null;
 
-  const minPrice = graph.data.length
-    ? Math.min(...graph.data.map((d) => d.price))
-    : null;
-  const maxPrice = graph.data.length
-    ? Math.max(...graph.data.map((d) => d.price))
-    : null;
-  const firstTime = graph.data.length ? graph.data[0].time : null;
-  const lastTime = graph.data.length
-    ? graph.data[graph.data.length - 1].time
-    : null;
+  const minPrice = chartHistory?.data.length
+    ? Math.min(...chartHistory.data.map((d) => d.price))
+    : graph.data.length
+      ? Math.min(...graph.data.map((d) => d.price))
+      : null;
+  const maxPrice = chartHistory?.data.length
+    ? Math.max(...chartHistory.data.map((d) => d.price))
+    : graph.data.length
+      ? Math.max(...graph.data.map((d) => d.price))
+      : null;
 
   return (
     <div
@@ -553,9 +800,39 @@ export function StockDetailModal({
             )}
           </div>
 
-          {/* Chart */}
+          {/* Chart + Chips */}
           <div className="py-3 border-b border-accent-yellow border-opacity-10">
-            <HAChart data={haData} prevPrice={prevPrice} />
+            {/* Timeframe Chips */}
+            <TimeframeChips
+              value={range}
+              onChange={setRange}
+              isLoading={isLoadingChart}
+            />
+
+            {/* Chart */}
+            <div style={{ marginTop: 8 }}>
+              {chartError ? (
+                <div
+                  style={{
+                    height: 180,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "rgba(255,100,100,0.6)",
+                    fontSize: 13,
+                  }}
+                >
+                  {chartError}
+                </div>
+              ) : (
+                <HAChart
+                  data={haData}
+                  prevPrice={chartPrevPrice}
+                  range={range}
+                  isLoading={isLoadingChart}
+                />
+              )}
+            </div>
           </div>
 
           {/* Stats */}
