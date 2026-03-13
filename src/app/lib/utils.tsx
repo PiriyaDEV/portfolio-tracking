@@ -61,33 +61,6 @@ export const getURLParams = () => {
   };
 };
 
-// Function to call the /api/shorten endpoint
-export async function getShortUrl(longUrl: string) {
-  try {
-    const response = await fetch("/api/shorten", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ longUrl }),
-    });
-
-    // Handle the response from the API
-    if (response.ok) {
-      const data = await response.json();
-      console.log("Shortened URL:", data.shortUrl);
-      return data.shortUrl; // Return the shortened URL
-    } else {
-      const errorData = await response.json();
-      console.error("Error shortening URL:", errorData);
-      throw new Error(errorData.error || "Unknown error");
-    }
-  } catch (error) {
-    console.error("Failed to shorten URL:", error);
-    return longUrl; // Return the original longUrl in case of error
-  }
-}
-
 export function getPrice(
   price: number,
   vat?: number | null,

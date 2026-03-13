@@ -29,30 +29,13 @@ import { SessionBadge } from "./components/SessionBadge";
 import { AUTO_REFRESH_INTERVAL_MS } from "@/app/config";
 import { usePageVisible } from "@/shared/hooks/usePageVisible";
 import { MARKET_SYMBOLS } from "@/app/api/market/route";
+import { useMarketStore } from "@/store/useMarketStore";
 
 /* =======================
    Types
 ======================= */
 
-type GraphPoint = {
-  time: number;
-  price: number;
-};
-
-type GraphData = {
-  base: number;
-  shortName: string;
-  data: GraphPoint[];
-};
-
-type Props = {
-  graphs: Record<string, GraphData>;
-  assets: Asset[];
-  prices: any;
-  previousPrice: any;
-  market: MarketResponse;
-  currencyRate: number;
-};
+type GraphPoint = { time: number; price: number };
 
 type PrePostData = {
   currentPrice: number | null;
@@ -64,15 +47,8 @@ type PrePostData = {
   latestTimestamp: number | null;
 };
 
-type MarketItem = {
-  price: number | null;
-  changePercent: number | null;
-};
-
-type FearGreedItem = {
-  value: number | null;
-  status: string | null;
-};
+type MarketItem = { price: number | null; changePercent: number | null };
+type FearGreedItem = { value: number | null; status: string | null };
 
 export const defaultMarketResponse: MarketResponse = {
   sp500: { price: null, changePercent: null },
@@ -94,35 +70,15 @@ type SortBy = "holding" | "profit" | "none";
 export type SortOrder = "asc" | "desc";
 
 /* =======================
-   Market Items
+   Market bar config
 ======================= */
 
 const MARKET_ASSETS: Record<string, Asset> = {
-  "^GSPC": {
-    symbol: "^GSPC",
-    quantity: 0,
-    costPerShare: 0,
-  },
-  "CL=F": {
-    symbol: "CL=F",
-    quantity: 0,
-    costPerShare: 0,
-  },
-  "GC=F": {
-    symbol: "GC=F",
-    quantity: 0,
-    costPerShare: 0,
-  },
-  "BTC-USD": {
-    symbol: "BTC-USD",
-    quantity: 0,
-    costPerShare: 0,
-  },
-  "^SET.BK": {
-    symbol: "^SET.BK",
-    quantity: 0,
-    costPerShare: 0,
-  },
+  "^GSPC": { symbol: "^GSPC", quantity: 0, costPerShare: 0 },
+  "CL=F": { symbol: "CL=F", quantity: 0, costPerShare: 0 },
+  "GC=F": { symbol: "GC=F", quantity: 0, costPerShare: 0 },
+  "BTC-USD": { symbol: "BTC-USD", quantity: 0, costPerShare: 0 },
+  "^SET.BK": { symbol: "^SET.BK", quantity: 0, costPerShare: 0 },
 };
 
 const MARKET_ITEMS = [
@@ -165,17 +121,22 @@ const MARKET_ITEMS = [
 ] as const;
 
 /* =======================
+   Props
+======================= */
+
+type Props = {
+  assets: Asset[];
+  market: MarketResponse;
+};
+
+/* =======================
    Component
 ======================= */
 
-export function GraphPrice({
-  graphs,
-  assets,
-  prices,
-  previousPrice,
-  market,
-  currencyRate,
-}: Props) {
+export function GraphPrice({ assets, market }: Props) {
+  // ─── All market data from shared store ───────────────────────────────────
+  const { prices, graphs, previousPrice, currencyRate } = useMarketStore();
+
   const [sortBy, setSortBy] = useState<SortBy>("none");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
   const [showFearGreedModal, setShowFearGreedModal] = useState(false);
@@ -186,14 +147,12 @@ export function GraphPrice({
   const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
 
   const isLoading = !graphs || Object.keys(graphs).length === 0;
-
   const isPageVisible = usePageVisible();
 
   useEffect(() => {
     const usSymbols = assets
       .map((a) => a.symbol)
       .filter((s) => !isThaiStock(s));
-
     if (!usSymbols.length) {
       setIsLoadingPrePost(false);
       return;
@@ -206,7 +165,6 @@ export function GraphPrice({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ symbols: usSymbols }),
         });
-
         const json = await res.json();
         setPrePostData(json.data ?? {});
       } catch (err) {
@@ -220,16 +178,12 @@ export function GraphPrice({
       try {
         const res = await fetch("/api/market-status");
         const json = await res.json();
-
-        const session = json?.session;
-
-        const isPrePost = session === "pre-market" || session === "post-market";
-
+        const isPrePost =
+          json?.session === "pre-market" || json?.session === "post-market";
         if (!isPrePost) {
           setIsLoadingPrePost(false);
           return;
         }
-
         fetchPrePost();
       } catch (err) {
         console.error("Session check failed", err);
@@ -238,22 +192,19 @@ export function GraphPrice({
     };
 
     if (!isPageVisible) return;
-
     checkSessionAndFetch();
-
     const interval = setInterval(
       checkSessionAndFetch,
       AUTO_REFRESH_INTERVAL_MS,
     );
-
     return () => clearInterval(interval);
   }, [assets, isPageVisible]);
 
   const getProfitPercent = (symbol: string) => {
-    const currentPrice = prices?.[symbol];
-    const prevPrice = previousPrice?.[symbol];
-    if (!currentPrice || !prevPrice) return 0;
-    return ((currentPrice - prevPrice) / prevPrice) * 100;
+    const cur = prices?.[symbol];
+    const prev = previousPrice?.[symbol];
+    if (!cur || !prev) return 0;
+    return ((cur - prev) / prev) * 100;
   };
 
   const getHoldingValue = (asset: Asset) => asset.quantity * asset.costPerShare;
@@ -287,7 +238,6 @@ export function GraphPrice({
     }
   };
 
-  // ---- selected asset data for modal ----
   const selectedAsset = selectedSymbol
     ? (assets.find((a) => a.symbol === selectedSymbol) ??
       MARKET_ASSETS[selectedSymbol] ??
@@ -296,7 +246,6 @@ export function GraphPrice({
 
   return (
     <div className="mt-[90px] flex flex-col">
-      {/* Fear & Greed Modal */}
       {showFearGreedModal && market?.fearGreed?.value !== null && (
         <FearGreedGauge
           value={market.fearGreed.value!}
@@ -304,7 +253,6 @@ export function GraphPrice({
         />
       )}
 
-      {/* Stock Detail Modal */}
       {selectedSymbol && selectedAsset && (
         <StockDetailModal
           symbol={selectedSymbol}
@@ -317,9 +265,7 @@ export function GraphPrice({
       {/* HEADER */}
       <div
         className="fixed top-[160px] left-1/2 -translate-x-1/2 max-w-[450px] w-full gap-3 py-2 px-3 text-[12px] text-gray-400 bg-black z-[99]"
-        style={{
-          borderBottom: "1px solid rgba(255,255,255,0.06)",
-        }}
+        style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}
       >
         <div
           className="mt-[5px] overflow-x-auto"
@@ -337,14 +283,10 @@ export function GraphPrice({
                     ] as MarketItem;
                     if (!data?.price) return null;
                     const isUp = (data.changePercent ?? 0) >= 0;
-
-                    console.log(item);
-
                     return (
                       <div
                         key={item.key}
                         onClick={() => {
-                          console.log("click");
                           item.key in MARKET_SYMBOLS &&
                             setSelectedSymbol(
                               MARKET_SYMBOLS[
@@ -361,7 +303,6 @@ export function GraphPrice({
                           backdropFilter: "blur(12px)",
                           boxShadow:
                             "0 1px 3px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)",
-                          transition: "background 0.2s",
                         }}
                       >
                         <img
@@ -380,9 +321,7 @@ export function GraphPrice({
                             {fNumber(data.price)}
                           </span>
                           <span
-                            className={`text-[10px] font-medium tracking-[0.02em] ${
-                              isUp ? "!text-emerald-600" : "!text-red-600"
-                            }`}
+                            className={`text-[10px] font-medium tracking-[0.02em] ${isUp ? "!text-emerald-600" : "!text-red-600"}`}
                           >
                             {isUp ? "▲ +" : "▼ "}
                             {fNumber(data.changePercent ?? 0)}%
@@ -394,7 +333,6 @@ export function GraphPrice({
 
                   const fg = market.fearGreed;
                   if (!fg?.value) return null;
-
                   return (
                     <div
                       key={item.key}
@@ -407,7 +345,6 @@ export function GraphPrice({
                         backdropFilter: "blur(12px)",
                         boxShadow:
                           "0 1px 3px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)",
-                        transition: "opacity 0.15s",
                       }}
                     >
                       <img
@@ -427,7 +364,6 @@ export function GraphPrice({
                             fontSize: "12px",
                             fontWeight: 600,
                             color: "#f0f0f0",
-                            letterSpacing: "0.01em",
                           }}
                         >
                           กลัว & โลภ
@@ -452,7 +388,7 @@ export function GraphPrice({
           )}
         </div>
 
-        {/* Column Headers */}
+        {/* Column headers */}
         <div
           className="mt-[15px] grid grid-cols-[2fr_1fr_1fr]"
           style={{
@@ -471,7 +407,6 @@ export function GraphPrice({
                 sortBy === "holding"
                   ? "rgba(255,255,255,0.7)"
                   : "rgba(255,255,255,0.3)",
-              transition: "color 0.15s",
             }}
           >
             สินทรัพย์
@@ -480,9 +415,7 @@ export function GraphPrice({
               order={sortBy === "holding" ? sortOrder : null}
             />
           </div>
-
           <div />
-
           <div
             onClick={() => handleSortColumn("profit")}
             className="text-right cursor-pointer select-none flex justify-end items-center gap-1"
@@ -491,7 +424,6 @@ export function GraphPrice({
                 sortBy === "profit"
                   ? "rgba(255,255,255,0.7)"
                   : "rgba(255,255,255,0.3)",
-              transition: "color 0.15s",
             }}
           >
             % กำไร
@@ -503,7 +435,7 @@ export function GraphPrice({
         </div>
       </div>
 
-      {/* SKELETON ROWS */}
+      {/* Skeleton rows */}
       {isLoading &&
         [...Array(5)].map((_, i) => (
           <React.Fragment key={i}>
@@ -514,32 +446,27 @@ export function GraphPrice({
           </React.Fragment>
         ))}
 
-      {/* ASSET ROWS */}
+      {/* Asset rows */}
       {!isLoading &&
         market &&
         sortedAssets.map((asset, index) => {
           const symbol = asset.symbol;
           const graph = graphs[symbol];
-
           if (!graph || graph.data.length <= 1) return null;
 
           const { data } = graph;
-
           const currentPrice = prices?.[symbol];
           const prevPrice = previousPrice?.[symbol];
-
           const percentChange =
             prevPrice && currentPrice
               ? ((currentPrice - prevPrice) / prevPrice) * 100
               : 0;
-
           const color =
             percentChange > 0
               ? "#22c55e"
               : percentChange < 0
                 ? "#ef4444"
                 : "#999";
-
           const isLast = index === sortedAssets.length - 1;
 
           return (
@@ -548,12 +475,10 @@ export function GraphPrice({
                 className="w-full grid grid-cols-[2fr_1fr_1fr] gap-3 py-2 items-center cursor-pointer active:opacity-60 transition-opacity"
                 onClick={() => setSelectedSymbol(symbol)}
               >
-                {/* LEFT */}
+                {/* Left */}
                 <div className="flex items-center gap-2">
                   <div
-                    className={`w-[30px] h-[30px] rounded-full bg-cover bg-center border border-gray-600 ${
-                      getLogo(symbol) ? "" : "bg-white"
-                    }`}
+                    className={`w-[30px] h-[30px] rounded-full bg-cover bg-center border border-gray-600 ${getLogo(symbol) ? "" : "bg-white"}`}
                     style={{ backgroundImage: `url(${getLogo(symbol)})` }}
                   />
                   <div>
@@ -566,7 +491,7 @@ export function GraphPrice({
                   </div>
                 </div>
 
-                {/* GRAPH */}
+                {/* Graph */}
                 <div
                   className={`h-[50px] flex items-center w-full pointer-events-none rounded-md ${
                     percentChange > 0
@@ -589,7 +514,7 @@ export function GraphPrice({
                         ]}
                       />
                       <ReferenceLine
-                        y={prevPrice || 0}
+                        y={prevPrice ?? 0}
                         stroke="#777"
                         strokeDasharray="3 3"
                       />
@@ -607,17 +532,21 @@ export function GraphPrice({
                   </ResponsiveContainer>
                 </div>
 
-                {/* PROFIT — redesigned */}
+                {/* Profit + pre/post */}
                 <div className="flex flex-col items-end gap-[5px]">
                   <ProfitBadge percentChange={percentChange} />
-
                   {(() => {
                     const pp = prePostData[symbol];
                     const ppChange = pp?.prePostChangePercent;
 
+                    // ── null-safe: coalesce null → undefined so fNumber never receives null ──
+                    const rawPrice =
+                      pp?.regularMarketPrice ?? currentPrice ?? undefined;
+                    const displayPrice =
+                      rawPrice != null ? fNumber(rawPrice) : "—";
+
                     return (
                       <>
-                        {/* SessionBadge */}
                         {!isThaiStock(symbol) && (
                           <>
                             {isLoadingPrePost ? (
@@ -634,8 +563,6 @@ export function GraphPrice({
                             )}
                           </>
                         )}
-
-                        {/* Price (always show) */}
                         <div
                           className="!text-gray-400"
                           style={{
@@ -644,16 +571,13 @@ export function GraphPrice({
                             letterSpacing: "0.01em",
                           }}
                         >
-                          ราคา:{" "}
-                          {fNumber(pp?.regularMarketPrice ?? currentPrice) ??
-                            "—"}
+                          ราคา: {displayPrice}
                         </div>
                       </>
                     );
                   })()}
                 </div>
               </div>
-
               {!isLast && (
                 <div className="border-b border-white opacity-10 mx-4 my-2" />
               )}

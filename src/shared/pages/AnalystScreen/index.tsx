@@ -1,35 +1,32 @@
 "use client";
 
-import { AdvancedLevels } from "@/app/api/stock/support.function";
+import { JSX, useState } from "react";
 import { Asset } from "@/app/lib/interface";
 import { getSignal, getSignalRank } from "@/app/lib/market.logic";
-import { JSX, useState } from "react";
-
 import {
   FaChartLine,
   FaLayerGroup,
   FaChartBar,
   FaNewspaper,
 } from "react-icons/fa6";
+import { FaCalendarAlt } from "react-icons/fa";
+import { isCash } from "@/app/lib/utils";
+import { useMarketStore } from "@/store/useMarketStore"; // ← NEW
+
 import SNPCompare from "./components/SNPCompare";
-import { GraphPrice, MarketResponse } from "./components/GraphPrice";
+import { GraphPrice } from "./components/GraphPrice";
 import StockCard from "./components/StockCard";
 import NewsScreen from "../NewsScreen";
 import Earning from "./components/Earning";
-import { FaCalendarAlt } from "react-icons/fa";
-import { isCash } from "@/app/lib/utils";
 import StockRecommendScreen from "../CalculateScreen/components/StockRecommand";
 
+// Re-export MarketResponse so existing imports still work
+export type { MarketResponse } from "./components/GraphPrice";
+
 interface Props {
-  advancedLevels: Record<string, AdvancedLevels>;
-  prices: Record<string, number | null>;
   assets: Asset[];
-  graphs: any;
-  previousPrice: any;
   wishlist: any;
   userId: any;
-  currencyRate: any;
-  market: MarketResponse;
 }
 
 type TabKey =
@@ -40,17 +37,17 @@ type TabKey =
   | "news"
   | "earning";
 
-export default function AnalystScreen({
-  advancedLevels,
-  prices,
-  assets,
-  graphs,
-  previousPrice,
-  wishlist,
-  userId,
-  currencyRate,
-  market,
-}: Props) {
+export default function AnalystScreen({ assets, wishlist, userId }: Props) {
+  // ─── Pull everything from shared store ────────────────────────────────────
+  const {
+    prices,
+    advancedLevels,
+    graphs,
+    previousPrice,
+    currencyRate,
+    market,
+  } = useMarketStore();
+
   const [activeTab, setActiveTab] = useState<TabKey>("graph");
 
   const sortedSymbols = Object.keys(advancedLevels)
@@ -64,41 +61,13 @@ export default function AnalystScreen({
       return getSignalRank(sa) - getSignalRank(sb);
     });
 
-  const tabs: {
-    key: TabKey;
-    label: string;
-    icon: JSX.Element;
-  }[] = [
-    {
-      key: "graph",
-      label: "กราฟ",
-      icon: <FaChartLine size={22} />,
-    },
-    {
-      key: "compare",
-      label: "เทียบ S&P",
-      icon: <FaChartBar size={22} />,
-    },
-    {
-      key: "news",
-      label: "ข่าว",
-      icon: <FaNewspaper size={22} />,
-    },
-    {
-      key: "support",
-      label: "แนวรับ",
-      icon: <FaLayerGroup size={22} />,
-    },
-    {
-      key: "earning",
-      label: "ไตรมาส",
-      icon: <FaCalendarAlt size={22} />,
-    },
-    {
-      key: "recommend",
-      label: "แนะนำหุ้น",
-      icon: <FaChartLine size={22} />,
-    },
+  const tabs: { key: TabKey; label: string; icon: JSX.Element }[] = [
+    { key: "graph", label: "กราฟ", icon: <FaChartLine size={22} /> },
+    { key: "compare", label: "เทียบ S&P", icon: <FaChartBar size={22} /> },
+    { key: "news", label: "ข่าว", icon: <FaNewspaper size={22} /> },
+    { key: "support", label: "แนวรับ", icon: <FaLayerGroup size={22} /> },
+    { key: "earning", label: "ไตรมาส", icon: <FaCalendarAlt size={22} /> },
+    { key: "recommend", label: "แนะนำหุ้น", icon: <FaChartLine size={22} /> },
   ];
 
   return (
@@ -108,7 +77,6 @@ export default function AnalystScreen({
         <div className="flex justify-around">
           {tabs.map((tab) => {
             const isActive = activeTab === tab.key;
-
             return (
               <button
                 key={tab.key}
@@ -116,20 +84,16 @@ export default function AnalystScreen({
                 className="flex flex-col items-center gap-1"
               >
                 <div
-                  className={`w-12 h-12 flex items-center justify-center rounded-full transition-all duration-200
-                    ${
-                      isActive
-                        ? "bg-yellow-500 shadow-[0_0_18px_rgba(234,179,8,0.55)]"
-                        : "bg-black-lighter2 text-white hover:bg-white/10"
-                    }`}
+                  className={`w-12 h-12 flex items-center justify-center rounded-full transition-all duration-200 ${
+                    isActive
+                      ? "bg-yellow-500 shadow-[0_0_18px_rgba(234,179,8,0.55)]"
+                      : "bg-black-lighter2 text-white hover:bg-white/10"
+                  }`}
                 >
                   {tab.icon}
                 </div>
-
                 <span
-                  className={`text-xs ${
-                    isActive ? "text-yellow-400" : "text-gray-300"
-                  }`}
+                  className={`text-xs ${isActive ? "text-yellow-400" : "text-gray-300"}`}
                 >
                   {tab.label}
                 </span>
@@ -162,14 +126,8 @@ export default function AnalystScreen({
         )}
 
         {activeTab === "graph" && (
-          <GraphPrice
-            assets={assets}
-            graphs={graphs}
-            prices={prices}
-            previousPrice={previousPrice}
-            market={market}
-            currencyRate={currencyRate}
-          />
+          // GraphPrice ดึงจาก store เอง — ไม่ต้องส่ง props แล้ว
+          <GraphPrice assets={assets} market={market!} />
         )}
 
         {activeTab === "earning" && (

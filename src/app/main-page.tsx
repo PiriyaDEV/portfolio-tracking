@@ -39,10 +39,6 @@ import {
   EditProfileModal,
   ProfileAvatar,
 } from "@/shared/components/modal/EditProfileModal";
-import {
-  defaultMarketResponse,
-  MarketResponse,
-} from "@/shared/pages/AnalystScreen/components/GraphPrice";
 import NotificationModal from "@/shared/components/modal/NotificationModal";
 import {
   MAX_WISHLIST_PINS,
@@ -52,21 +48,7 @@ import {
 } from "./lib/constants";
 import { AUTO_REFRESH_INTERVAL_MS } from "./config";
 import { usePageVisible } from "@/shared/hooks/usePageVisible";
-
-const thaiMonths = [
-  "ม.ค",
-  "ก.พ",
-  "มี.ค",
-  "เม.ย",
-  "พ.ค",
-  "มิ.ย",
-  "ก.ค",
-  "ส.ค",
-  "ก.ย",
-  "ต.ค",
-  "พ.ย",
-  "ธ.ค",
-];
+import { useMarketStore } from "@/store/useMarketStore"; // ← NEW
 
 const isMock = false;
 
@@ -78,49 +60,53 @@ interface SessionData {
 
 export default function MainApp() {
   const router = useRouter();
-  const [prices, setPrices] = useState<Record<string, number | null>>({});
-  const [previousPrice, setPreviousPrice] = useState<
-    Record<string, number | null>
-  >({});
-  const [dividend, setDividend] = useState<any>({});
-  const [advancedLevels, setAdvancedLevels] = useState<any>({});
-  const [graphs, setGraphs] = useState<Record<string, any>>({});
-  const [isLoading, setIsLoading] = useState(true);
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-  const [currencyRate, setCurrencyRate] = useState<number>(0);
-  const [formattedDate, setFormattedDate] = useState("");
+
+  // ─── Market state — all from Zustand store ────────────────────────────────
+  const {
+    prices,
+    previousPrice,
+    graphs,
+    advancedLevels,
+    dividend,
+    currencyRate,
+    market,
+    formattedDate,
+    isLoading,
+    isFirstBatchLoaded,
+    isSilentRefreshing,
+    loadData,
+    silentRefresh,
+    resetMarket,
+  } = useMarketStore();
+
+  // ─── User / session state (stays local — not shared across pages) ─────────
   const [userId, setUserId] = useState("");
   const [username, setUsername] = useState<any>("");
   const [assets, setAssets] = useState<Asset[] | null>(null);
   const [userColId, setUserColId] = useState("");
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [profileImage, setProfileImage] = useState<string | null>(null);
+
+  // ─── UI state ─────────────────────────────────────────────────────────────
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editAssets, setEditAssets] = useState<Asset[]>([]);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
-  const [profileImage, setProfileImage] = useState<string | null>(null);
-  const [isFirstBatchLoaded, setIsFirstBatchLoaded] = useState(false);
-  const [market, setMarket] = useState<MarketResponse | null>(
-    defaultMarketResponse,
-  );
-  const maskNumber = useMaskNumber();
-
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [sortBy, setSortBy] = useState<"asset" | "value" | "profit">("value");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [currentPage, setCurrentPage] = useState<
     "portfolio" | "market" | "calculator" | "view"
   >("portfolio");
 
+  // ─── Wishlist / View screen state ─────────────────────────────────────────
   const [wishlist, setWishlist] = useState<string[]>([]);
   const [data, setData] = useState<StockResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchedSymbol, setSearchedSymbol] = useState<string | null>(null);
 
   const { isNumbersHidden, setIsNumbersHidden } = useNumbersHidden();
-  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
-
-  // ─── Silent refresh state ──────────────────────────────────────────────────
-  const [isSilentRefreshing, setIsSilentRefreshing] = useState(false);
-  const isSilentRefreshingRef = useRef(false);
+  const maskNumber = useMaskNumber();
 
   // ─── Session helpers ───────────────────────────────────────────────────────
   const saveSession = (uid: string, colId: string) => {
@@ -143,7 +129,7 @@ export default function MainApp() {
     router.replace("/");
   };
 
-  // ─── On mount: read session, redirect if missing ───────────────────────────
+  // ─── On mount: restore session ────────────────────────────────────────────
   useEffect(() => {
     const checkSession = async () => {
       try {
@@ -160,11 +146,9 @@ export default function MainApp() {
           return;
         }
 
-        // Renew session on every app open
         saveSession(session.userId, session.userColId);
         setUserId(session.userId);
         setUserColId(session.userColId);
-
         await fetchUserData(session.userId);
       } catch (error) {
         console.error("Session restore failed:", error);
@@ -193,23 +177,21 @@ export default function MainApp() {
     loadWishlist();
   }, [userColId]);
 
-  // ─── Auto-refresh every 30s when market is open (silent — no loading) ──────
+  // ─── Auto-refresh every interval when market is open ──────────────────────
   useEffect(() => {
     if (!assets || assets.length === 0) return;
+    if (!isPageVisible) return;
 
     const checkAndRefresh = async () => {
       try {
         const res = await fetch("/api/market-status");
         const { isOpen } = await res.json();
-        if (isOpen) {
-          silentRefresh();
-        }
+        if (isOpen) silentRefresh(assets);
       } catch (err) {
         console.error("Auto-refresh check failed:", err);
       }
     };
 
-    if (!isPageVisible) return;
     const interval = setInterval(checkAndRefresh, AUTO_REFRESH_INTERVAL_MS);
     return () => clearInterval(interval);
   }, [assets, isPageVisible]);
@@ -275,12 +257,14 @@ export default function MainApp() {
     setEditAssets(editAssets.filter((_, i) => i !== index));
   };
 
-  // ─── Load data when assets change ─────────────────────────────────────────
+  // ─── Trigger loadData when assets change ──────────────────────────────────
   useEffect(() => {
     if (assets && assets.length > 0) {
-      loadData();
+      resetMarket(); // clear stale data before loading new assets
+      loadData(assets, userId, userColId, saveSession).then(() => {
+        setIsInitialLoad(false);
+      });
     } else if (assets !== null && assets.length === 0) {
-      setIsLoading(false);
       setIsInitialLoad(false);
     }
   }, [assets]);
@@ -333,6 +317,7 @@ export default function MainApp() {
         typeof data.username === "string" && data.username.startsWith('"')
           ? JSON.parse(data.username)
           : data.username || targetUserId;
+
       if (typeof data.image === "string" && data.image.trim() !== "") {
         try {
           parsedUserImage = JSON.parse(data.image);
@@ -359,126 +344,6 @@ export default function MainApp() {
     setUserColId(parsedUserId);
     setProfileImage(parsedUserImage);
     setUsername(parsedUsername);
-  }
-
-  // ─── Helper: update formatted date ────────────────────────────────────────
-  function updateFormattedDate() {
-    const now = new Date();
-    const day = now.getDate();
-    const month = thaiMonths[now.getMonth()];
-    const year = (now.getFullYear() + 543) % 100;
-    const hours = now.getHours().toString().padStart(2, "0");
-    const minutes = now.getMinutes().toString().padStart(2, "0");
-    setFormattedDate(`${day} ${month} ${year} ${hours}:${minutes} น.`);
-  }
-
-  // ─── Load market data (with loading spinner) ───────────────────────────────
-  async function loadData() {
-    if (!assets || assets.length === 0) return;
-
-    saveSession(userId, userColId);
-
-    setIsLoading(true);
-    setIsFirstBatchLoaded(false);
-    setPrices({});
-    setPreviousPrice({});
-    setGraphs({});
-    setAdvancedLevels({});
-    setDividend({});
-
-    try {
-      await Promise.all([fetchFinancialData(), fetchFxRate(), fetchMarket()]);
-      updateFormattedDate();
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsLoading(false);
-      setIsInitialLoad(false);
-    }
-  }
-
-  // ─── Silent refresh (no loading spinner, merges into existing state) ───────
-  async function silentRefresh() {
-    if (isSilentRefreshingRef.current) return; // prevent overlap
-    isSilentRefreshingRef.current = true;
-    setIsSilentRefreshing(true);
-    try {
-      await Promise.all([fetchFinancialData(), fetchFxRate(), fetchMarket()]);
-      updateFormattedDate();
-    } catch (err) {
-      console.error("Silent refresh error:", err);
-    } finally {
-      isSilentRefreshingRef.current = false;
-      setIsSilentRefreshing(false);
-    }
-  }
-
-  // ─── Fetch financial data (shared by loadData & silentRefresh) ────────────
-  async function fetchFinancialData() {
-    if (!assets || assets.length === 0) return;
-    const BATCH_SIZE = 5;
-    const batches: Asset[][] = [];
-    for (let i = 0; i < assets.length; i += BATCH_SIZE) {
-      batches.push(assets.slice(i, i + BATCH_SIZE));
-    }
-    try {
-      for (const [index, batch] of batches.entries()) {
-        const res = await fetch("/api/stock", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ assets: batch, isMock }),
-        });
-        if (!res.ok) throw new Error("Failed to fetch API");
-        const data = await res.json();
-
-        // Always merge (overwrite) — works for both full load and silent refresh
-        setPrices((prev) => ({ ...prev, ...(data.prices || {}) }));
-        setAdvancedLevels((prev: Record<string, any>) => ({
-          ...prev,
-          ...(data.advancedLevels || {}),
-        }));
-        setPreviousPrice((prev) => ({
-          ...prev,
-          ...(data.previousPrice || {}),
-        }));
-        setGraphs((prev) => ({ ...prev, ...(data.graphs || {}) }));
-        setDividend((prev: any) => ({
-          ...prev,
-          baseCurrency: data.dividendSummary?.baseCurrency,
-          perAsset: {
-            ...prev?.perAsset,
-            ...(data.dividendSummary?.perAsset || {}),
-          },
-          totalAnnualDividend:
-            (prev?.totalAnnualDividend || 0) +
-            (data.dividendSummary?.totalAnnualDividend || 0),
-        }));
-
-        if (index === 0) {
-          setIsFirstBatchLoaded(true);
-          setIsLoading(false);
-        }
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  }
-
-  async function fetchFxRate() {
-    if (isMock) {
-      setCurrencyRate(32.31);
-    } else {
-      const res = await fetch("/api/rate", { method: "POST" });
-      if (!res.ok) throw new Error(`BOT API Error: ${res.status}`);
-      const data = await res.json();
-      setCurrencyRate(Number(data.rate) ?? 0);
-    }
-  }
-
-  async function fetchMarket() {
-    const res = await fetch("/api/market");
-    const json = await res.json();
-    setMarket(json.data);
   }
 
   // ─── Save Profile ──────────────────────────────────────────────────────────
@@ -596,7 +461,9 @@ export default function MainApp() {
               <FaBell />
             </button>
             <button
-              onClick={loadData}
+              onClick={() =>
+                assets && loadData(assets, userId, userColId, saveSession)
+              }
               className={`w-8 h-8 rounded-full flex items-center justify-center bg-black-lighter border border-white/10 transition-all text-[18px] ${
                 isSilentRefreshing
                   ? "text-accent-yellow animate-spin"
@@ -791,26 +658,12 @@ export default function MainApp() {
           />
         )}
         {currentPage === "market" && (
-          <AnalystScreen
-            prices={prices}
-            advancedLevels={advancedLevels}
-            assets={assets}
-            graphs={graphs}
-            previousPrice={previousPrice}
-            wishlist={wishlist}
-            currencyRate={currencyRate}
-            userId={userId}
-            market={market!}
-          />
+          // AnalystScreen ดึงจาก store เองโดยตรง — ไม่ต้องส่ง props เหล่านี้แล้ว
+          <AnalystScreen assets={assets} wishlist={wishlist} userId={userId} />
         )}
         {currentPage === "calculator" && (
-          <CalculateScreen
-            assets={assets}
-            prices={prices}
-            dividend={dividend}
-            currencyRate={currencyRate}
-            advancedLevels={advancedLevels}
-          />
+          // CalculateScreen ดึงจาก store เองโดยตรง
+          <CalculateScreen assets={assets} />
         )}
 
         {currentPage === "portfolio" && (
