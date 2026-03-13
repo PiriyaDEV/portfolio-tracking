@@ -25,10 +25,29 @@ function getTodayKey() {
   return new Date().toISOString().split("T")[0];
 }
 
+async function isMarketOpen(): Promise<boolean> {
+  try {
+    const url = `https://finnhub.io/api/v1/stock/market-status?exchange=US&token=${process.env.FINNHUB_API_KEY}`;
+    const res = await fetch(url);
+    if (!res.ok) return false;
+    const data = await res.json();
+    return data?.isOpen === true;
+  } catch (err) {
+    console.error("Failed to fetch market status:", err);
+    return false;
+  }
+}
+
 export async function GET(req: Request) {
   const authHeader = req.headers.get("x-cron-secret");
   if (process.env.CRON_SECRET && authHeader !== process.env.CRON_SECRET) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // 1. Skip if market is closed
+  const marketOpen = await isMarketOpen();
+  if (!marketOpen) {
+    return Response.json({ message: "Market is closed, skipping check" });
   }
 
   try {
@@ -69,10 +88,22 @@ export async function GET(req: Request) {
       try {
         notifiedLevels = notifiedLogRaw ? JSON.parse(notifiedLogRaw) : {};
       } catch {}
+
+      // 2. Remove old date entries — keep only today's key
+      const hasOldEntries = Object.keys(notifiedLevels).some(
+        (key) => key !== todayKey,
+      );
+      if (hasOldEntries) {
+        notifiedLevels = notifiedLevels[todayKey]
+          ? { [todayKey]: notifiedLevels[todayKey] }
+          : {};
+      }
+
       const todayLevels: Record<string, number> =
         notifiedLevels[todayKey] || {};
 
       let didNotify = false;
+      let didCleanup = hasOldEntries;
       const newTodayLevels = { ...todayLevels };
 
       for (const setting of notifSettings.notifications) {
@@ -158,7 +189,8 @@ export async function GET(req: Request) {
         }
       }
 
-      if (didNotify) {
+      // Write back if we sent a notification OR cleaned up old date entries
+      if (didNotify || didCleanup) {
         notifiedLevels[todayKey] = newTodayLevels;
         const rowNumber = rowIdx + 2;
         await sheets.spreadsheets.values.update({
