@@ -751,6 +751,7 @@ export default function MainApp() {
             prices={prices}
             dividend={dividend}
             currencyRate={currencyRate}
+            advancedLevels={advancedLevels}
           />
         )}
 

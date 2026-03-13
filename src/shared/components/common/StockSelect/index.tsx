@@ -6,6 +6,7 @@ import { useState, useEffect, useRef } from "react";
 interface Option {
   value: string;
   label: string;
+  displayLabel?: string;
 }
 
 interface StockSelectProps {
@@ -91,9 +92,9 @@ export default function StockSelect({
               >
                 {selected.value}
               </span>
-              {/* <span className="text-gray-400 text-xs truncate">
-                {selected.label}
-              </span> */}
+              <span className="text-gray-400 text-xs truncate">
+                {selected.displayLabel ?? selected.value}
+              </span>
             </span>
           ) : (
             placeholder
@@ -161,9 +162,9 @@ export default function StockSelect({
                   >
                     {opt.value}
                   </span>
-                  {/* <span className="text-gray-400 text-xs truncate max-w-[200px]">
-                    {opt.label}
-                  </span> */}
+                  <span className="text-gray-400 text-xs truncate max-w-[200px]">
+                    {opt.displayLabel ?? opt.label}
+                  </span>
                 </div>
                 {isActive && (
                   <span className="text-green-400 text-xs ml-2 shrink-0">

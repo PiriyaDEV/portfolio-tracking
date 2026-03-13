@@ -17,6 +17,7 @@ import {
 } from "@/app/lib/utils";
 import DividendSummary from "../AnalystScreen/components/Dividend";
 import StockSelect from "@/shared/components/common/StockSelect";
+import { AdvancedLevels } from "@/app/api/stock/support.function";
 
 export type Asset = {
   symbol: string;
@@ -29,13 +30,15 @@ type CalculatorScreenProps = {
   prices: any;
   currencyRate: number;
   dividend: any;
+  advancedLevels: Record<string, AdvancedLevels>;
 };
 
-export default function CalculatorScreen({
+export default function CalculateScreen({
   assets,
   prices,
   currencyRate,
   dividend,
+  advancedLevels,
 }: CalculatorScreenProps) {
   const [selectedSymbol, setSelectedSymbol] = useState<string>(
     assets.length > 0 ? assets[0].symbol : "",
@@ -226,7 +229,11 @@ export default function CalculatorScreen({
           <StockSelect
             options={assets
               .filter((a) => !isCash(a.symbol))
-              .map((a) => ({ value: a.symbol, label: getName(a.symbol) }))}
+              .map((a) => ({
+                value: a.symbol,
+                label: getName(a.symbol),
+                displayLabel: advancedLevels[a.symbol].shortName,
+              }))}
             value={selectedSymbol}
             onChange={(val) => {
               setSelectedSymbol(val);
