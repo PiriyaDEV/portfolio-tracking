@@ -26,6 +26,7 @@ import {
 import { SortIcon } from "./components/SortIcon";
 import { ProfitBadge } from "./components/ProfitBadge";
 import { SessionBadge } from "./components/SessionBadge";
+import { AUTO_REFRESH_INTERVAL_MS } from "@/app/config";
 
 /* =======================
    Types
@@ -183,7 +184,7 @@ export function GraphPrice({
     };
 
     fetchPrePost();
-    const interval = setInterval(fetchPrePost, 60_000);
+    const interval = setInterval(fetchPrePost, AUTO_REFRESH_INTERVAL_MS);
     return () => clearInterval(interval);
   }, [assets]);
 

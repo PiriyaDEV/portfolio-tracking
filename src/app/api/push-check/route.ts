@@ -25,7 +25,7 @@ function getTodayKey() {
   return new Date().toISOString().split("T")[0];
 }
 
-async function isMarketOpen(): Promise<boolean> {
+export async function isMarketOpen(): Promise<boolean> {
   try {
     const url = `https://finnhub.io/api/v1/stock/market-status?exchange=US&token=${process.env.FINNHUB_API_KEY}`;
     const res = await fetch(url);

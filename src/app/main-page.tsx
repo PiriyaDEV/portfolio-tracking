@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   TiChartPieOutline as ChartIcon,
@@ -50,6 +50,7 @@ import {
   SESSION_DURATION_MS,
   SESSION_KEY,
 } from "./lib/constants";
+import { AUTO_REFRESH_INTERVAL_MS } from "./config";
 
 const thaiMonths = [
   "ม.ค",
@@ -115,6 +116,10 @@ export default function MainApp() {
 
   const { isNumbersHidden, setIsNumbersHidden } = useNumbersHidden();
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+
+  // ─── Silent refresh state ──────────────────────────────────────────────────
+  const [isSilentRefreshing, setIsSilentRefreshing] = useState(false);
+  const isSilentRefreshingRef = useRef(false);
 
   // ─── Session helpers ───────────────────────────────────────────────────────
   const saveSession = (uid: string, colId: string) => {
@@ -185,6 +190,27 @@ export default function MainApp() {
     loadWishlist();
   }, [userColId]);
 
+  // ─── Auto-refresh every 30s when market is open (silent — no loading) ──────
+  useEffect(() => {
+    if (!assets || assets.length === 0) return;
+
+    const checkAndRefresh = async () => {
+      try {
+        const res = await fetch("/api/market-status");
+        const { isOpen } = await res.json();
+        if (isOpen) {
+          silentRefresh();
+        }
+      } catch (err) {
+        console.error("Auto-refresh check failed:", err);
+      }
+    };
+
+    const interval = setInterval(checkAndRefresh, AUTO_REFRESH_INTERVAL_MS);
+    return () => clearInterval(interval);
+  }, [assets]);
+
+  // ─── Toggle pin ────────────────────────────────────────────────────────────
   const togglePin = (symbol: string) => {
     setWishlist((prev) => {
       const isPinned = prev.includes(symbol);
@@ -249,7 +275,6 @@ export default function MainApp() {
   useEffect(() => {
     if (assets && assets.length > 0) {
       loadData();
-
     } else if (assets !== null && assets.length === 0) {
       setIsLoading(false);
       setIsInitialLoad(false);
@@ -332,11 +357,22 @@ export default function MainApp() {
     setUsername(parsedUsername);
   }
 
-  // ─── Load market data ──────────────────────────────────────────────────────
+  // ─── Helper: update formatted date ────────────────────────────────────────
+  function updateFormattedDate() {
+    const now = new Date();
+    const day = now.getDate();
+    const month = thaiMonths[now.getMonth()];
+    const year = (now.getFullYear() + 543) % 100;
+    const hours = now.getHours().toString().padStart(2, "0");
+    const minutes = now.getMinutes().toString().padStart(2, "0");
+    setFormattedDate(`${day} ${month} ${year} ${hours}:${minutes} น.`);
+  }
+
+  // ─── Load market data (with loading spinner) ───────────────────────────────
   async function loadData() {
     if (!assets || assets.length === 0) return;
 
-    saveSession(userId, userColId); // renew session on every refresh
+    saveSession(userId, userColId);
 
     setIsLoading(true);
     setIsFirstBatchLoaded(false);
@@ -348,13 +384,7 @@ export default function MainApp() {
 
     try {
       await Promise.all([fetchFinancialData(), fetchFxRate(), fetchMarket()]);
-      const now = new Date();
-      const day = now.getDate();
-      const month = thaiMonths[now.getMonth()];
-      const year = (now.getFullYear() + 543) % 100;
-      const hours = now.getHours().toString().padStart(2, "0");
-      const minutes = now.getMinutes().toString().padStart(2, "0");
-      setFormattedDate(`${day} ${month} ${year} ${hours}:${minutes} น.`);
+      updateFormattedDate();
     } catch (err) {
       console.error(err);
     } finally {
@@ -363,6 +393,23 @@ export default function MainApp() {
     }
   }
 
+  // ─── Silent refresh (no loading spinner, merges into existing state) ───────
+  async function silentRefresh() {
+    if (isSilentRefreshingRef.current) return; // prevent overlap
+    isSilentRefreshingRef.current = true;
+    setIsSilentRefreshing(true);
+    try {
+      await Promise.all([fetchFinancialData(), fetchFxRate(), fetchMarket()]);
+      updateFormattedDate();
+    } catch (err) {
+      console.error("Silent refresh error:", err);
+    } finally {
+      isSilentRefreshingRef.current = false;
+      setIsSilentRefreshing(false);
+    }
+  }
+
+  // ─── Fetch financial data (shared by loadData & silentRefresh) ────────────
   async function fetchFinancialData() {
     if (!assets || assets.length === 0) return;
     const BATCH_SIZE = 5;
@@ -379,6 +426,8 @@ export default function MainApp() {
         });
         if (!res.ok) throw new Error("Failed to fetch API");
         const data = await res.json();
+
+        // Always merge (overwrite) — works for both full load and silent refresh
         setPrices((prev) => ({ ...prev, ...(data.prices || {}) }));
         setAdvancedLevels((prev: Record<string, any>) => ({
           ...prev,
@@ -400,6 +449,7 @@ export default function MainApp() {
             (prev?.totalAnnualDividend || 0) +
             (data.dividendSummary?.totalAnnualDividend || 0),
         }));
+
         if (index === 0) {
           setIsFirstBatchLoaded(true);
           setIsLoading(false);
@@ -543,7 +593,11 @@ export default function MainApp() {
             </button>
             <button
               onClick={loadData}
-              className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-white bg-black-lighter border border-white/10 transition-all text-[18px]"
+              className={`w-8 h-8 rounded-full flex items-center justify-center bg-black-lighter border border-white/10 transition-all text-[18px] ${
+                isSilentRefreshing
+                  ? "text-accent-yellow animate-spin"
+                  : "text-gray-400 hover:text-white"
+              }`}
             >
               <RefreshIcon />
             </button>
