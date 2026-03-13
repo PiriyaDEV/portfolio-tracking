@@ -250,17 +250,6 @@ export default function MainApp() {
     if (assets && assets.length > 0) {
       loadData();
 
-      fetch("/api/debug-stock")
-        .then((res) => res.json())
-        .then((debugData) => {
-          console.log("Yahoo GSPC raw:", debugData);
-          const meta = debugData?.chart?.result?.[0]?.meta;
-          console.log("meta:", meta);
-          console.log("previousClose:", meta?.previousClose);
-          console.log("regularMarketPrice:", meta?.regularMarketPrice);
-        })
-        .catch((err) => console.error("Debug Yahoo failed:", err));
-
     } else if (assets !== null && assets.length === 0) {
       setIsLoading(false);
       setIsInitialLoad(false);

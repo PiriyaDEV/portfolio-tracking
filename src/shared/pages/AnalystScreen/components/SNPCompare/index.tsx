@@ -121,8 +121,10 @@ export default function SNPCompare({ assets }: { assets: Asset[] }) {
       const json = await res.json();
       if (!json?.data?.length) return;
 
-      const baseP = json.data[0].portfolioValue || 1;
-      const baseS = json.data[0].sp500Value || 1;
+      const baseP =
+        json.data.find((d: any) => d.portfolioValue > 0)?.portfolioValue ?? 1;
+      const baseS =
+        json.data.find((d: any) => d.sp500Value > 0)?.sp500Value ?? 1;
 
       const normalized = json.data.map((d: any) => ({
         date: formatTime(d.time, range),
