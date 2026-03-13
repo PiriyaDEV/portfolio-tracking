@@ -1,1 +1,2 @@
 export const AUTO_REFRESH_INTERVAL_MS = 20_000;
+export const AUTO_REFRESH_1M_INTERVAL_MS = 10_000;

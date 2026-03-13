@@ -4,7 +4,8 @@ import React, { useEffect, useRef, useState, useCallback } from "react";
 import { Asset } from "@/app/lib/interface";
 import { fNumber, getLogo, getName, isThaiStock } from "@/app/lib/utils";
 import { TimeRange } from "@/app/api/chart-history/route";
-import { AUTO_REFRESH_INTERVAL_MS } from "@/app/config";
+import { AUTO_REFRESH_1M_INTERVAL_MS } from "@/app/config";
+import { usePageVisible } from "@/shared/hooks/usePageVisible";
 
 /* =======================
    Types
@@ -616,14 +617,15 @@ export function StockDetailModal({
     fetchChartHistory(range);
   }, [range, fetchChartHistory]);
 
-  // Auto-refresh ตาม AUTO_REFRESH_INTERVAL_MS
+  const isPageVisible = usePageVisible();
   useEffect(() => {
     if (range !== "1m") return;
+    if (!isPageVisible) return; // ← ถ้า user ไม่อยู่หน้าจอ ไม่ต้อง set interval
     const id = setInterval(() => {
       fetchChartHistory(range);
-    }, AUTO_REFRESH_INTERVAL_MS);
+    }, AUTO_REFRESH_1M_INTERVAL_MS);
     return () => clearInterval(id);
-  }, [range, fetchChartHistory]);
+  }, [range, fetchChartHistory, isPageVisible]);
 
   const handleOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target === overlayRef.current) {

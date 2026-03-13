@@ -51,6 +51,7 @@ import {
   SESSION_KEY,
 } from "./lib/constants";
 import { AUTO_REFRESH_INTERVAL_MS } from "./config";
+import { usePageVisible } from "@/shared/hooks/usePageVisible";
 
 const thaiMonths = [
   "ม.ค",
@@ -174,6 +175,8 @@ export default function MainApp() {
     checkSession();
   }, []);
 
+  const isPageVisible = usePageVisible();
+
   // ─── Wishlist ──────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!userColId) return;
@@ -206,9 +209,10 @@ export default function MainApp() {
       }
     };
 
+    if (!isPageVisible) return; // ← ไม่ตั้ง interval ถ้าไม่อยู่หน้าจอ
     const interval = setInterval(checkAndRefresh, AUTO_REFRESH_INTERVAL_MS);
     return () => clearInterval(interval);
-  }, [assets]);
+  }, [assets, isPageVisible]);
 
   // ─── Toggle pin ────────────────────────────────────────────────────────────
   const togglePin = (symbol: string) => {

@@ -27,6 +27,7 @@ import { SortIcon } from "./components/SortIcon";
 import { ProfitBadge } from "./components/ProfitBadge";
 import { SessionBadge } from "./components/SessionBadge";
 import { AUTO_REFRESH_INTERVAL_MS } from "@/app/config";
+import { usePageVisible } from "@/shared/hooks/usePageVisible";
 
 /* =======================
    Types
@@ -49,7 +50,7 @@ type Props = {
   prices: any;
   previousPrice: any;
   market: MarketResponse;
-  currencyRate: number
+  currencyRate: number;
 };
 
 type PrePostData = {
@@ -144,7 +145,7 @@ export function GraphPrice({
   prices,
   previousPrice,
   market,
-  currencyRate
+  currencyRate,
 }: Props) {
   const [sortBy, setSortBy] = useState<SortBy>("none");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
@@ -156,6 +157,8 @@ export function GraphPrice({
   const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
 
   const isLoading = !graphs || Object.keys(graphs).length === 0;
+
+  const isPageVisible = usePageVisible();
 
   useEffect(() => {
     const usSymbols = assets
@@ -184,9 +187,10 @@ export function GraphPrice({
     };
 
     fetchPrePost();
+    if (!isPageVisible) return; // ← ไม่ตั้ง interval ถ้าไม่อยู่หน้าจอ
     const interval = setInterval(fetchPrePost, AUTO_REFRESH_INTERVAL_MS);
     return () => clearInterval(interval);
-  }, [assets]);
+  }, [assets, isPageVisible]);
 
   const getProfitPercent = (symbol: string) => {
     const currentPrice = prices?.[symbol];
