@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
 
   const config = RANGE_CONFIG[range] ?? RANGE_CONFIG["1d"];
 
-  const includePrePost = range === "1m";
+  const includePrePost = range === "1m" || range === "1h";
 
   try {
     const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=${config.interval}&range=${config.range}&includePrePost=${includePrePost}`;

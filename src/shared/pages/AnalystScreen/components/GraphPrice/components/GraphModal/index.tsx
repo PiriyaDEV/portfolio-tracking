@@ -60,11 +60,11 @@ type StockDetailModalProps = {
 };
 
 const TIMEFRAMES: { label: string; value: TimeRange }[] = [
-  { label: "1 นาที", value: "1m" },
-  { label: "1 ชั่วโมง", value: "1h" },
-  { label: "1 วัน", value: "1d" },
-  { label: "1 สัปดาห์", value: "5d" },
-  { label: "1 เดือน", value: "1mo" },
+  { label: "นาที", value: "1m" },
+  // { label: "1 ชั่วโมง", value: "1h" },
+  { label: "วัน", value: "1d" },
+  { label: "สัปดาห์", value: "5d" },
+  { label: "เดือน", value: "1mo" },
 ];
 
 function formatTime(ts: number, range: TimeRange): string {
@@ -114,7 +114,7 @@ function toBaht(usd: number | null | undefined, rate: number): string {
 
 const TARGET_CANDLES_BY_RANGE: Record<TimeRange, number> = {
   "1m": 9999,
-  "1h": 120,
+  "1h": 9999,
   "1d": 30,
   "5d": 26,
   "1mo": 24,
@@ -433,7 +433,7 @@ function TimeframeChips({
       >
         กรอบเวลา
       </div>
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", gap: 6, width: "100%" }}>
         {TIMEFRAMES.map((tf) => {
           const active = tf.value === value;
           return (
@@ -442,6 +442,7 @@ function TimeframeChips({
               onClick={() => onChange(tf.value)}
               disabled={isLoading}
               style={{
+                width: '100%',
                 padding: "4px 12px",
                 borderRadius: 20,
                 fontSize: 12,
@@ -651,14 +652,20 @@ export function StockDetailModal({
   // Use displayedRange (not range) for all chart data computations so the chart
   // always uses the range that matches the data currently in chartHistory.
   const rawChartData = chartHistory?.data ?? graph.data;
-  const chartData =
-    displayedRange === "1m" && rawChartData.length > 0
-      ? (() => {
-          const cutoff = Date.now() - 30 * 60 * 1000;
-          const filtered = rawChartData.filter((d) => d.time >= cutoff);
-          return filtered.length > 0 ? filtered : rawChartData.slice(-30);
-        })()
-      : rawChartData;
+  const chartData = (() => {
+    if (displayedRange === "1h" && rawChartData.length > 0) {
+      const lastTime = rawChartData[rawChartData.length - 1].time;
+      const cutoff = lastTime - 24 * 60 * 60 * 1000; // 24h ย้อนหลังจากแท่งล่าสุด
+      const filtered = rawChartData.filter((d) => d.time >= cutoff);
+      return filtered.length > 0 ? filtered : rawChartData.slice(-24);
+    }
+    if (displayedRange === "1m" && rawChartData.length > 0) {
+      const cutoff = Date.now() - 30 * 60 * 1000;
+      const filtered = rawChartData.filter((d) => d.time >= cutoff);
+      return filtered.length > 0 ? filtered : rawChartData.slice(-30);
+    }
+    return rawChartData;
+  })();
   const chartPrevPrice = chartHistory?.previousClose ?? prevPrice;
   const haData = buildHeikinAshi(
     chartData,
@@ -808,11 +815,6 @@ export function StockDetailModal({
 
           {/* Chart + Chips */}
           <div className="py-3 border-b border-accent-yellow border-opacity-10">
-            <TimeframeChips
-              value={range}
-              onChange={setRange}
-              isLoading={isLoadingChart}
-            />
             <div style={{ marginTop: 8 }}>
               {chartError ? (
                 <div
@@ -836,6 +838,11 @@ export function StockDetailModal({
                 />
               )}
             </div>
+            <TimeframeChips
+              value={range}
+              onChange={setRange}
+              isLoading={isLoadingChart}
+            />
           </div>
 
           {/* Stats */}
