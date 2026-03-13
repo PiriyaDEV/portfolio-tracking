@@ -111,10 +111,8 @@ function toBaht(usd: number | null | undefined, rate: number): string {
   return `${fNumber(usd * rate) ?? "—"} บาท`;
 }
 
-// targetCandles: จำนวนแท่งสูงสุดที่ต้องการโชว์
-// สำหรับ 1m ให้ใช้ค่าสูงๆ เพื่อไม่ให้ bucket รวมแท่ง
 const TARGET_CANDLES_BY_RANGE: Record<TimeRange, number> = {
-  "1m": 9999, // ไม่ bucket — โชว์ทุกแท่ง 1 นาที
+  "1m": 9999,
   "1h": 120,
   "1d": 30,
   "5d": 26,
@@ -244,7 +242,6 @@ function HAChart({
 
   const refY = prevPrice ? toY(prevPrice) : null;
 
-  // แสดง 5 label กระจายสม่ำเสมอ: index 0, 25%, 50%, 75%, 100%
   const labelIndices = [0, 1, 2, 3, 4].map((i) =>
     Math.round((i / 4) * (n - 1)),
   );
@@ -578,6 +575,10 @@ export function StockDetailModal({
   );
   const [isLoadingChart, setIsLoadingChart] = useState(false);
   const [chartError, setChartError] = useState<string | null>(null);
+  // displayedRange tracks which range the *currently visible* chart data belongs to.
+  // We only update it together with new data so the chart never reshapes with stale data
+  // while a new timeframe is loading — eliminating the "stretch" glitch on tab switch.
+  const [displayedRange, setDisplayedRange] = useState<TimeRange>("1m");
 
   useEffect(() => {
     requestAnimationFrame(() => setVisible(true));
@@ -597,7 +598,10 @@ export function StockDetailModal({
         );
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json: ChartHistoryResponse = await res.json();
+        // Update data and displayedRange together so the chart only re-renders
+        // once with the correct data — no intermediate stale-data frame.
         setChartHistory(json);
+        setDisplayedRange(r);
       } catch (err) {
         console.error("chart-history fetch failed", err);
         setChartError("โหลดข้อมูลไม่ได้");
@@ -641,9 +645,11 @@ export function StockDetailModal({
     currentPrice != null && prevPrice != null ? currentPrice - prevPrice : 0;
   const isUp = percentChange >= 0;
 
+  // Use displayedRange (not range) for all chart data computations so the chart
+  // always uses the range that matches the data currently in chartHistory.
   const rawChartData = chartHistory?.data ?? graph.data;
   const chartData =
-    range === "1m" && rawChartData.length > 0
+    displayedRange === "1m" && rawChartData.length > 0
       ? (() => {
           const cutoff = Date.now() - 30 * 60 * 1000;
           const filtered = rawChartData.filter((d) => d.time >= cutoff);
@@ -651,7 +657,10 @@ export function StockDetailModal({
         })()
       : rawChartData;
   const chartPrevPrice = chartHistory?.previousClose ?? prevPrice;
-  const haData = buildHeikinAshi(chartData, TARGET_CANDLES_BY_RANGE[range]);
+  const haData = buildHeikinAshi(
+    chartData,
+    TARGET_CANDLES_BY_RANGE[displayedRange],
+  );
 
   const pp = prePostData;
   const hasPrePost = pp && pp.session !== "regular" && pp.session !== "closed";
@@ -819,7 +828,7 @@ export function StockDetailModal({
                 <HAChart
                   data={haData}
                   prevPrice={chartPrevPrice}
-                  range={range}
+                  range={displayedRange}
                   isLoading={isLoadingChart}
                 />
               )}
