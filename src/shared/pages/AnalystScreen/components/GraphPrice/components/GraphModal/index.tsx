@@ -124,7 +124,8 @@ function toBaht(usd: number | null | undefined, rate: number): string {
   return `${fNumber(usd * rate) ?? "—"} บาท`;
 }
 function toChartTime(ms: number): Time {
-  return Math.floor(ms / 1000) as unknown as Time;
+  const bangkokOffset = 7 * 60 * 60 * 1000;
+  return Math.floor((ms + bangkokOffset) / 1000) as unknown as Time;
 }
 
 /** Build deduplicated + sorted candle/vol arrays from raw API points */
