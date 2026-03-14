@@ -13,14 +13,14 @@ export type TimeRange =
   | "1mo";
 
 const RANGE_CONFIG: Record<TimeRange, { interval: string; range: string }> = {
-  "1m": { interval: "1m", range: "1d" }, // intraday — last session
-  "5m": { interval: "5m", range: "5d" }, // ~5 days of 5-min bars
-  "15m": { interval: "15m", range: "1mo" }, // ~1 month of 15-min bars
-  "1h": { interval: "1h", range: "3mo" }, // 3 months hourly
-  "4h": { interval: "1h", range: "6mo" }, // 6 months hourly (resampled client-side if needed)
-  "1d": { interval: "1d", range: "2y" }, // 2 years daily
-  "1wk": { interval: "1wk", range: "5y" }, // 5 years weekly
-  "1mo": { interval: "1mo", range: "10y" }, // 10 years monthly
+  "1m": { interval: "1m", range: "1d" },
+  "5m": { interval: "5m", range: "5d" },
+  "15m": { interval: "15m", range: "1mo" },
+  "1h": { interval: "1h", range: "3mo" },
+  "4h": { interval: "1h", range: "6mo" },
+  "1d": { interval: "1d", range: "2y" },
+  "1wk": { interval: "1wk", range: "5y" },
+  "1mo": { interval: "1mo", range: "10y" },
 };
 
 const INTRADAY_RANGES = new Set<TimeRange>(["1m", "5m", "15m", "1h", "4h"]);
@@ -38,7 +38,8 @@ export async function GET(req: NextRequest) {
   const includePrePost = INTRADAY_RANGES.has(range);
 
   try {
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=${config.interval}&range=${config.range}&includePrePost=${includePrePost}`;
+    // &events=div pulls dividend history into result.events.dividends
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=${config.interval}&range=${config.range}&includePrePost=${includePrePost}&events=div`;
 
     const res = await fetch(url, {
       headers: {
@@ -72,7 +73,6 @@ export async function GET(req: NextRequest) {
     const previousClose: number | null =
       result.meta?.chartPreviousClose ?? result.meta?.previousClose ?? null;
 
-    // For 4h we receive 1h bars from Yahoo — resample into 4-bar buckets
     const rawPoints = timestamps
       .map((ts, i) => ({
         time: ts * 1000,
@@ -86,6 +86,38 @@ export async function GET(req: NextRequest) {
 
     const points = range === "4h" ? resample4h(rawPoints) : rawPoints;
 
+    // ── Dividend data from events.dividends ───────────────────────────────
+    // Yahoo returns dividends as an object keyed by Unix timestamp (seconds):
+    // { "1700000000": { amount: 0.25, date: 1700000000 }, ... }
+    const rawDivs = result.events?.dividends ?? {};
+    const dividendEvents: { date: number; amount: number }[] = Object.values(
+      rawDivs as Record<string, { amount: number; date: number }>,
+    )
+      .map((d) => ({ date: d.date * 1000, amount: d.amount }))
+      .sort((a, b) => a.date - b.date);
+
+    // Trailing 12-month dividend (sum of all payments in the last 365 days)
+    const oneYearAgo = Date.now() - 365 * 24 * 60 * 60 * 1000;
+    const trailingDividendRate = dividendEvents
+      .filter((d) => d.date >= oneYearAgo)
+      .reduce((sum, d) => sum + d.amount, 0);
+
+    // Yield = trailing annual dividend / current price
+    const currentPrice: number | null =
+      result.meta?.regularMarketPrice ??
+      result.meta?.chartPreviousClose ??
+      null;
+    const dividendYield =
+      trailingDividendRate > 0 && currentPrice
+        ? trailingDividendRate / currentPrice
+        : null;
+
+    // Most recent single payment (for display reference)
+    const lastDividend =
+      dividendEvents.length > 0
+        ? dividendEvents[dividendEvents.length - 1]
+        : null;
+
     return NextResponse.json({
       symbol,
       range,
@@ -93,6 +125,12 @@ export async function GET(req: NextRequest) {
       shortName: result.meta?.shortName ?? symbol,
       currency: result.meta?.currency ?? "USD",
       data: points,
+      // ── dividend fields ──────────────────────────────────────────────────
+      dividendRate: trailingDividendRate > 0 ? trailingDividendRate : null,
+      dividendYield,
+      lastDividendAmount: lastDividend?.amount ?? null,
+      lastDividendDate: lastDividend?.date ?? null,
+      dividendEvents,
     });
   } catch (err) {
     console.error("chart-history error", err);
@@ -130,7 +168,6 @@ function resample4h(bars: Bar[]): Bar[] {
 
   bars.forEach((bar) => {
     const hour = new Date(bar.time).getUTCHours();
-    // Start a new 4h bucket at hours 0, 4, 8, 12, 16, 20
     if (bucket.length > 0 && hour % 4 === 0) flush();
     bucket.push(bar);
   });

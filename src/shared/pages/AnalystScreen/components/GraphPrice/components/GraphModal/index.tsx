@@ -58,6 +58,11 @@ type ChartHistoryPoint = {
   volume: number;
 };
 
+type DividendEvent = {
+  date: number; // ms
+  amount: number;
+};
+
 type ChartHistoryResponse = {
   symbol: string;
   range: TimeRange;
@@ -65,6 +70,12 @@ type ChartHistoryResponse = {
   shortName: string;
   currency: string;
   data: ChartHistoryPoint[];
+  // ── dividend ──────────────────────────────────────────────────────────
+  dividendRate: number | null; // trailing 12-month total (per share)
+  dividendYield: number | null; // e.g. 0.032 = 3.2%
+  lastDividendAmount: number | null; // most recent single payment
+  lastDividendDate: number | null; // ms
+  dividendEvents: DividendEvent[]; // all payments in the fetched range
 };
 
 type GraphModalProps = {
@@ -80,7 +91,6 @@ type GraphModalProps = {
 
 const TIMEFRAMES: { label: string; value: TimeRange }[] = [
   { label: "1 นาที", value: "1m" },
-  // { label: "ชั่วโมง", value: "1h" },
   { label: "วัน", value: "1d" },
   { label: "สัปดาห์", value: "1wk" },
   { label: "เดือน", value: "1mo" },
@@ -135,6 +145,16 @@ function toChartTime(ms: number): Time {
   return Math.floor((ms + bangkokOffset) / 1000) as unknown as Time;
 }
 
+function fmtDate(ms: number | null | undefined): string {
+  if (ms == null) return "—";
+  return new Date(ms).toLocaleDateString("th-TH", {
+    timeZone: "Asia/Bangkok",
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
 /** Build deduplicated + sorted candle/vol arrays from raw API points */
 function buildCandles(rawData: ChartHistoryPoint[]) {
   const candleMap = new Map<
@@ -177,7 +197,6 @@ function buildCandles(rawData: ChartHistoryPoint[]) {
   };
 }
 
-/** Map indicator plot0 (same length as bars, NaN during warmup) back to candle times */
 function alignPlot(
   plots: { time: unknown; value: unknown }[],
   candles: { time: Time }[],
@@ -192,11 +211,6 @@ function alignPlot(
 
 /* ─────────────────────────────────────────────
    LWChart
-   Parent passes key={range} → full remount on range change.
-   Parent clears data while loading → chart shows spinner, not stale data.
-
-   For 1m: exposes an `updateTick` imperative handle so the parent can
-   push a single candle update without re-rendering the whole component.
 ───────────────────────────────────────────── */
 
 interface LWChartProps {
@@ -204,7 +218,6 @@ interface LWChartProps {
   prevPrice: number | null;
   range: TimeRange;
   isLoading: boolean;
-  /** Imperative: parent stores this ref and calls it on every 10-sec tick (1m only) */
   onUpdateTickRef?: React.MutableRefObject<
     ((point: ChartHistoryPoint) => void) | null
   >;
@@ -253,30 +266,23 @@ function LWChart({
   const isSyncRef = useRef(false);
   const scrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  /**
-   * We keep a mutable copy of ALL candles fed into the chart so the
-   * realtime tick handler can recalculate indicators incrementally
-   * without triggering a React re-render / setData call.
-   */
   const candlesSnapshotRef = useRef<
     { time: Time; open: number; high: number; low: number; close: number }[]
   >([]);
   const emaDataRef = useRef<number[][]>([[], [], [], []]);
   const rsiDataRef = useRef<number[]>([]);
 
-  /* ── 1. ResizeObserver gate + 80ms fallback ───────────────────────────── */
+  /* ── 1. ResizeObserver gate ──────────────────────────────────────────── */
   useLayoutEffect(() => {
     const el = wrapperRef.current;
     if (!el) return;
 
     const markReady = () => setIsReady(true);
-
     const check = (rect: DOMRectReadOnly | DOMRect) => {
       if (rect.width >= 32 && rect.height >= 32) markReady();
     };
 
     check(el.getBoundingClientRect());
-
     const fallback = setTimeout(markReady, 100);
 
     if (typeof ResizeObserver === "undefined")
@@ -296,7 +302,7 @@ function LWChart({
   useEffect(() => {
     if (!isReady || !mainContainerRef.current || !rsiContainerRef.current)
       return;
-    if (mainChartRef.current) return; // StrictMode guard
+    if (mainChartRef.current) return;
 
     const intraday = INTRADAY_RANGES.has(range);
 
@@ -336,9 +342,7 @@ function LWChart({
         vertLines: { color: "rgba(255,255,255,0.04)" },
         horzLines: { color: "rgba(255,255,255,0.04)" },
       },
-      crosshair: {
-        mode: CrosshairMode.Hidden,
-      },
+      crosshair: { mode: CrosshairMode.Hidden },
       timeScale: {
         borderVisible: false,
         fixLeftEdge: false,
@@ -358,10 +362,7 @@ function LWChart({
         pinch: true,
         axisPressedMouseMove: true,
       },
-      kineticScroll: {
-        mouse: false,
-        touch: true,
-      },
+      kineticScroll: { mouse: false, touch: true },
     });
 
     const mainChart = createChart(mainContainerRef.current, {
@@ -445,7 +446,6 @@ function LWChart({
     rsiObRef.current = rsiOb;
     rsiOsRef.current = rsiOs;
 
-    /* Sync scroll + right-edge clamp */
     const clamp = (r: { from: number; to: number }) => {
       const max = totalBarsRef.current - 1;
       if (r.to <= max) return r;
@@ -461,12 +461,10 @@ function LWChart({
       rsiChart.timeScale().setVisibleLogicalRange(c);
       if (r && candlesSnapshotRef.current.length) {
         const lastVisible = Math.floor(r.to);
-
         const emaVals = emaDataRef.current.map(
           (arr) => arr[lastVisible] ?? null,
         );
         setEmaValues(emaVals);
-
         const rsi = rsiDataRef.current[lastVisible];
         setRsiValue(rsi ?? null);
       }
@@ -480,12 +478,10 @@ function LWChart({
       mainChart.timeScale().setVisibleLogicalRange(c);
       if (r && candlesSnapshotRef.current.length) {
         const lastVisible = Math.floor(r.to);
-
         const emaVals = emaDataRef.current.map(
           (arr) => arr[lastVisible] ?? null,
         );
         setEmaValues(emaVals);
-
         const rsi = rsiDataRef.current[lastVisible];
         setRsiValue(rsi ?? null);
       }
@@ -509,7 +505,7 @@ function LWChart({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isReady]);
 
-  /* ── 3. Feed data (full setData on initial load / range change) ───────── */
+  /* ── 3. Feed data ────────────────────────────────────────────────────── */
   useEffect(() => {
     if (!isReady || !candleRef.current || !volRef.current || !rawData.length)
       return;
@@ -518,8 +514,6 @@ function LWChart({
 
     candleRef.current.setData(candles);
     volRef.current.setData(volBars);
-
-    // Keep snapshot for incremental tick updates
     candlesSnapshotRef.current = candles;
 
     const indBars = candles.map((c, i) => ({
@@ -545,14 +539,12 @@ function LWChart({
         series.setData(mapped);
 
         const arr = new Array(candles.length).fill(null);
-
         mapped.forEach((p) => {
           const i = candles.findIndex((c) => c.time === p.time);
           if (i !== -1) arr[i] = p.value;
         });
 
         newEmaData[idx] = arr;
-
         const last = mapped[mapped.length - 1];
         if (last != null) newEmaValues[idx] = last.value;
       } catch (e) {
@@ -575,7 +567,6 @@ function LWChart({
           candles,
         );
         const rsiArr = new Array(candles.length).fill(null);
-
         mappedRsi.forEach((p) => {
           const i = candles.findIndex((c) => c.time === p.time);
           if (i !== -1) rsiArr[i] = p.value;
@@ -609,19 +600,10 @@ function LWChart({
     }, 100);
   }, [isReady, rawData, range, prevPrice]);
 
-  /* ── 4. Wire up the imperative realtime tick handler (1m only) ────────── */
+  /* ── 4. Realtime tick handler (1m) ───────────────────────────────────── */
   useEffect(() => {
     if (!onUpdateTickRef) return;
 
-    /**
-     * Called by the parent every AUTO_REFRESH_10SECS_INTERVAL_MS.
-     * `point` is the latest 1-minute bar from the API.
-     *
-     * Strategy:
-     *   - If the bar's time matches the LAST candle in our snapshot → UPDATE (in-progress candle).
-     *   - Otherwise → new minute started, so APPEND a new candle.
-     * This mirrors exactly what the lightweight-charts realtime demo does with series.update().
-     */
     const handleTick = (point: ChartHistoryPoint) => {
       if (
         !candleRef.current ||
@@ -654,24 +636,18 @@ function LWChart({
         color: up ? "rgba(74,222,128,0.28)" : "rgba(248,113,113,0.22)",
       };
 
-      // Update or append in our local snapshot
       if (newTimeNum === lastTime) {
-        // Same candle — update in place
         snapshot[snapshot.length - 1] = updatedCandle;
       } else if (newTimeNum > lastTime) {
-        // New candle — append
         snapshot.push(updatedCandle);
         totalBarsRef.current = snapshot.length;
       } else {
-        // Stale tick (older than last candle) — ignore
         return;
       }
 
-      // Push to chart series — lightweight-charts handles update vs. append automatically
       candleRef.current.update(updatedCandle);
       volRef.current.update(updatedVol);
 
-      // Recalculate indicators on the full (updated) snapshot
       const indBars = snapshot.map((c, i) => ({
         time: i,
         open: c.open,
@@ -681,7 +657,6 @@ function LWChart({
         volume: 0,
       }));
 
-      // EMA — update last point only (fast)
       const newEmaValues: (number | null)[] = [null, null, null, null];
       EMA_CONFIGS.forEach((cfg, idx) => {
         const series = emaRefs.current[idx];
@@ -705,7 +680,6 @@ function LWChart({
       });
       setEmaValues(newEmaValues);
 
-      // RSI — update last point only
       if (indBars.length >= 14) {
         try {
           const plots =
@@ -718,19 +692,14 @@ function LWChart({
               value: last.value as number,
             };
             rsiRef.current.update(rsiPoint);
-
-            // OB/OS lines: only extend if new candle was appended
-            const lastOb = {
+            rsiObRef.current.update({
               time: snapshot[snapshot.length - 1].time as Time,
               value: 70,
-            };
-            const lastOs = {
+            });
+            rsiOsRef.current.update({
               time: snapshot[snapshot.length - 1].time as Time,
               value: 30,
-            };
-            rsiObRef.current.update(lastOb);
-            rsiOsRef.current.update(lastOs);
-
+            });
             setRsiValue(last.value as number);
           }
         } catch (e) {
@@ -740,7 +709,6 @@ function LWChart({
     };
 
     onUpdateTickRef.current = handleTick;
-
     return () => {
       if (onUpdateTickRef) onUpdateTickRef.current = null;
     };
@@ -950,7 +918,6 @@ function TimeframeChips({
    StatRow / SectionLabel
 ───────────────────────────────────────────── */
 
-// ── StatRow ──────────────────────────────────────────────────────────────────
 function StatRow({
   label,
   value,
@@ -1011,7 +978,6 @@ function StatRow({
         transition: "background 0.2s, border-color 0.2s",
       }}
     >
-      {/* Label + dot */}
       <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
         {c && (
           <span
@@ -1037,7 +1003,6 @@ function StatRow({
         </span>
       </div>
 
-      {/* Value */}
       <div
         style={{
           display: "flex",
@@ -1122,11 +1087,6 @@ export function GraphModal({
   const isMarketOpen = useMarketStore((s) => s.marketStatus?.isOpen ?? true);
   const isPageVisible = usePageVisible();
 
-  /**
-   * Imperative ref to LWChart's tick handler.
-   * The parent writes into this via onUpdateTickRef prop; the child populates it
-   * once the chart is ready. We call it on every 10-sec 1m tick.
-   */
   const chartTickRef = useRef<((point: ChartHistoryPoint) => void) | null>(
     null,
   );
@@ -1175,7 +1135,7 @@ export function GraphModal({
     return () => clearInterval(id);
   }, [fetchMarketData, isPageVisible, isMarketOpen]);
 
-  /* ── Chart history — full fetch (initial load + range change) ─────────── */
+  /* ── Chart history ────────────────────────────────────────────────────── */
   const fetchChartHistory = useCallback(
     async (r: TimeRange) => {
       setIsLoadingChart(true);
@@ -1201,17 +1161,11 @@ export function GraphModal({
     fetchChartHistory(range);
   }, [range, fetchChartHistory]);
 
-  /* ── 1m realtime tick: fetch only the latest bar every 10 seconds ──────
-     We DON'T call setChartHistory here — that would trigger a full re-render
-     and setData(). Instead we fetch the latest point from the API and push
-     it directly into the chart via the imperative chartTickRef.
-  ─────────────────────────────────────────────────────────────────────────── */
+  /* ── 1m realtime tick ─────────────────────────────────────────────────── */
   useEffect(() => {
     if (range !== "1m" || !isPageVisible || !isMarketOpen) return;
 
     const fetchLatestTick = async () => {
-      // Re-use the same chart-history endpoint but we only care about
-      // the LAST data point (cheapest approach without a separate endpoint).
       try {
         const res = await fetch(
           `/api/chart-history?symbol=${encodeURIComponent(symbol)}&range=1m`,
@@ -1232,7 +1186,7 @@ export function GraphModal({
     return () => clearInterval(id);
   }, [range, symbol, isPageVisible, isMarketOpen]);
 
-  /* ── Non-1m intraday: keep polling with full fetch (original behaviour) ── */
+  /* ── Non-1m intraday polling ──────────────────────────────────────────── */
   useEffect(() => {
     if (!INTRADAY_RANGES.has(range) || range === "1m") return;
     if (!isPageVisible || !isMarketOpen) return;
@@ -1289,6 +1243,19 @@ export function GraphModal({
   const maxPrice = rawChartData.length
     ? Math.max(...rawChartData.map((d) => d.price))
     : null;
+
+  // ── Dividend derived values ──────────────────────────────────────────────
+  // dividendRate = trailing 12-month total per share (sum from &events=div)
+  const dividendRate = chartHistory?.dividendRate ?? null;
+  const dividendYield = chartHistory?.dividendYield ?? null;
+  const lastDividendAmount = chartHistory?.lastDividendAmount ?? null;
+  const lastDividendDate = chartHistory?.lastDividendDate ?? null;
+
+  // Expected annual income from the user's holding
+  const annualDividendFromPortfolio =
+    dividendRate != null && asset?.quantity != null
+      ? dividendRate * asset.quantity
+      : null;
 
   /* ── Render ──────────────────────────────────────────────────────────── */
   return (
@@ -1466,7 +1433,7 @@ export function GraphModal({
                     cursor: "pointer",
                     transition: "all 0.15s",
                     outline: "none",
-                    marginBottom: -1, // ให้ underline ทับ border ด้านล่าง
+                    marginBottom: -1,
                     letterSpacing: "0.04em",
                   }}
                 >
@@ -1480,6 +1447,7 @@ export function GraphModal({
           <div className="pb-5">
             {activeTab === "info" && (
               <>
+                {/* ── ราคาวันนี้ ───────────────────────────────────────────── */}
                 <SectionLabel>ราคาวันนี้</SectionLabel>
                 <StatRow
                   label="ราคาปัจจุบัน"
@@ -1520,6 +1488,84 @@ export function GraphModal({
                   }
                 />
 
+                {/* ── ปันผล ─────────────────────────────────────────────── */}
+                <SectionLabel>ปันผล</SectionLabel>
+
+                {dividendRate == null ? (
+                  // หุ้นไม่จ่ายปันผล — โชว์ทุกช่องเป็น —
+                  <>
+                    <StatRow label="สถานะ" value="ไม่มีปันผล" />
+                    <StatRow label="ปันผลต่อหุ้น / ปี" value="—" />
+                    <StatRow label="Dividend Yield" value="—" />
+                    <StatRow label="จ่ายล่าสุด" value="—" />
+                    {asset && (
+                      <StatRow label="รับปันผล / ปี (พอร์ต)" value="—" />
+                    )}
+                  </>
+                ) : (
+                  <>
+                    {/* ปันผลต่อหุ้น (trailing 12 months) */}
+                    <StatRow
+                      label="ปันผลต่อหุ้น / ปี"
+                      value={
+                        isThai
+                          ? `${fmt(dividendRate)} บาท`
+                          : fmtUsd(dividendRate)
+                      }
+                      subValue={
+                        !isThai ? toBaht(dividendRate, currencyRate) : undefined
+                      }
+                    />
+
+                    {/* Dividend Yield */}
+                    <StatRow
+                      label="Dividend Yield"
+                      value={
+                        dividendYield != null
+                          ? `${(dividendYield * 100).toFixed(2)}%`
+                          : "—"
+                      }
+                    />
+
+                    {/* จ่ายล่าสุด */}
+                    <StatRow
+                      label="จ่ายล่าสุด"
+                      value={
+                        lastDividendAmount != null
+                          ? isThai
+                            ? `${fmt(lastDividendAmount)} บาท`
+                            : fmtUsd(lastDividendAmount)
+                          : "—"
+                      }
+                      subValue={
+                        lastDividendDate != null
+                          ? fmtDate(lastDividendDate)
+                          : undefined
+                      }
+                    />
+
+                    {/* รับปันผล/ปี จากพอร์ต */}
+                    {asset && (
+                      <StatRow
+                        label="รับปันผล / ปี (พอร์ต)"
+                        value={
+                          annualDividendFromPortfolio != null
+                            ? isThai
+                              ? `${fmt(annualDividendFromPortfolio)} บาท`
+                              : fmtUsd(annualDividendFromPortfolio)
+                            : "—"
+                        }
+                        subValue={
+                          !isThai && annualDividendFromPortfolio != null
+                            ? toBaht(annualDividendFromPortfolio, currencyRate)
+                            : undefined
+                        }
+                      />
+                    )}
+                  </>
+                )}
+
+                {/* ── พอร์ตฉัน ───────────────────────────────────────────── */}
                 {asset && (
                   <>
                     <SectionLabel>พอร์ตฉัน</SectionLabel>
@@ -1572,6 +1618,7 @@ export function GraphModal({
                   </>
                 )}
 
+                {/* ── Pre/Post market ────────────────────────────────────── */}
                 {pp && pp.session !== "regular" && (
                   <>
                     <SectionLabel>
@@ -1634,6 +1681,7 @@ export function GraphModal({
               </>
             )}
 
+            {/* ── Analysis tab ────────────────────────────────────────────── */}
             {activeTab === "analysis" && (
               <>
                 {!levels ? (
@@ -1651,8 +1699,6 @@ export function GraphModal({
                 ) : (
                   <>
                     <SectionLabel>วิเคราะห์เทคนิค</SectionLabel>
-
-                    {/* Level rows */}
                     <StatRow
                       label="จุดซื้อ 1"
                       value={fmt(levels.entry1)}
