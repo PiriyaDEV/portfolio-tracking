@@ -721,9 +721,12 @@ export default function MainApp() {
                   : 0;
               const currencyLabel = isThai ? "THB" : "USD";
               const logoUrl = getLogo(asset.symbol);
-              // ✅ เช็คทั้ง key และ value — prices[symbol] อาจเป็น null ได้ระหว่าง load
+              // ✅ เช็คทั้ง key และ value — prices[symbol] อาจเป็น null หรือ 0 ได้ระหว่าง load
+              // ยกเว้น isCash เพราะ cash มีราคา = 0 โดย design
               const isLoadingThis =
-                !(asset.symbol in prices) || prices[asset.symbol] == null;
+                !(asset.symbol in prices) ||
+                prices[asset.symbol] == null ||
+                (!isCash(asset.symbol) && prices[asset.symbol] === 0);
 
               return (
                 <div key={asset.symbol} className="w-full">
@@ -779,15 +782,21 @@ export default function MainApp() {
                         )}
                       </div>
                       <div className="text-[11px] text-gray-500">
-                        ≈{" "}
-                        {maskNumber(
-                          fNumber(
-                            isThai
-                              ? marketValueBase / currencyRate
-                              : marketValueBase,
-                          ),
+                        {isLoadingThis ? (
+                          <span className="inline-block w-12 h-3 bg-white/10 rounded animate-pulse mt-1" />
+                        ) : (
+                          <>
+                            ≈{" "}
+                            {maskNumber(
+                              fNumber(
+                                isThai
+                                  ? marketValueBase / currencyRate
+                                  : marketValueBase,
+                              ),
+                            )}
+                            <span className="ml-1">USD</span>
+                          </>
                         )}
-                        <span className="ml-1">USD</span>
                       </div>
                     </div>
 
@@ -807,8 +816,14 @@ export default function MainApp() {
                         )}
                       </div>
                       <div className={`text-[11px] ${profitColor}`}>
-                        ({profitBase > 0 ? "+" : ""}
-                        {maskNumber(fNumber(profitThb))} บาท)
+                        {isLoadingThis ? (
+                          <span className="inline-block w-14 h-3 bg-white/10 rounded animate-pulse mt-1" />
+                        ) : (
+                          <>
+                            ({profitBase > 0 ? "+" : ""}
+                            {maskNumber(fNumber(profitThb))} บาท)
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
