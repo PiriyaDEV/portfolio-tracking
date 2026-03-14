@@ -16,7 +16,7 @@ const ASSET_TYPES: {
 }[] = [
   { value: "US", label: "หุ้น US", emoji: "🇺🇸", exchange: "US" },
   { value: "TH", label: "หุ้นไทย", emoji: "🇹🇭", exchange: "BK" },
-  { value: "GOLD", label: "ทอง", emoji: "🥇", forcedSymbol: "GOLD-USD" },
+  { value: "GOLD", label: "ทอง", emoji: "🥇", forcedSymbol: "GC=F" },
   { value: "BTC", label: "Bitcoin", emoji: "₿", forcedSymbol: "BTC-USD" },
 ];
 
