@@ -29,11 +29,7 @@ import {
 import { usePageVisible } from "@/shared/hooks/usePageVisible";
 import { useMarketStore } from "@/store/useMarketStore";
 import { AdvancedLevels } from "@/app/api/stock/support.function";
-import {
-  isNearResistance,
-  isNormalBuy,
-  isStrongBuy,
-} from "@/app/lib/market.logic";
+import { GraphDetailResponse } from "@/app/api/graph-detail/route";
 
 /* ─────────────────────────────────────────────
    Types
@@ -70,12 +66,11 @@ type ChartHistoryResponse = {
   shortName: string;
   currency: string;
   data: ChartHistoryPoint[];
-  // ── dividend ──────────────────────────────────────────────────────────
-  dividendRate: number | null; // trailing 12-month total (per share)
-  dividendYield: number | null; // e.g. 0.032 = 3.2%
-  lastDividendAmount: number | null; // most recent single payment
-  lastDividendDate: number | null; // ms
-  dividendEvents: DividendEvent[]; // all payments in the fetched range
+  dividendRate: number | null;
+  dividendYield: number | null;
+  lastDividendAmount: number | null;
+  lastDividendDate: number | null;
+  dividendEvents: DividendEvent[];
 };
 
 type GraphModalProps = {
@@ -1067,7 +1062,6 @@ export function GraphModal({
   symbol,
 }: GraphModalProps) {
   const overlayRef = useRef<HTMLDivElement>(null);
-  const [levels, setLevels] = useState<AdvancedLevels | null>(null);
   const [activeTab, setActiveTab] = useState<"info" | "analysis">("info");
 
   const storeCurrentPrice = useMarketStore((s) => s.prices?.[symbol] ?? null);
@@ -1077,12 +1071,15 @@ export function GraphModal({
 
   const [visible, setVisible] = useState(false);
   const [range, setRange] = useState<TimeRange>("1d");
+
+  // ── Unified state from /api/graph-detail ──────────────────────────────
+  const [isLoading, setIsLoading] = useState(false);
+  const [chartError, setChartError] = useState<string | null>(null);
+  const [marketData, setMarketData] = useState<PrePostData | null>(null);
   const [chartHistory, setChartHistory] = useState<ChartHistoryResponse | null>(
     null,
   );
-  const [isLoadingChart, setIsLoadingChart] = useState(false);
-  const [chartError, setChartError] = useState<string | null>(null);
-  const [marketData, setMarketData] = useState<PrePostData | null>(null);
+  const [levels, setLevels] = useState<AdvancedLevels | null>(null);
 
   const isMarketOpen = useMarketStore((s) => s.marketStatus?.isOpen ?? true);
   const isPageVisible = usePageVisible();
@@ -1109,57 +1106,55 @@ export function GraphModal({
     if (e.target === overlayRef.current) handleClose();
   };
 
-  useEffect(() => {
-    fetch(`/api/advanced-levels?symbol=${encodeURIComponent(symbol)}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then(setLevels)
-      .catch(console.error);
-  }, [symbol]);
-
-  /* ── Market data ──────────────────────────────────────────────────────── */
-  const fetchMarketData = useCallback(async () => {
-    const res = await fetch(
-      `/api/prepost?symbol=${encodeURIComponent(symbol)}`,
-      { cache: "no-store" },
-    );
-    if (res.ok) setMarketData(await res.json());
-  }, [symbol]);
-
-  useEffect(() => {
-    fetchMarketData();
-  }, [fetchMarketData]);
-
-  useEffect(() => {
-    if (!isPageVisible || !isMarketOpen) return;
-    const id = setInterval(fetchMarketData, AUTO_REFRESH_1M_INTERVAL_MS);
-    return () => clearInterval(id);
-  }, [fetchMarketData, isPageVisible, isMarketOpen]);
-
-  /* ── Chart history ────────────────────────────────────────────────────── */
-  const fetchChartHistory = useCallback(
+  /* ── Fetch all data via graph-detail ──────────────────────────────────── */
+  const fetchGraphDetail = useCallback(
     async (r: TimeRange) => {
-      setIsLoadingChart(true);
+      setIsLoading(true);
       setChartError(null);
-      setChartHistory(null);
       try {
         const res = await fetch(
-          `/api/chart-history?symbol=${encodeURIComponent(symbol)}&range=${r}`,
+          `/api/graph-detail?symbol=${encodeURIComponent(symbol)}&range=${r}`,
+          { cache: "no-store" },
         );
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        setChartHistory(await res.json());
+        const json: GraphDetailResponse = await res.json();
+
+        if (json.prepost) setMarketData(json.prepost);
+        if (json.levels) setLevels(json.levels);
+        if (json.chart) setChartHistory(json.chart as ChartHistoryResponse);
+        if (json.errors.chart) setChartError("โหลดข้อมูลไม่ได้");
       } catch (err) {
-        console.error("chart-history", err);
+        console.error("graph-detail", err);
         setChartError("โหลดข้อมูลไม่ได้");
       } finally {
-        setIsLoadingChart(false);
+        setIsLoading(false);
       }
     },
     [symbol],
   );
 
+  // Initial load + on range change
   useEffect(() => {
-    fetchChartHistory(range);
-  }, [range, fetchChartHistory]);
+    fetchGraphDetail(range);
+  }, [range, fetchGraphDetail]);
+
+  // Refresh prepost + chart (non-1m intraday) while market open
+  useEffect(() => {
+    if (!isPageVisible || !isMarketOpen) return;
+    if (INTRADAY_RANGES.has(range) && range !== "1m") {
+      const id = setInterval(
+        () => fetchGraphDetail(range),
+        AUTO_REFRESH_1M_INTERVAL_MS,
+      );
+      return () => clearInterval(id);
+    }
+    // For daily+ ranges, still refresh prepost on its own cadence
+    const id = setInterval(
+      fetchGraphDetail.bind(null, range),
+      AUTO_REFRESH_1M_INTERVAL_MS,
+    );
+    return () => clearInterval(id);
+  }, [fetchGraphDetail, range, isPageVisible, isMarketOpen]);
 
   /* ── 1m realtime tick ─────────────────────────────────────────────────── */
   useEffect(() => {
@@ -1185,17 +1180,6 @@ export function GraphModal({
     const id = setInterval(fetchLatestTick, AUTO_REFRESH_10SECS_INTERVAL_MS);
     return () => clearInterval(id);
   }, [range, symbol, isPageVisible, isMarketOpen]);
-
-  /* ── Non-1m intraday polling ──────────────────────────────────────────── */
-  useEffect(() => {
-    if (!INTRADAY_RANGES.has(range) || range === "1m") return;
-    if (!isPageVisible || !isMarketOpen) return;
-    const id = setInterval(
-      () => fetchChartHistory(range),
-      AUTO_REFRESH_1M_INTERVAL_MS,
-    );
-    return () => clearInterval(id);
-  }, [range, fetchChartHistory, isPageVisible, isMarketOpen]);
 
   /* ── Derived values ───────────────────────────────────────────────────── */
   const pp = marketData;
@@ -1245,13 +1229,10 @@ export function GraphModal({
     : null;
 
   // ── Dividend derived values ──────────────────────────────────────────────
-  // dividendRate = trailing 12-month total per share (sum from &events=div)
   const dividendRate = chartHistory?.dividendRate ?? null;
   const dividendYield = chartHistory?.dividendYield ?? null;
   const lastDividendAmount = chartHistory?.lastDividendAmount ?? null;
   const lastDividendDate = chartHistory?.lastDividendDate ?? null;
-
-  // Expected annual income from the user's holding
   const annualDividendFromPortfolio =
     dividendRate != null && asset?.quantity != null
       ? dividendRate * asset.quantity
@@ -1390,7 +1371,7 @@ export function GraphModal({
                   rawData={rawChartData}
                   prevPrice={chartPrevPrice}
                   range={range}
-                  isLoading={isLoadingChart}
+                  isLoading={isLoading}
                   onUpdateTickRef={range === "1m" ? chartTickRef : undefined}
                 />
               )}
@@ -1398,7 +1379,7 @@ export function GraphModal({
             <TimeframeChips
               value={range}
               onChange={setRange}
-              isLoading={isLoadingChart}
+              isLoading={isLoading}
             />
           </div>
 
@@ -1492,7 +1473,6 @@ export function GraphModal({
                 <SectionLabel>ปันผล</SectionLabel>
 
                 {dividendRate == null ? (
-                  // หุ้นไม่จ่ายปันผล — โชว์ทุกช่องเป็น —
                   <>
                     <StatRow label="สถานะ" value="ไม่มีปันผล" />
                     <StatRow label="ปันผลต่อหุ้น / ปี" value="—" />
@@ -1504,7 +1484,6 @@ export function GraphModal({
                   </>
                 ) : (
                   <>
-                    {/* ปันผลต่อหุ้น (trailing 12 months) */}
                     <StatRow
                       label="ปันผลต่อหุ้น / ปี"
                       value={
@@ -1516,8 +1495,6 @@ export function GraphModal({
                         !isThai ? toBaht(dividendRate, currencyRate) : undefined
                       }
                     />
-
-                    {/* Dividend Yield */}
                     <StatRow
                       label="Dividend Yield"
                       value={
@@ -1526,8 +1503,6 @@ export function GraphModal({
                           : "—"
                       }
                     />
-
-                    {/* จ่ายล่าสุด */}
                     <StatRow
                       label="จ่ายล่าสุด"
                       value={
@@ -1543,8 +1518,6 @@ export function GraphModal({
                           : undefined
                       }
                     />
-
-                    {/* รับปันผล/ปี จากพอร์ต */}
                     {asset && (
                       <StatRow
                         label="รับปันผล / ปี (พอร์ต)"
