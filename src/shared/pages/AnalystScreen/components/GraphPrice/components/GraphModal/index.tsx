@@ -191,10 +191,31 @@ function buildCandles(rawData: ChartHistoryPoint[]) {
     return av < bv ? -1 : av > bv ? 1 : 0;
   };
 
-  return {
-    candles: Array.from(candleMap.values()).sort(sort),
-    volBars: Array.from(volMap.values()).sort(sort),
-  };
+  const candles = Array.from(candleMap.values()).sort(sort);
+  const volBars = Array.from(volMap.values()).sort(sort);
+
+  // return {
+  //   candles: Array.from(candleMap.values()).sort(sort),
+  //   volBars: Array.from(volMap.values()).sort(sort),
+  // };
+
+  // ── เติม bridge เฉพาะวันที่มี gap ──────────────────────────────────
+  for (let i = 1; i < candles.length; i++) {
+    const prev = candles[i - 1];
+    const curr = candles[i];
+    // gap คือ low ของแท่งปัจจุบัน > high ของแท่งก่อนหน้า  (ขาดขึ้น)
+    // หรือ   high ของแท่งปัจจุบัน < low ของแท่งก่อนหน้า   (ขาดลง)
+    const gapUp   = curr.low  > prev.high;
+    const gapDown = curr.high < prev.low;
+
+    if (gapUp || gapDown) {
+      // ดึง wick ของแท่งก่อนหน้าให้แตะขอบของแท่งปัจจุบัน
+      prev.high = gapUp   ? curr.low  : prev.high;
+      prev.low  = gapDown ? curr.high : prev.low;
+    }
+  }
+
+  return { candles, volBars };
 }
 
 function alignPlot(
@@ -351,6 +372,7 @@ function LWChart({
         timeVisible: intraday,
         secondsVisible: false,
         ignoreWhitespaceIndices: true,
+        // barSpacing: 8
       },
       handleScroll: {
         mouseWheel: true,
