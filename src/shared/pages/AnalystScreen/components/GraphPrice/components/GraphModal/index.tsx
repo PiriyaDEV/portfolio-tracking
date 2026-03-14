@@ -271,6 +271,33 @@ function LWChart({ rawData, prevPrice, range, isLoading }: LWChartProps) {
     const intraday = INTRADAY_RANGES.has(range);
 
     const base = (height: number) => ({
+      localization: {
+        locale: "th-TH",
+
+        timeFormatter: (time: number) => {
+          // lightweight-charts passes time in seconds (Unix timestamp)
+          // If value > 1e10, it's milliseconds; otherwise seconds
+          const ms = time > 1e10 ? time : time * 1000;
+          const date = new Date(ms);
+          return date.toLocaleTimeString("th-TH", {
+            timeZone: "Asia/Bangkok",
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: false,
+          });
+        },
+
+        dateFormatter: (time: number) => {
+          const ms = time > 1e10 ? time : time * 1000;
+          const date = new Date(ms);
+          return date.toLocaleDateString("th-TH", {
+            timeZone: "Asia/Bangkok",
+            year: "numeric",
+            month: "short",
+            day: "numeric",
+          });
+        },
+      },
       autoSize: true,
       height,
       layout: {
