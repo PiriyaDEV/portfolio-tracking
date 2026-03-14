@@ -6,6 +6,7 @@ import { fNumber, getLogo, getName, isThaiStock } from "@/app/lib/utils";
 import { TimeRange } from "@/app/api/chart-history/route";
 import { AUTO_REFRESH_1M_INTERVAL_MS } from "@/app/config";
 import { usePageVisible } from "@/shared/hooks/usePageVisible";
+import { useMarketStore } from "@/store/useMarketStore";
 
 /* =======================
    Types
@@ -162,20 +163,41 @@ function buildHeikinAshi(
 
 function HAChart({
   data,
+  rawData,
   prevPrice,
   currentPrice,
   range,
   isLoading,
 }: {
   data: HACandle[];
+  rawData: ChartHistoryPoint[];
   prevPrice: number | null;
   currentPrice: number | null;
   range: TimeRange;
   isLoading: boolean;
 }) {
+  const svgRef = useRef<SVGSVGElement>(null);
+  const [crosshair, setCrosshair] = useState<{
+    x: number;
+    idx: number;
+  } | null>(null);
+
   const W = 380;
-  const H = 204;
-  const PAD = { top: 8, bottom: 28, left: 48, right: 4 };
+  // ── Layout: price chart on top, volume panel below, time axis at bottom ──
+  const VOL_H = 32; // height of volume panel
+  const AXIS_H = 20; // height of time axis
+  const RANGE_BAR_H = 14; // height of day-range bar strip
+  const CHART_H = 160; // height of price area
+  const H = CHART_H + VOL_H + AXIS_H + RANGE_BAR_H;
+  const PAD = { top: 8, left: 48, right: 4 };
+
+  // derived Y zones
+  const priceTop = PAD.top;
+  const priceBot = priceTop + CHART_H;
+  const volTop = priceBot + 2;
+  const volBot = volTop + VOL_H;
+  const rangeBarY = volBot + 3;
+  const axisY = rangeBarY + RANGE_BAR_H + 4;
 
   if (isLoading) {
     return (
@@ -223,23 +245,54 @@ function HAChart({
     );
   }
 
+  // ── Price scale ──────────────────────────────────────────────────────────
   const allPrices = data.flatMap((c) => [c.high, c.low]);
   if (prevPrice) allPrices.push(prevPrice);
   if (currentPrice) allPrices.push(currentPrice);
   const minP = Math.min(...allPrices);
   const maxP = Math.max(...allPrices);
   const priceRange = maxP - minP || 1;
-
   const chartW = W - PAD.left - PAD.right;
-  const chartH = H - PAD.top - PAD.bottom;
-  const toY = (p: number) => PAD.top + ((maxP - p) / priceRange) * chartH;
+  const toY = (p: number) => priceTop + ((maxP - p) / priceRange) * CHART_H;
+
+  // ── Candle layout ────────────────────────────────────────────────────────
   const n = data.length;
   const gap = 1.5;
   const candleW = Math.max(chartW / n - gap, 2);
   const step = chartW / n;
+  const cx = (i: number) => PAD.left + i * step + step / 2;
 
+  // ── Volume scale ─────────────────────────────────────────────────────────
+  const volumes = rawData.map((d) => d.volume ?? 0);
+  const maxVol = Math.max(...volumes, 1);
+  // map volume index → HACandle index (same bucketing logic, approximate)
+  const bucketSize = Math.max(Math.floor(rawData.length / n), 1);
+  const bucketedVol = Array.from({ length: n }, (_, i) => {
+    const slice = rawData.slice(i * bucketSize, (i + 1) * bucketSize);
+    return slice.reduce((s, d) => s + (d.volume ?? 0), 0);
+  });
+  const maxBucketVol = Math.max(...bucketedVol, 1);
+
+  // ── Previous close line ──────────────────────────────────────────────────
+  const prevY = prevPrice ? toY(prevPrice) : null;
+
+  // ── Current price line ───────────────────────────────────────────────────
   const curY = currentPrice ? toY(currentPrice) : null;
+  const isUp =
+    currentPrice != null && prevPrice != null
+      ? currentPrice >= prevPrice
+      : true;
+  const accentColor = isUp ? "#4ade80" : "#f87171";
 
+  // ── Day range (from raw data) ────────────────────────────────────────────
+  const dayLow = rawData.length
+    ? Math.min(...rawData.map((d) => d.low ?? d.price))
+    : null;
+  const dayHigh = rawData.length
+    ? Math.max(...rawData.map((d) => d.high ?? d.price))
+    : null;
+
+  // ── Grid ─────────────────────────────────────────────────────────────────
   const GRID_LINES = 4;
   const gridLevels = Array.from({ length: GRID_LINES }, (_, i) => {
     const price = minP + (priceRange * i) / (GRID_LINES - 1);
@@ -252,17 +305,114 @@ function HAChart({
     return p.toFixed(2);
   }
 
+  // ── Time axis labels ─────────────────────────────────────────────────────
   const labelIndices = [0, 1, 2, 3, 4].map((i) =>
     Math.round((i / 4) * (n - 1)),
   );
-  const axisY = H - 6;
+
+  // ── Crosshair mouse handler ──────────────────────────────────────────────
+  function handleMouseMove(e: React.MouseEvent<SVGSVGElement>) {
+    const rect = svgRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const svgX = ((e.clientX - rect.left) / rect.width) * W;
+    const relX = svgX - PAD.left;
+    const idx = Math.max(0, Math.min(n - 1, Math.floor(relX / step)));
+    setCrosshair({ x: cx(idx), idx });
+  }
+
+  // ── Crosshair candle data ────────────────────────────────────────────────
+  const hoveredCandle = crosshair ? data[crosshair.idx] : null;
+
+  // ── Gradient area path (midpoint of each candle close) ───────────────────
+  const closePts = data.map((c, i) => ({ x: cx(i), y: toY(c.close) }));
+  const areaPath =
+    closePts.length > 1
+      ? [
+          `M ${closePts[0].x} ${priceBot}`,
+          `L ${closePts[0].x} ${closePts[0].y}`,
+          ...closePts.slice(1).map((p) => `L ${p.x} ${p.y}`),
+          `L ${closePts[closePts.length - 1].x} ${priceBot}`,
+          "Z",
+        ].join(" ")
+      : "";
+
+  const gradId = `area-grad-${isUp ? "up" : "dn"}`;
 
   return (
     <div style={{ position: "relative", width: "100%" }}>
+      {/* ── Crosshair OHLC badge (top of chart) ───────────────────────────── */}
+      {hoveredCandle && (
+        <div
+          style={{
+            position: "absolute",
+            top: 2,
+            left: PAD.left,
+            right: PAD.right,
+            display: "flex",
+            gap: 8,
+            pointerEvents: "none",
+            zIndex: 5,
+          }}
+        >
+          {(["open", "high", "low", "close"] as const).map((k) => (
+            <span
+              key={k}
+              style={{
+                fontSize: 10,
+                fontFamily: "monospace",
+                color: "rgba(255,255,255,0.55)",
+              }}
+            >
+              <span
+                style={{
+                  color: "rgba(255,198,0,0.5)",
+                  textTransform: "uppercase",
+                }}
+              >
+                {k[0]}
+              </span>
+              <span
+                style={{
+                  color: k === "close" ? accentColor : "rgba(255,255,255,0.85)",
+                  fontWeight: k === "close" ? 700 : 400,
+                }}
+              >
+                {" "}
+                {fmtPrice(hoveredCandle[k])}
+              </span>
+            </span>
+          ))}
+        </div>
+      )}
+
       <svg
+        ref={svgRef}
         viewBox={`0 0 ${W} ${H}`}
-        style={{ width: "100%", height: H, display: "block" }}
+        style={{
+          width: "100%",
+          height: H,
+          display: "block",
+          cursor: "crosshair",
+        }}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={() => setCrosshair(null)}
       >
+        <defs>
+          {/* gradient fill under close line */}
+          <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={accentColor} stopOpacity={0.18} />
+            <stop offset="100%" stopColor={accentColor} stopOpacity={0.01} />
+          </linearGradient>
+          {/* clip price area */}
+          <clipPath id="price-clip">
+            <rect x={PAD.left} y={priceTop} width={chartW} height={CHART_H} />
+          </clipPath>
+          <clipPath id="vol-clip">
+            <rect x={PAD.left} y={volTop} width={chartW} height={VOL_H} />
+          </clipPath>
+        </defs>
+
+        {/* ── Grid lines ──────────────────────────────────────────────────── */}
         {gridLevels.map(({ price, y }, i) => (
           <g key={i}>
             <line
@@ -270,7 +420,7 @@ function HAChart({
               y1={y}
               x2={W - PAD.right}
               y2={y}
-              stroke="rgba(255,255,255,0.06)"
+              stroke="rgba(255,255,255,0.05)"
               strokeWidth={0.5}
             />
             <text
@@ -278,7 +428,7 @@ function HAChart({
               y={y + 3.5}
               textAnchor="end"
               fontSize={8.5}
-              fill="rgba(255,255,255,0.28)"
+              fill="rgba(255,255,255,0.25)"
               fontFamily="monospace"
             >
               {fmtPrice(price)}
@@ -286,6 +436,60 @@ function HAChart({
           </g>
         ))}
 
+        {/* ── Gradient area under close line ──────────────────────────────── */}
+        {areaPath && (
+          <path
+            d={areaPath}
+            fill={`url(#${gradId})`}
+            clipPath="url(#price-clip)"
+          />
+        )}
+
+        {/* ── Candles ─────────────────────────────────────────────────────── */}
+        <g clipPath="url(#price-clip)">
+          {data.map((c, i) => {
+            const x = cx(i);
+            const bodyTop = toY(Math.max(c.open, c.close));
+            const bodyBot = toY(Math.min(c.open, c.close));
+            const bodyH = Math.max(bodyBot - bodyTop, 1.5);
+            const color = c.isUp ? "#4ade80" : "#f87171";
+            const isCrosshaired = crosshair?.idx === i;
+            return (
+              <g key={i} opacity={isCrosshaired ? 1 : 0.88}>
+                {/* wick top */}
+                <line
+                  x1={x}
+                  y1={toY(c.high)}
+                  x2={x}
+                  y2={bodyTop}
+                  stroke={color}
+                  strokeWidth={isCrosshaired ? 1.8 : 1.2}
+                />
+                {/* body */}
+                <rect
+                  x={x - candleW / 2}
+                  y={bodyTop}
+                  width={candleW}
+                  height={bodyH}
+                  fill={color}
+                  rx={0.5}
+                  opacity={c.isUp ? 0.9 : 0.75}
+                />
+                {/* wick bottom */}
+                <line
+                  x1={x}
+                  y1={bodyBot}
+                  x2={x}
+                  y2={toY(c.low)}
+                  stroke={color}
+                  strokeWidth={isCrosshaired ? 1.8 : 1.2}
+                />
+              </g>
+            );
+          })}
+        </g>
+
+        {/* ── Current price dashed line ────────────────────────────────────── */}
         {curY !== null && (
           <g>
             <line
@@ -293,21 +497,21 @@ function HAChart({
               y1={curY}
               x2={W - PAD.right}
               y2={curY}
-              stroke="currentColor"
-              className="text-accent-yellow"
+              stroke={accentColor}
               strokeWidth={0.8}
               strokeDasharray="3 3"
+              opacity={0.9}
             />
             <rect
-              x={PAD.left - 35}
+              x={PAD.left - 36}
               y={curY - 6}
-              width={34}
+              width={35}
               height={12}
               rx={3}
-              className="fill-accent-yellow"
+              fill={accentColor}
             />
             <text
-              x={PAD.left - 6}
+              x={PAD.left - 4}
               y={curY + 3.5}
               textAnchor="end"
               fontSize={8}
@@ -320,64 +524,63 @@ function HAChart({
           </g>
         )}
 
+        {/* ── Volume separator line ────────────────────────────────────────── */}
         <line
           x1={PAD.left}
-          y1={H - PAD.bottom + 4}
+          y1={volTop - 1}
           x2={W - PAD.right}
-          y2={H - PAD.bottom + 4}
-          stroke="rgba(255,255,255,0.08)"
+          y2={volTop - 1}
+          stroke="rgba(255,255,255,0.06)"
           strokeWidth={0.5}
         />
 
-        {data.map((c, i) => {
-          const cx = PAD.left + i * step + step / 2;
-          const bodyTop = toY(Math.max(c.open, c.close));
-          const bodyBot = toY(Math.min(c.open, c.close));
-          const bodyH = Math.max(bodyBot - bodyTop, 1.5);
-          const color = c.isUp ? "#4ade80" : "#f87171";
-          const x = cx - candleW / 2;
-          return (
-            <g key={i}>
-              <line
-                x1={cx}
-                y1={toY(c.high)}
-                x2={cx}
-                y2={bodyTop}
-                stroke={color}
-                strokeWidth={1.2}
-              />
+        {/* ── Volume bars ─────────────────────────────────────────────────── */}
+        <g clipPath="url(#vol-clip)">
+          {bucketedVol.map((vol, i) => {
+            const barH = Math.max((vol / maxBucketVol) * VOL_H, 1);
+            const color = data[i]?.isUp ? "#4ade80" : "#f87171";
+            const isCrosshaired = crosshair?.idx === i;
+            return (
               <rect
-                x={x}
-                y={bodyTop}
+                key={i}
+                x={cx(i) - candleW / 2}
+                y={volBot - barH}
                 width={candleW}
-                height={bodyH}
+                height={barH}
                 fill={color}
+                opacity={isCrosshaired ? 0.7 : 0.28}
                 rx={0.5}
               />
-              <line
-                x1={cx}
-                y1={bodyBot}
-                x2={cx}
-                y2={toY(c.low)}
-                stroke={color}
-                strokeWidth={1.2}
-              />
-            </g>
-          );
-        })}
+            );
+          })}
+        </g>
 
+        {/* ── Crosshair vertical line ──────────────────────────────────────── */}
+        {crosshair && (
+          <line
+            x1={crosshair.x}
+            y1={priceTop}
+            x2={crosshair.x}
+            y2={volBot}
+            stroke="rgba(255,255,255,0.2)"
+            strokeWidth={0.8}
+            strokeDasharray="2 3"
+          />
+        )}
+
+        {/* ── Time axis ───────────────────────────────────────────────────── */}
         {labelIndices.map((idx) => {
-          const cx = PAD.left + idx * step + step / 2;
+          const x = cx(idx);
           const label = formatTime(data[idx].time, range);
           const anchor = idx === 0 ? "start" : idx === n - 1 ? "end" : "middle";
           return (
             <text
               key={idx}
-              x={cx}
+              x={x}
               y={axisY}
               textAnchor={anchor}
               fontSize={9}
-              fill="rgba(255,255,255,0.3)"
+              fill="rgba(255,255,255,0.28)"
               fontFamily="monospace"
             >
               {label}
@@ -561,6 +764,7 @@ export function StockDetailModal({
   const [isLoadingChart, setIsLoadingChart] = useState(false);
   const [chartError, setChartError] = useState<string | null>(null);
   const [displayedRange, setDisplayedRange] = useState<TimeRange>("1m");
+  const isMarketOpen = useMarketStore((s) => s.marketStatus?.isOpen ?? true);
 
   const fetchMarketData = useCallback(async () => {
     const res = await fetch(
@@ -612,22 +816,24 @@ export function StockDetailModal({
 
   const isPageVisible = usePageVisible();
   useEffect(() => {
-    if (range !== "1m" || !isPageVisible) return;
+    // ไม่ refresh chart ถ้าตลาดปิด, ไม่ใช่ timeframe นาที, หรือ tab ไม่ active
+    if (range !== "1m" || !isPageVisible || !isMarketOpen) return;
     const id = setInterval(
       () => fetchChartHistory(range),
       AUTO_REFRESH_1M_INTERVAL_MS,
     );
     return () => clearInterval(id);
-  }, [range, fetchChartHistory, isPageVisible]);
+  }, [range, fetchChartHistory, isPageVisible, isMarketOpen]);
 
   useEffect(() => {
-    if (!isPageVisible) return;
+    // ไม่ refresh prepost ถ้าตลาดปิด หรือ tab ไม่ active
+    if (!isPageVisible || !isMarketOpen) return;
     const id = setInterval(
       () => fetchMarketData(),
       AUTO_REFRESH_1M_INTERVAL_MS,
     );
     return () => clearInterval(id);
-  }, [fetchMarketData, isPageVisible]);
+  }, [fetchMarketData, isPageVisible, isMarketOpen]);
 
   const handleOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target === overlayRef.current) {
@@ -853,6 +1059,7 @@ export function StockDetailModal({
               ) : (
                 <HAChart
                   data={haData}
+                  rawData={chartData}
                   prevPrice={chartPrevPrice}
                   currentPrice={displayPrice}
                   range={displayedRange}
