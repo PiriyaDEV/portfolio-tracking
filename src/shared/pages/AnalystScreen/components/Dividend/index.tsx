@@ -2,6 +2,8 @@
 
 import { getLogo, getName } from "@/app/lib/utils";
 import { useState } from "react";
+import { StockDetailModal } from "../GraphPrice/components/GraphModal";
+import { useMarketStore } from "@/store/useMarketStore";
 
 type Currency = "THB" | "USD";
 
@@ -88,6 +90,8 @@ function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
 export default function DividendSummary({ data }: DividendSummaryProps) {
   const [sortKey, setSortKey] = useState<SortKey>("annualDividendBase");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
+  const { currencyRate } = useMarketStore();
 
   if (!data) {
     return (
@@ -167,6 +171,14 @@ export default function DividendSummary({ data }: DividendSummaryProps) {
 
   return (
     <div className="mt-[80px] pb-[100px] flex flex-col gap-0">
+      {selectedSymbol && (
+        <StockDetailModal
+          symbol={selectedSymbol}
+          onClose={() => setSelectedSymbol(null)}
+          currencyRate={currencyRate}
+        />
+      )}
+
       {/* ── Header ── */}
       <div className="mb-3">
         <h2 className="text-base font-bold text-white flex items-center gap-2">
@@ -262,7 +274,13 @@ export default function DividendSummary({ data }: DividendSummaryProps) {
                 >
                   {/* Symbol + logo + name */}
                   <td className="px-3 py-3 align-middle">
-                    <div className="flex items-center gap-2">
+                    <div
+                      className="flex items-center gap-2"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedSymbol(symbol);
+                      }}
+                    >
                       <div
                         className={`w-[30px] h-[30px] rounded-full bg-cover bg-center border border-gray-600 ${
                           getLogo(symbol) ? "" : "bg-white"

@@ -17,6 +17,7 @@ import { FaSeedling, FaShieldAlt, FaUniversity } from "react-icons/fa";
 import { TbMoneybag } from "react-icons/tb";
 import { getLogo } from "@/app/lib/utils";
 import CommonLoading from "@/shared/components/common/CommonLoading";
+import { StockDetailModal } from "@/shared/pages/AnalystScreen/components/GraphPrice/components/GraphModal";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -372,10 +373,12 @@ function StockCard({
   rec,
   rank,
   currencyRate,
+  onSelect,
 }: {
   rec: StockRecommendation;
   rank: number;
   currencyRate: number;
+  onSelect?: (symbol: string) => void;
 }) {
   const isPositive1M = rec.return1M >= 0;
   const return1MColor = isPositive1M ? "text-green-400" : "text-red-400";
@@ -386,7 +389,10 @@ function StockCard({
     <div className="bg-black-lighter rounded-2xl overflow-hidden border border-gray-800">
       {/* ── Header ── */}
       <div className="flex items-center justify-between px-4 pt-4 pb-3">
-        <div className="flex items-center gap-3">
+        <div
+          className="flex items-center gap-3"
+          onClick={() => onSelect?.(rec.ticker)}
+        >
           <div
             className={`w-[30px] h-[30px] rounded-full bg-cover bg-center border border-gray-600 ${
               getLogo(rec.ticker) ? "" : "bg-white"
@@ -558,6 +564,7 @@ export default function StockRecommendScreen({
   userId,
   currencyRate = 36,
 }: StockRecommendScreenProps) {
+  const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
   const [investmentAmount, setInvestmentAmount] = useState<string>("");
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [riskLevel, setRiskLevel] = useState<RiskLevel>("medium");
@@ -688,6 +695,14 @@ export default function StockRecommendScreen({
 
   return (
     <div className="w-full pb-[20px]">
+      {selectedSymbol && (
+        <StockDetailModal
+          symbol={selectedSymbol}
+          onClose={() => setSelectedSymbol(null)}
+          currencyRate={currencyRate}
+        />
+      )}
+
       <div className="flex flex-col gap-6">
         {/* Loading skeleton on initial fetch */}
         {isFetching && (
@@ -1017,6 +1032,7 @@ export default function StockRecommendScreen({
                     key={rec.ticker}
                     rec={rec}
                     rank={i + 1}
+                    onSelect={(sym) => setSelectedSymbol(sym)}
                     currencyRate={currencyRate}
                   />
                 ))}
