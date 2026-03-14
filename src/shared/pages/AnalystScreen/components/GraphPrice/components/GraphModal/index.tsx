@@ -1729,7 +1729,7 @@ export function GraphModal({
                       }
                       activeColor="orange"
                     />
-                    <StatRow label="Trend" value={levels.trend} />
+                    <StatRow label="เทรนด์" value={levels.trend} />
                   </>
                 )}
               </>

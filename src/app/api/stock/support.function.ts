@@ -9,7 +9,7 @@ export interface AdvancedLevels {
   entry2: number;
   stopLoss: number;
   resistance: number;
-  trend: "UP" | "DOWN" | "SIDEWAYS";
+  trend: "ขาขึ้น" | "ขาลง" | "ทรงตัว";
   recommendation?: any;
 }
 
@@ -23,7 +23,7 @@ const INITIAL_LEVELS = (symbol: string): AdvancedLevels => ({
   entry2: 0,
   stopLoss: 0,
   resistance: 0,
-  trend: "SIDEWAYS",
+  trend: "ทรงตัว",
   recommendation: "",
 });
 
@@ -120,9 +120,9 @@ export async function getAdvancedLevels(
     const swingHigh = Math.max(...highs.slice(-lookback));
 
     /* ================= TREND ================= */
-    let trend: "UP" | "DOWN" | "SIDEWAYS" = "SIDEWAYS";
-    if (ema20 > ema50 && currentPrice > ema20) trend = "UP";
-    else if (ema20 < ema50 && currentPrice < ema20) trend = "DOWN";
+    let trend: "ขาขึ้น" | "ขาลง" | "ทรงตัว" = "ทรงตัว";
+    if (ema20 > ema50 && currentPrice > ema20) trend = "ขาขึ้น";
+    else if (ema20 < ema50 && currentPrice < ema20) trend = "ขาลง";
 
     /* ================= ENTRY LEVELS ================= */
     let entry1 = ema20 - 0.3 * atr;
