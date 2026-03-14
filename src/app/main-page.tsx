@@ -491,9 +491,10 @@ export default function MainApp() {
     </div>
   );
 
-  // ─── Render guards ─────────────────────────────────────────────────────────
-  if (isLoading && !isFirstBatchLoaded) return <CommonLoading />;
+  // AFTER
   if (assets === null) return <CommonLoading />;
+  if (isLoading && !isFirstBatchLoaded && assets.length > 0)
+    return <CommonLoading />;
 
   if (assets?.length === 0) {
     return (
