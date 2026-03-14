@@ -257,6 +257,8 @@ function LWChart({
   const candlesSnapshotRef = useRef<
     { time: Time; open: number; high: number; low: number; close: number }[]
   >([]);
+  const emaDataRef = useRef<number[][]>([[], [], [], []]);
+  const rsiDataRef = useRef<number[]>([]);
 
   /* ── 1. ResizeObserver gate + 80ms fallback ───────────────────────────── */
   useLayoutEffect(() => {
@@ -348,9 +350,9 @@ function LWChart({
         horzTouchDrag: true,
       },
       handleScale: {
-        mouseWheel: false,
+        mouseWheel: true,
         pinch: true,
-        axisPressedMouseMove: false,
+        axisPressedMouseMove: true,
       },
       kineticScroll: {
         mouse: false,
@@ -453,6 +455,17 @@ function LWChart({
       const c = clamp(r);
       if (c !== r) mainChart.timeScale().setVisibleLogicalRange(c);
       rsiChart.timeScale().setVisibleLogicalRange(c);
+      if (r && candlesSnapshotRef.current.length) {
+        const lastVisible = Math.floor(r.to);
+
+        const emaVals = emaDataRef.current.map(
+          (arr) => arr[lastVisible] ?? null,
+        );
+        setEmaValues(emaVals);
+
+        const rsi = rsiDataRef.current[lastVisible];
+        setRsiValue(rsi ?? null);
+      }
       isSyncRef.current = false;
     });
     rsiChart.timeScale().subscribeVisibleLogicalRangeChange((r) => {
@@ -461,6 +474,17 @@ function LWChart({
       const c = clamp(r);
       if (c !== r) rsiChart.timeScale().setVisibleLogicalRange(c);
       mainChart.timeScale().setVisibleLogicalRange(c);
+      if (r && candlesSnapshotRef.current.length) {
+        const lastVisible = Math.floor(r.to);
+
+        const emaVals = emaDataRef.current.map(
+          (arr) => arr[lastVisible] ?? null,
+        );
+        setEmaValues(emaVals);
+
+        const rsi = rsiDataRef.current[lastVisible];
+        setRsiValue(rsi ?? null);
+      }
       isSyncRef.current = false;
     });
 
@@ -504,6 +528,7 @@ function LWChart({
     }));
 
     const newEmaValues: (number | null)[] = [null, null, null, null];
+    const newEmaData: number[][] = [[], [], [], []];
     EMA_CONFIGS.forEach((cfg, idx) => {
       const series = emaRefs.current[idx];
       if (!series || indBars.length < cfg.length) return;
@@ -514,12 +539,23 @@ function LWChart({
           candles,
         );
         series.setData(mapped);
+
+        const arr = new Array(candles.length).fill(null);
+
+        mapped.forEach((p) => {
+          const i = candles.findIndex((c) => c.time === p.time);
+          if (i !== -1) arr[i] = p.value;
+        });
+
+        newEmaData[idx] = arr;
+
         const last = mapped[mapped.length - 1];
         if (last != null) newEmaValues[idx] = last.value;
       } catch (e) {
         console.warn(`EMA ${cfg.length}`, e);
       }
     });
+    emaDataRef.current = newEmaData;
     setEmaValues(newEmaValues);
 
     if (
@@ -534,6 +570,14 @@ function LWChart({
             [],
           candles,
         );
+        const rsiArr = new Array(candles.length).fill(null);
+
+        mappedRsi.forEach((p) => {
+          const i = candles.findIndex((c) => c.time === p.time);
+          if (i !== -1) rsiArr[i] = p.value;
+        });
+
+        rsiDataRef.current = rsiArr;
         rsiRef.current.setData(mappedRsi);
         rsiObRef.current.setData(
           candles.map((c) => ({ time: c.time as Time, value: 70 })),
