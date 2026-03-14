@@ -22,7 +22,10 @@ import { RSI, EMA } from "lightweight-charts-indicators";
 import { Asset } from "@/app/lib/interface";
 import { fNumber, getLogo, getName, isThaiStock } from "@/app/lib/utils";
 import { TimeRange } from "@/app/api/chart-history/route";
-import { AUTO_REFRESH_10SECS_INTERVAL_MS } from "@/app/config";
+import {
+  AUTO_REFRESH_1M_INTERVAL_MS,
+  AUTO_REFRESH_10SECS_INTERVAL_MS,
+} from "@/app/config";
 import { usePageVisible } from "@/shared/hooks/usePageVisible";
 import { useMarketStore } from "@/store/useMarketStore";
 
@@ -187,6 +190,9 @@ function alignPlot(
    LWChart
    Parent passes key={range} → full remount on range change.
    Parent clears data while loading → chart shows spinner, not stale data.
+
+   For 1m: exposes an `updateTick` imperative handle so the parent can
+   push a single candle update without re-rendering the whole component.
 ───────────────────────────────────────────── */
 
 interface LWChartProps {
@@ -194,9 +200,19 @@ interface LWChartProps {
   prevPrice: number | null;
   range: TimeRange;
   isLoading: boolean;
+  /** Imperative: parent stores this ref and calls it on every 10-sec tick (1m only) */
+  onUpdateTickRef?: React.MutableRefObject<
+    ((point: ChartHistoryPoint) => void) | null
+  >;
 }
 
-function LWChart({ rawData, prevPrice, range, isLoading }: LWChartProps) {
+function LWChart({
+  rawData,
+  prevPrice,
+  range,
+  isLoading,
+  onUpdateTickRef,
+}: LWChartProps) {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const mainContainerRef = useRef<HTMLDivElement>(null);
   const rsiContainerRef = useRef<HTMLDivElement>(null);
@@ -233,6 +249,15 @@ function LWChart({ rawData, prevPrice, range, isLoading }: LWChartProps) {
   const isSyncRef = useRef(false);
   const scrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  /**
+   * We keep a mutable copy of ALL candles fed into the chart so the
+   * realtime tick handler can recalculate indicators incrementally
+   * without triggering a React re-render / setData call.
+   */
+  const candlesSnapshotRef = useRef<
+    { time: Time; open: number; high: number; low: number; close: number }[]
+  >([]);
+
   /* ── 1. ResizeObserver gate + 80ms fallback ───────────────────────────── */
   useLayoutEffect(() => {
     const el = wrapperRef.current;
@@ -246,8 +271,6 @@ function LWChart({ rawData, prevPrice, range, isLoading }: LWChartProps) {
 
     check(el.getBoundingClientRect());
 
-    // Fallback: if ResizeObserver hasn't fired by 80ms (e.g. modal animation),
-    // force ready — the chart will size itself correctly via autoSize.
     const fallback = setTimeout(markReady, 100);
 
     if (typeof ResizeObserver === "undefined")
@@ -274,10 +297,7 @@ function LWChart({ rawData, prevPrice, range, isLoading }: LWChartProps) {
     const base = (height: number) => ({
       localization: {
         locale: "th-TH",
-
         timeFormatter: (time: number) => {
-          // lightweight-charts passes time in seconds (Unix timestamp)
-          // If value > 1e10, it's milliseconds; otherwise seconds
           const ms = time > 1e10 ? time : time * 1000;
           const date = new Date(ms);
           return date.toLocaleTimeString("th-TH", {
@@ -287,7 +307,6 @@ function LWChart({ rawData, prevPrice, range, isLoading }: LWChartProps) {
             hour12: false,
           });
         },
-
         dateFormatter: (time: number) => {
           const ms = time > 1e10 ? time : time * 1000;
           const date = new Date(ms);
@@ -462,18 +481,19 @@ function LWChart({ rawData, prevPrice, range, isLoading }: LWChartProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isReady]);
 
-  /* ── 3. Feed data ─────────────────────────────────────────────────────── */
+  /* ── 3. Feed data (full setData on initial load / range change) ───────── */
   useEffect(() => {
     if (!isReady || !candleRef.current || !volRef.current || !rawData.length)
       return;
 
     const { candles, volBars } = buildCandles(rawData);
 
-    // Feed candles + volume synchronously — these are fast array ops
     candleRef.current.setData(candles);
     volRef.current.setData(volBars);
 
-    // Indicator bars: sequential int times (library requirement)
+    // Keep snapshot for incremental tick updates
+    candlesSnapshotRef.current = candles;
+
     const indBars = candles.map((c, i) => ({
       time: i,
       open: c.open,
@@ -483,7 +503,6 @@ function LWChart({ rawData, prevPrice, range, isLoading }: LWChartProps) {
       volume: 0,
     }));
 
-    // EMA — calculated synchronously (fast, pure math)
     const newEmaValues: (number | null)[] = [null, null, null, null];
     EMA_CONFIGS.forEach((cfg, idx) => {
       const series = emaRefs.current[idx];
@@ -503,7 +522,6 @@ function LWChart({ rawData, prevPrice, range, isLoading }: LWChartProps) {
     });
     setEmaValues(newEmaValues);
 
-    // RSI
     if (
       rsiRef.current &&
       rsiObRef.current &&
@@ -517,7 +535,6 @@ function LWChart({ rawData, prevPrice, range, isLoading }: LWChartProps) {
           candles,
         );
         rsiRef.current.setData(mappedRsi);
-        // OB/OS span full candle domain → RSI chart time axis matches main chart
         rsiObRef.current.setData(
           candles.map((c) => ({ time: c.time as Time, value: 70 })),
         );
@@ -531,9 +548,6 @@ function LWChart({ rawData, prevPrice, range, isLoading }: LWChartProps) {
       }
     }
 
-    // Scroll to rightmost candle.
-    // setTimeout(50) is more reliable than double-rAF:
-    // the chart has definitely painted by then, and 50ms is imperceptible.
     const vc = VISIBLE_CANDLES[range];
     const total = candles.length;
     totalBarsRef.current = total;
@@ -547,13 +561,149 @@ function LWChart({ rawData, prevPrice, range, isLoading }: LWChartProps) {
     }, 100);
   }, [isReady, rawData, range, prevPrice]);
 
+  /* ── 4. Wire up the imperative realtime tick handler (1m only) ────────── */
+  useEffect(() => {
+    if (!onUpdateTickRef) return;
+
+    /**
+     * Called by the parent every AUTO_REFRESH_10SECS_INTERVAL_MS.
+     * `point` is the latest 1-minute bar from the API.
+     *
+     * Strategy:
+     *   - If the bar's time matches the LAST candle in our snapshot → UPDATE (in-progress candle).
+     *   - Otherwise → new minute started, so APPEND a new candle.
+     * This mirrors exactly what the lightweight-charts realtime demo does with series.update().
+     */
+    const handleTick = (point: ChartHistoryPoint) => {
+      if (
+        !candleRef.current ||
+        !volRef.current ||
+        !rsiRef.current ||
+        !rsiObRef.current ||
+        !rsiOsRef.current
+      )
+        return;
+
+      const snapshot = candlesSnapshotRef.current;
+      if (!snapshot.length) return;
+
+      const newTime = toChartTime(point.time);
+      const lastCandle = snapshot[snapshot.length - 1];
+      const lastTime = lastCandle.time as unknown as number;
+      const newTimeNum = newTime as unknown as number;
+
+      const up = point.price >= point.open;
+      const updatedCandle = {
+        time: newTime,
+        open: point.open ?? lastCandle.open,
+        high: point.high ?? point.price,
+        low: point.low ?? point.price,
+        close: point.price,
+      };
+      const updatedVol = {
+        time: newTime,
+        value: point.volume ?? 0,
+        color: up ? "rgba(74,222,128,0.28)" : "rgba(248,113,113,0.22)",
+      };
+
+      // Update or append in our local snapshot
+      if (newTimeNum === lastTime) {
+        // Same candle — update in place
+        snapshot[snapshot.length - 1] = updatedCandle;
+      } else if (newTimeNum > lastTime) {
+        // New candle — append
+        snapshot.push(updatedCandle);
+        totalBarsRef.current = snapshot.length;
+      } else {
+        // Stale tick (older than last candle) — ignore
+        return;
+      }
+
+      // Push to chart series — lightweight-charts handles update vs. append automatically
+      candleRef.current.update(updatedCandle);
+      volRef.current.update(updatedVol);
+
+      // Recalculate indicators on the full (updated) snapshot
+      const indBars = snapshot.map((c, i) => ({
+        time: i,
+        open: c.open,
+        high: c.high,
+        low: c.low,
+        close: c.close,
+        volume: 0,
+      }));
+
+      // EMA — update last point only (fast)
+      const newEmaValues: (number | null)[] = [null, null, null, null];
+      EMA_CONFIGS.forEach((cfg, idx) => {
+        const series = emaRefs.current[idx];
+        if (!series || indBars.length < cfg.length) return;
+        try {
+          const plots =
+            EMA.calculate(indBars, { length: cfg.length, src: "close" })?.plots
+              ?.plot0 ?? [];
+          const last = plots[plots.length - 1];
+          if (last != null && !isNaN(last.value as number)) {
+            const emaPoint = {
+              time: snapshot[snapshot.length - 1].time,
+              value: last.value as number,
+            };
+            series.update(emaPoint);
+            newEmaValues[idx] = last.value as number;
+          }
+        } catch (e) {
+          console.warn(`EMA tick ${cfg.length}`, e);
+        }
+      });
+      setEmaValues(newEmaValues);
+
+      // RSI — update last point only
+      if (indBars.length >= 14) {
+        try {
+          const plots =
+            RSI.calculate(indBars, { length: 14, src: "close" })?.plots
+              ?.plot0 ?? [];
+          const last = plots[plots.length - 1];
+          if (last != null && !isNaN(last.value as number)) {
+            const rsiPoint = {
+              time: snapshot[snapshot.length - 1].time,
+              value: last.value as number,
+            };
+            rsiRef.current.update(rsiPoint);
+
+            // OB/OS lines: only extend if new candle was appended
+            const lastOb = {
+              time: snapshot[snapshot.length - 1].time as Time,
+              value: 70,
+            };
+            const lastOs = {
+              time: snapshot[snapshot.length - 1].time as Time,
+              value: 30,
+            };
+            rsiObRef.current.update(lastOb);
+            rsiOsRef.current.update(lastOs);
+
+            setRsiValue(last.value as number);
+          }
+        } catch (e) {
+          console.warn("RSI tick", e);
+        }
+      }
+    };
+
+    onUpdateTickRef.current = handleTick;
+
+    return () => {
+      if (onUpdateTickRef) onUpdateTickRef.current = null;
+    };
+  }, [onUpdateTickRef, isReady]);
+
   /* ── Render ──────────────────────────────────────────────────────────── */
   const totalH = MAIN_H + RSI_H + 28;
   const showChart = isReady && !isLoading && rawData.length > 0;
 
   return (
     <div ref={wrapperRef} style={{ width: "100%", minHeight: totalH }}>
-      {/* Spinner: loading OR waiting for first size measurement */}
       {(isLoading || !isReady) && (
         <div
           style={{
@@ -577,7 +727,6 @@ function LWChart({ rawData, prevPrice, range, isLoading }: LWChartProps) {
         </div>
       )}
 
-      {/* Empty state */}
       {isReady && !isLoading && rawData.length === 0 && (
         <div
           style={{
@@ -593,8 +742,6 @@ function LWChart({ rawData, prevPrice, range, isLoading }: LWChartProps) {
         </div>
       )}
 
-      {/* Chart containers — always in DOM so ResizeObserver can measure,
-          hidden until data is ready to prevent flash of empty chart */}
       <div style={{ display: showChart ? "block" : "none" }}>
         {/* EMA Legend */}
         <div
@@ -635,7 +782,6 @@ function LWChart({ rawData, prevPrice, range, isLoading }: LWChartProps) {
           ))}
         </div>
 
-        {/* Main chart */}
         <div
           ref={mainContainerRef}
           style={{
@@ -646,7 +792,6 @@ function LWChart({ rawData, prevPrice, range, isLoading }: LWChartProps) {
           }}
         />
 
-        {/* RSI label */}
         <div
           style={{
             padding: "3px 8px",
@@ -676,7 +821,6 @@ function LWChart({ rawData, prevPrice, range, isLoading }: LWChartProps) {
           </span>
         </div>
 
-        {/* RSI chart */}
         <div
           ref={rsiContainerRef}
           style={{
@@ -862,6 +1006,15 @@ export function StockDetailModal({
   const isMarketOpen = useMarketStore((s) => s.marketStatus?.isOpen ?? true);
   const isPageVisible = usePageVisible();
 
+  /**
+   * Imperative ref to LWChart's tick handler.
+   * The parent writes into this via onUpdateTickRef prop; the child populates it
+   * once the chart is ready. We call it on every 10-sec 1m tick.
+   */
+  const chartTickRef = useRef<((point: ChartHistoryPoint) => void) | null>(
+    null,
+  );
+
   /* ── Modal open/close ─────────────────────────────────────────────────── */
   useEffect(() => {
     requestAnimationFrame(() => setVisible(true));
@@ -895,16 +1048,16 @@ export function StockDetailModal({
 
   useEffect(() => {
     if (!isPageVisible || !isMarketOpen) return;
-    const id = setInterval(fetchMarketData, AUTO_REFRESH_10SECS_INTERVAL_MS);
+    const id = setInterval(fetchMarketData, AUTO_REFRESH_1M_INTERVAL_MS);
     return () => clearInterval(id);
   }, [fetchMarketData, isPageVisible, isMarketOpen]);
 
-  /* ── Chart history ────────────────────────────────────────────────────── */
+  /* ── Chart history — full fetch (initial load + range change) ─────────── */
   const fetchChartHistory = useCallback(
     async (r: TimeRange) => {
       setIsLoadingChart(true);
       setChartError(null);
-      setChartHistory(null); // clear stale immediately so key=range shows spinner
+      setChartHistory(null);
       try {
         const res = await fetch(
           `/api/chart-history?symbol=${encodeURIComponent(symbol)}&range=${r}`,
@@ -925,11 +1078,44 @@ export function StockDetailModal({
     fetchChartHistory(range);
   }, [range, fetchChartHistory]);
 
+  /* ── 1m realtime tick: fetch only the latest bar every 10 seconds ──────
+     We DON'T call setChartHistory here — that would trigger a full re-render
+     and setData(). Instead we fetch the latest point from the API and push
+     it directly into the chart via the imperative chartTickRef.
+  ─────────────────────────────────────────────────────────────────────────── */
   useEffect(() => {
-    if (!INTRADAY_RANGES.has(range) || !isPageVisible || !isMarketOpen) return;
+    if (range !== "1m" || !isPageVisible || !isMarketOpen) return;
+
+    const fetchLatestTick = async () => {
+      // Re-use the same chart-history endpoint but we only care about
+      // the LAST data point (cheapest approach without a separate endpoint).
+      try {
+        const res = await fetch(
+          `/api/chart-history?symbol=${encodeURIComponent(symbol)}&range=1m`,
+          { cache: "no-store" },
+        );
+        if (!res.ok) return;
+        const json: ChartHistoryResponse = await res.json();
+        const latest = json.data[json.data.length - 1];
+        if (latest && chartTickRef.current) {
+          chartTickRef.current(latest);
+        }
+      } catch (e) {
+        console.warn("1m tick fetch", e);
+      }
+    };
+
+    const id = setInterval(fetchLatestTick, AUTO_REFRESH_10SECS_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, [range, symbol, isPageVisible, isMarketOpen]);
+
+  /* ── Non-1m intraday: keep polling with full fetch (original behaviour) ── */
+  useEffect(() => {
+    if (!INTRADAY_RANGES.has(range) || range === "1m") return;
+    if (!isPageVisible || !isMarketOpen) return;
     const id = setInterval(
       () => fetchChartHistory(range),
-      AUTO_REFRESH_10SECS_INTERVAL_MS,
+      AUTO_REFRESH_1M_INTERVAL_MS,
     );
     return () => clearInterval(id);
   }, [range, fetchChartHistory, isPageVisible, isMarketOpen]);
@@ -1092,10 +1278,7 @@ export function StockDetailModal({
             )}
           </div>
 
-          {/* Chart section
-              key={range} → destroys + remounts LWChart on every timeframe change.
-              While loading, rawChartData=[] so LWChart shows its own spinner.
-          */}
+          {/* Chart section */}
           <div className="py-3 border-b border-accent-yellow border-opacity-10">
             <div style={{ marginTop: 8 }}>
               {chartError ? (
@@ -1118,6 +1301,7 @@ export function StockDetailModal({
                   prevPrice={chartPrevPrice}
                   range={range}
                   isLoading={isLoadingChart}
+                  onUpdateTickRef={range === "1m" ? chartTickRef : undefined}
                 />
               )}
             </div>
