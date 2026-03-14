@@ -26,9 +26,9 @@ import { AUTO_REFRESH_1M_INTERVAL_MS } from "@/app/config";
 import { usePageVisible } from "@/shared/hooks/usePageVisible";
 import { useMarketStore } from "@/store/useMarketStore";
 
-/* =======================
+/* ─────────────────────────────────────────────
    Types
-======================= */
+───────────────────────────────────────────── */
 
 type PrePostData = {
   currentPrice: number | null;
@@ -67,6 +67,10 @@ type StockDetailModalProps = {
   storePreviousPrice?: number | null;
 };
 
+/* ─────────────────────────────────────────────
+   Constants
+───────────────────────────────────────────── */
+
 const TIMEFRAMES: { label: string; value: TimeRange }[] = [
   { label: "1 นาที", value: "1m" },
   { label: "ชั่วโมง", value: "1h" },
@@ -86,9 +90,22 @@ const VISIBLE_CANDLES: Record<TimeRange, number> = {
   "1mo": 24,
 };
 
-/* =======================
+const INTRADAY_RANGES = new Set<TimeRange>(["1m", "5m", "15m", "1h", "4h"]);
+
+const EMA_CONFIGS = [
+  { length: 30, color: "rgba(30,130,220,0.90)", label: "EMA 30" },
+  { length: 50, color: "rgba(255,140,40,0.90)", label: "EMA 50" },
+  { length: 100, color: "rgba(180,100,255,0.90)", label: "EMA 100" },
+  { length: 200, color: "rgba(255,210,40,0.90)", label: "EMA 200" },
+] as const;
+
+const MAIN_CHART_HEIGHT = 240;
+const RSI_CHART_HEIGHT = 100;
+const MIN_CHART_DIM = 32;
+
+/* ─────────────────────────────────────────────
    Helpers
-======================= */
+───────────────────────────────────────────── */
 
 function fmt(v: number | null | undefined): string {
   if (v == null) return "—";
@@ -108,49 +125,41 @@ function toBaht(usd: number | null | undefined, rate: number): string {
   return `${fNumber(usd * rate) ?? "—"} บาท`;
 }
 
-/* =======================
-   EMA config
-======================= */
+function toChartTime(ms: number): Time {
+  return Math.floor(ms / 1000) as unknown as Time;
+}
 
-const EMA_CONFIGS = [
-  { length: 30, color: "rgba(30,130,220,0.90)", label: "EMA 30" },
-  { length: 50, color: "rgba(255,140,40,0.90)", label: "EMA 50" },
-  { length: 100, color: "rgba(180,100,255,0.90)", label: "EMA 100" },
-  { length: 200, color: "rgba(255,210,40,0.90)", label: "EMA 200" },
-] as const;
+function sortTime(a: Time, b: Time): number {
+  const av = a as unknown as string | number;
+  const bv = b as unknown as string | number;
+  return av < bv ? -1 : av > bv ? 1 : 0;
+}
 
-/* =======================
+/* ─────────────────────────────────────────────
    LWChart
-======================= */
-
-const MAIN_CHART_HEIGHT = 240;
-const RSI_CHART_HEIGHT = 100;
-const MIN_CHART_DIMENSION = 32;
+   Destroyed & recreated on every range change
+   via `key={range}` in the parent.
+───────────────────────────────────────────── */
 
 interface LWChartProps {
   rawData: ChartHistoryPoint[];
   prevPrice: number | null;
   range: TimeRange;
   isLoading: boolean;
-  isUp: boolean;
 }
 
-function LWChart({ rawData, prevPrice, range, isLoading, isUp }: LWChartProps) {
-  // Wrapper ref — we watch THIS for size before creating charts
+function LWChart({ rawData, prevPrice, range, isLoading }: LWChartProps) {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const mainContainerRef = useRef<HTMLDivElement>(null);
   const rsiContainerRef = useRef<HTMLDivElement>(null);
 
-  // "ready" = wrapper has a usable pixel size (≥ MIN_CHART_DIMENSION)
   const [isReady, setIsReady] = useState(false);
-  // Latest EMA values shown in the legend
   const [emaValues, setEmaValues] = useState<(number | null)[]>([
     null,
     null,
     null,
     null,
   ]);
-  // Latest RSI value shown in the divider label
   const [rsiValue, setRsiValue] = useState<number | null>(null);
 
   const mainChartRef = useRef<IChartApi | null>(null);
@@ -172,99 +181,88 @@ function LWChart({ rawData, prevPrice, range, isLoading, isUp }: LWChartProps) {
   const rsiObRef = useRef<ISeriesApi<"Line", any> | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rsiOsRef = useRef<ISeriesApi<"Line", any> | null>(null);
+  const totalBarsRef = useRef(0);
   const isSyncingRef = useRef(false);
 
-  // ── Step 1: Wait for the wrapper to have real pixel dimensions ──────────
-  // Uses ResizeObserver (same pattern as ChartContainer in chart.tsx) so we
-  // never call createChart while width/height are still -1 or 0.
+  /* ── 1. ResizeObserver gate ───────────────────────────────────────────── */
   useLayoutEffect(() => {
     const el = wrapperRef.current;
     if (!el) return;
 
     const check = (rect: DOMRectReadOnly | DOMRect) => {
-      if (
-        rect.width >= MIN_CHART_DIMENSION &&
-        rect.height >= MIN_CHART_DIMENSION
-      ) {
+      if (rect.width >= MIN_CHART_DIM && rect.height >= MIN_CHART_DIM)
         setIsReady(true);
-      }
     };
 
-    // Immediate check — may already be laid out (e.g. modal opened with animation)
     check(el.getBoundingClientRect());
-
     if (typeof ResizeObserver === "undefined") return;
 
     const ro = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        if (entry.target === el) check(entry.contentRect);
-      }
+      for (const e of entries) if (e.target === el) check(e.contentRect);
     });
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
 
-  const buildCommonOptions = (height: number) => ({
-    autoSize: true,
-    height,
-    layout: {
-      background: { color: "transparent" },
-      textColor: "rgba(255,255,255,0.35)",
-      fontFamily: "monospace",
-      fontSize: 10,
-    },
-    grid: {
-      vertLines: { color: "rgba(255,255,255,0.04)" },
-      horzLines: { color: "rgba(255,255,255,0.04)" },
-    },
-    crosshair: {
-      mode: CrosshairMode.Magnet,
-      vertLine: {
-        color: "rgba(255,255,255,0.25)",
-        width: 1 as const,
-        style: LineStyle.Dashed,
-        labelBackgroundColor: "#1a1a1a",
-      },
-      horzLine: {
-        color: "rgba(255,255,255,0.2)",
-        width: 1 as const,
-        style: LineStyle.Dashed,
-        labelBackgroundColor: "#1a1a1a",
-      },
-    },
-    timeScale: {
-      borderVisible: false,
-      fixLeftEdge: false,
-      fixRightEdge: true,
-      rightBarStaysOnScroll: true,
-    },
-    handleScroll: {
-      mouseWheel: true,
-      pressedMouseMove: true,
-      horzTouchDrag: true,
-    },
-    handleScale: { mouseWheel: true, pinch: true },
-  });
-
-  // ── Step 2: Create charts only AFTER wrapper is ready ───────────────────
+  /* ── 2. Create charts once wrapper is measured ────────────────────────── */
   useEffect(() => {
-    if (!isReady) return;
-    if (!mainContainerRef.current || !rsiContainerRef.current) return;
-    // Bail out if charts already created (StrictMode double-invoke guard)
-    if (mainChartRef.current) return;
+    if (!isReady || !mainContainerRef.current || !rsiContainerRef.current)
+      return;
+    if (mainChartRef.current) return; // StrictMode guard
 
-    // ── Main chart ──────────────────────────────────────────────────────
+    const intraday = INTRADAY_RANGES.has(range);
+
+    const baseOpts = (height: number) => ({
+      autoSize: true,
+      height,
+      layout: {
+        background: { color: "transparent" },
+        textColor: "rgba(255,255,255,0.35)",
+        fontFamily: "monospace",
+        fontSize: 10,
+      },
+      grid: {
+        vertLines: { color: "rgba(255,255,255,0.04)" },
+        horzLines: { color: "rgba(255,255,255,0.04)" },
+      },
+      crosshair: {
+        mode: CrosshairMode.Magnet,
+        vertLine: {
+          color: "rgba(255,255,255,0.25)",
+          width: 1 as const,
+          style: LineStyle.Dashed,
+          labelBackgroundColor: "#1a1a1a",
+        },
+        horzLine: {
+          color: "rgba(255,255,255,0.2)",
+          width: 1 as const,
+          style: LineStyle.Dashed,
+          labelBackgroundColor: "#1a1a1a",
+        },
+      },
+      timeScale: {
+        borderVisible: false,
+        fixLeftEdge: false,
+        fixRightEdge: false, // clamped manually in subscribe
+        rightBarStaysOnScroll: true,
+        timeVisible: intraday,
+        secondsVisible: false,
+      },
+      handleScroll: {
+        mouseWheel: true,
+        pressedMouseMove: true,
+        horzTouchDrag: true,
+      },
+      handleScale: { mouseWheel: true, pinch: true },
+    });
+
+    /* Main chart */
     const mainChart = createChart(mainContainerRef.current, {
-      ...buildCommonOptions(MAIN_CHART_HEIGHT),
+      ...baseOpts(MAIN_CHART_HEIGHT),
       rightPriceScale: {
         borderVisible: false,
         scaleMargins: { top: 0.06, bottom: 0.24 },
         textColor: "rgba(255,255,255,0.3)",
-      },
-      timeScale: {
-        ...buildCommonOptions(MAIN_CHART_HEIGHT).timeScale,
-        timeVisible: false,
-        secondsVisible: false,
       },
     });
 
@@ -284,12 +282,10 @@ function LWChart({ rawData, prevPrice, range, isLoading, isUp }: LWChartProps) {
       lastValueVisible: false,
       priceLineVisible: false,
     });
-    mainChart.priceScale("vol").applyOptions({
-      scaleMargins: { top: 0.82, bottom: 0 },
-      visible: false,
-    });
+    mainChart
+      .priceScale("vol")
+      .applyOptions({ scaleMargins: { top: 0.82, bottom: 0 }, visible: false });
 
-    // EMA series (3 lines on main chart)
     const emaSeriesList = EMA_CONFIGS.map((cfg) =>
       mainChart.addSeries(LineSeries, {
         color: cfg.color,
@@ -300,20 +296,15 @@ function LWChart({ rawData, prevPrice, range, isLoading, isUp }: LWChartProps) {
       }),
     );
 
-    // ── RSI chart ───────────────────────────────────────────────────────
+    /* RSI chart */
     const rsiChart = createChart(rsiContainerRef.current, {
-      ...buildCommonOptions(RSI_CHART_HEIGHT),
+      ...baseOpts(RSI_CHART_HEIGHT),
       rightPriceScale: {
         borderVisible: false,
         scaleMargins: { top: 0.1, bottom: 0.1 },
         textColor: "rgba(255,255,255,0.3)",
       },
-      timeScale: {
-        ...buildCommonOptions(RSI_CHART_HEIGHT).timeScale,
-        timeVisible: false,
-        secondsVisible: false,
-        visible: false,
-      },
+      timeScale: { ...baseOpts(RSI_CHART_HEIGHT).timeScale, visible: false },
     });
 
     const rsiSeries = rsiChart.addSeries(LineSeries, {
@@ -321,9 +312,7 @@ function LWChart({ rawData, prevPrice, range, isLoading, isUp }: LWChartProps) {
       lineWidth: 1,
       priceLineVisible: false,
       lastValueVisible: true,
-      crosshairMarkerVisible: true,
     });
-
     const rsiOb = rsiChart.addSeries(LineSeries, {
       color: "rgba(248,113,113,0.4)",
       lineWidth: 1,
@@ -341,7 +330,7 @@ function LWChart({ rawData, prevPrice, range, isLoading, isUp }: LWChartProps) {
       crosshairMarkerVisible: false,
     });
 
-    // Save to refs
+    /* Save to refs */
     mainChartRef.current = mainChart;
     rsiChartRef.current = rsiChart;
     candleRef.current = candle;
@@ -351,50 +340,52 @@ function LWChart({ rawData, prevPrice, range, isLoading, isUp }: LWChartProps) {
     rsiObRef.current = rsiOb;
     rsiOsRef.current = rsiOs;
 
-    // ── Sync scrolling between main ↔ RSI ──────────────────────────────
+    /* Sync + right-edge clamp */
+    const clampRight = (r: { from: number; to: number }) => {
+      const max = totalBarsRef.current - 1;
+      if (r.to <= max) return r;
+      const w = r.to - r.from;
+      return { from: max - w, to: max };
+    };
+
     mainChart.timeScale().subscribeVisibleLogicalRangeChange((r) => {
       if (isSyncingRef.current || !r) return;
       isSyncingRef.current = true;
-      rsiChart.timeScale().setVisibleLogicalRange(r);
+      const c = clampRight(r);
+      if (c !== r) mainChart.timeScale().setVisibleLogicalRange(c);
+      rsiChart.timeScale().setVisibleLogicalRange(c);
       isSyncingRef.current = false;
     });
     rsiChart.timeScale().subscribeVisibleLogicalRangeChange((r) => {
       if (isSyncingRef.current || !r) return;
       isSyncingRef.current = true;
-      mainChart.timeScale().setVisibleLogicalRange(r);
+      const c = clampRight(r);
+      if (c !== r) rsiChart.timeScale().setVisibleLogicalRange(c);
+      mainChart.timeScale().setVisibleLogicalRange(c);
       isSyncingRef.current = false;
     });
 
     return () => {
       mainChart.remove();
       rsiChart.remove();
-      mainChartRef.current = null;
-      rsiChartRef.current = null;
-      candleRef.current = null;
-      volRef.current = null;
+      mainChartRef.current =
+        rsiChartRef.current =
+        candleRef.current =
+        volRef.current =
+        rsiRef.current =
+        rsiObRef.current =
+        rsiOsRef.current =
+          null;
       emaRefs.current = [null, null, null, null];
-      rsiRef.current = null;
-      rsiObRef.current = null;
-      rsiOsRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isReady]);
 
-  // ── Sync timeScale time-visibility when range changes ────────────────────
+  /* ── 3. Feed data ─────────────────────────────────────────────────────── */
   useEffect(() => {
-    if (!mainChartRef.current) return;
-    const timeVisible = ["1m", "5m", "15m", "1h", "4h"].includes(range);
-    mainChartRef.current.applyOptions({
-      timeScale: { timeVisible, secondsVisible: false },
-    });
-  }, [range]);
+    if (!isReady || !candleRef.current || !volRef.current || !rawData.length)
+      return;
 
-  // ── Feed data whenever rawData / range / prevPrice change ────────────────
-  useEffect(() => {
-    if (!isReady) return;
-    if (!candleRef.current || !volRef.current || !rawData.length) return;
-
-    // Build deduped + sorted candle/volume data
     const candleMap = new Map<
       number,
       { time: Time; open: number; high: number; low: number; close: number }
@@ -406,38 +397,38 @@ function LWChart({ rawData, prevPrice, range, isLoading, isUp }: LWChartProps) {
 
     for (const d of rawData) {
       if (d.price == null || isNaN(d.price)) continue;
-      const tSec = Math.floor(d.time / 1000);
-      const t = tSec as unknown as Time;
-
-      candleMap.set(tSec, {
+      const key = Math.floor(d.time / 1000);
+      const t = toChartTime(d.time);
+      candleMap.set(key, {
         time: t,
         open: d.open ?? d.price,
         high: d.high ?? d.price,
         low: d.low ?? d.price,
         close: d.price,
       });
-
-      const upBar = d.price >= (d.open ?? d.price);
-      volMap.set(tSec, {
+      volMap.set(key, {
         time: t,
         value: d.volume ?? 0,
-        color: upBar ? "rgba(74,222,128,0.28)" : "rgba(248,113,113,0.22)",
+        color:
+          d.price >= (d.open ?? d.price)
+            ? "rgba(74,222,128,0.28)"
+            : "rgba(248,113,113,0.22)",
       });
     }
 
-    const candles = Array.from(candleMap.values()).sort(
-      (a, b) => (a.time as unknown as number) - (b.time as unknown as number),
+    const candles = Array.from(candleMap.values()).sort((a, b) =>
+      sortTime(a.time, b.time),
     );
-    const volBars = Array.from(volMap.values()).sort(
-      (a, b) => (a.time as unknown as number) - (b.time as unknown as number),
+    const volBars = Array.from(volMap.values()).sort((a, b) =>
+      sortTime(a.time, b.time),
     );
 
     candleRef.current.setData(candles);
     volRef.current.setData(volBars);
 
-    // Indicator bar array (time in unix seconds, same as candles)
-    const indicatorBars = candles.map((c) => ({
-      time: c.time as unknown as number,
+    // Sequential int times for indicator library
+    const indicatorBars = candles.map((c, i) => ({
+      time: i,
       open: c.open,
       high: c.high,
       low: c.low,
@@ -445,34 +436,39 @@ function LWChart({ rawData, prevPrice, range, isLoading, isUp }: LWChartProps) {
       volume: 0,
     }));
 
-    // ── EMA overlays ────────────────────────────────────────────────────
+    // Zip indicator plot values with candle times by index.
+    // We ignore the time field from the indicator entirely and use candle[i].time.
+    // plot0 length === indicatorBars.length, nulls appear at the start (warmup period).
+    const zipWithCandleTime = (plots: { time: unknown; value: unknown }[]) => {
+      const offset = candles.length - plots.length; // how many leading candles have no indicator value
+      return plots
+        .map((p, i) => ({
+          time: candles[offset + i]?.time,
+          value: p.value as number,
+        }))
+        .filter((p) => p.time != null && p.value != null && !isNaN(p.value));
+    };
+
+    /* EMA */
     const newEmaValues: (number | null)[] = [null, null, null, null];
     EMA_CONFIGS.forEach((cfg, idx) => {
       const series = emaRefs.current[idx];
       if (!series || indicatorBars.length < cfg.length) return;
       try {
-        const result = EMA.calculate(indicatorBars, {
-          length: cfg.length,
-          src: "close",
-        });
-        const plotData = result?.plots?.plot0;
-        if (plotData?.length) {
-          const valid = plotData.filter(
-            (p: { time: unknown; value: unknown }) =>
-              p.value != null && !isNaN(p.value as number),
-          );
-          series.setData(valid);
-          // Grab the last value for the legend
-          const last = valid[valid.length - 1];
-          if (last?.value != null) newEmaValues[idx] = last.value as number;
-        }
+        const raw =
+          EMA.calculate(indicatorBars, { length: cfg.length, src: "close" })
+            ?.plots?.plot0 ?? [];
+        const mapped = zipWithCandleTime(raw);
+        series.setData(mapped);
+        const last = mapped[mapped.length - 1];
+        if (last?.value != null) newEmaValues[idx] = last.value;
       } catch (e) {
-        console.warn(`EMA ${cfg.length} calc error`, e);
+        console.warn(`EMA ${cfg.length}`, e);
       }
     });
     setEmaValues(newEmaValues);
 
-    // ── RSI ─────────────────────────────────────────────────────────────
+    /* RSI */
     if (
       rsiRef.current &&
       rsiObRef.current &&
@@ -480,77 +476,49 @@ function LWChart({ rawData, prevPrice, range, isLoading, isUp }: LWChartProps) {
       indicatorBars.length >= 14
     ) {
       try {
-        const rsiResult = RSI.calculate(indicatorBars, {
-          length: 14,
-          src: "close",
-        });
-        const rsiPlot = rsiResult?.plots?.plot0;
-        if (rsiPlot?.length) {
-          const validRsi = rsiPlot.filter(
-            (p: { time: unknown; value: unknown }) =>
-              p.value != null && !isNaN(p.value as number),
-          );
-          rsiRef.current.setData(validRsi);
-
-          // Capture last RSI value for divider label
-          const lastRsi = validRsi[validRsi.length - 1];
-          setRsiValue(
-            lastRsi?.value != null ? (lastRsi.value as number) : null,
-          );
-
-          rsiObRef.current.setData(
-            validRsi.map((p: { time: unknown }) => ({
-              time: p.time,
-              value: 70,
-            })),
-          );
-          rsiOsRef.current.setData(
-            validRsi.map((p: { time: unknown }) => ({
-              time: p.time,
-              value: 30,
-            })),
-          );
-        }
+        const raw =
+          RSI.calculate(indicatorBars, { length: 14, src: "close" })?.plots
+            ?.plot0 ?? [];
+        const mappedRsi = zipWithCandleTime(raw);
+        rsiRef.current.setData(mappedRsi);
+        rsiObRef.current.setData(
+          mappedRsi.map((p) => ({ time: p.time, value: 70 })),
+        );
+        rsiOsRef.current.setData(
+          mappedRsi.map((p) => ({ time: p.time, value: 30 })),
+        );
+        const last = mappedRsi[mappedRsi.length - 1];
+        setRsiValue(last?.value ?? null);
       } catch (e) {
-        console.warn("RSI calc error", e);
+        console.warn("RSI", e);
       }
     }
 
-    // ── Force rightmost position after chart has painted ─────────────────
-    // rAF ensures lightweight-charts has completed its first layout pass
-    // before we touch the timeScale — this is what prevents the off-by-a-few
-    // bars issue when range changes or the chart first loads.
+    /* Scroll to rightmost candle */
     const vc = VISIBLE_CANDLES[range];
-    const totalBars = candles.length;
+    const total = candles.length;
+    totalBarsRef.current = total;
 
-    const scrollToEnd = () => {
-      if (!mainChartRef.current) return;
-      mainChartRef.current.timeScale().setVisibleLogicalRange({
-        from: Math.max(0, totalBars - vc),
-        to: totalBars - 1,
-      });
-      rsiChartRef.current?.timeScale().setVisibleLogicalRange({
-        from: Math.max(0, totalBars - vc),
-        to: totalBars - 1,
-      });
-    };
-
-    // Double rAF: first frame = DOM commit, second frame = paint complete
-    requestAnimationFrame(() => requestAnimationFrame(scrollToEnd));
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        if (!mainChartRef.current) return;
+        const r = { from: Math.max(0, total - vc), to: total - 1 };
+        mainChartRef.current.timeScale().setVisibleLogicalRange(r);
+        rsiChartRef.current?.timeScale().setVisibleLogicalRange(r);
+      }),
+    );
   }, [isReady, rawData, range, prevPrice]);
 
-  // ── Render ───────────────────────────────────────────────────────────────
-  const totalHeight = MAIN_CHART_HEIGHT + RSI_CHART_HEIGHT + 28; // 28 = divider
+  /* ── Render ──────────────────────────────────────────────────────────── */
+  const totalHeight = MAIN_CHART_HEIGHT + RSI_CHART_HEIGHT + 28;
+  const showChart = isReady && !isLoading && rawData.length > 0;
 
   return (
-    // wrapperRef is watched by ResizeObserver — stays visible always so
-    // the observer can measure it, but chart DOM is only added once isReady.
     <div
       ref={wrapperRef}
       data-chart-ready={isReady ? "true" : "false"}
       style={{ width: "100%", minHeight: totalHeight }}
     >
-      {/* Loading spinner — shown while data is fetching OR charts not ready */}
       {(isLoading || !isReady) && (
         <div
           style={{
@@ -570,12 +538,11 @@ function LWChart({ rawData, prevPrice, range, isLoading, isUp }: LWChartProps) {
               animation: "lwspin 0.7s linear infinite",
             }}
           />
-          <style>{`@keyframes lwspin { to { transform: rotate(360deg); } }`}</style>
+          <style>{`@keyframes lwspin{to{transform:rotate(360deg)}}`}</style>
         </div>
       )}
 
-      {/* Empty state */}
-      {isReady && !isLoading && !rawData.length && (
+      {isReady && !isLoading && rawData.length === 0 && (
         <div
           style={{
             height: totalHeight,
@@ -590,14 +557,8 @@ function LWChart({ rawData, prevPrice, range, isLoading, isUp }: LWChartProps) {
         </div>
       )}
 
-      {/* Chart UI — rendered (and thus measurable) even before isReady,
-          but createChart is only called once isReady flips true */}
-      <div
-        style={{
-          display: isReady && !isLoading && rawData.length ? "block" : "none",
-        }}
-      >
-        {/* Legend */}
+      <div style={{ display: showChart ? "block" : "none" }}>
+        {/* EMA Legend */}
         <div
           style={{
             display: "flex",
@@ -615,7 +576,6 @@ function LWChart({ rawData, prevPrice, range, isLoading, isUp }: LWChartProps) {
                 gap: 5,
                 fontSize: 10,
                 fontFamily: "monospace",
-                color: cfg.color,
               }}
             >
               <div
@@ -627,9 +587,7 @@ function LWChart({ rawData, prevPrice, range, isLoading, isUp }: LWChartProps) {
                   flexShrink: 0,
                 }}
               />
-              <span
-                style={{ color: "rgba(255,255,255,0.45)", fontWeight: 400 }}
-              >
+              <span style={{ color: "rgba(255,255,255,0.4)" }}>
                 {cfg.label}:
               </span>
               <span style={{ color: cfg.color, fontWeight: 700 }}>
@@ -639,7 +597,7 @@ function LWChart({ rawData, prevPrice, range, isLoading, isUp }: LWChartProps) {
           ))}
         </div>
 
-        {/* Main candlestick */}
+        {/* Main candle chart */}
         <div
           ref={mainContainerRef}
           style={{
@@ -650,7 +608,7 @@ function LWChart({ rawData, prevPrice, range, isLoading, isUp }: LWChartProps) {
           }}
         />
 
-        {/* RSI divider label */}
+        {/* RSI label */}
         <div
           style={{
             padding: "3px 8px",
@@ -658,23 +616,21 @@ function LWChart({ rawData, prevPrice, range, isLoading, isUp }: LWChartProps) {
             borderLeft: "2px solid rgba(30,127,203,0.5)",
             fontSize: 9,
             fontFamily: "monospace",
-            letterSpacing: "0.06em",
-            textTransform: "uppercase",
             display: "flex",
             alignItems: "center",
             gap: 8,
           }}
         >
-          <span style={{ color: "rgba(30,127,203,0.8)" }}>RSI(14)</span>
           <span
             style={{
-              color: "#1e7fcb",
-              fontWeight: 700,
-              fontSize: 10,
-              textTransform: "none",
-              letterSpacing: 0,
+              color: "rgba(30,127,203,0.8)",
+              textTransform: "uppercase",
+              letterSpacing: "0.06em",
             }}
           >
+            RSI(14)
+          </span>
+          <span style={{ color: "#1e7fcb", fontWeight: 700, fontSize: 10 }}>
             {rsiValue != null ? rsiValue.toFixed(2) : "—"}
           </span>
           <span style={{ color: "rgba(255,255,255,0.2)", marginLeft: "auto" }}>
@@ -682,7 +638,7 @@ function LWChart({ rawData, prevPrice, range, isLoading, isUp }: LWChartProps) {
           </span>
         </div>
 
-        {/* RSI pane */}
+        {/* RSI chart */}
         <div
           ref={rsiContainerRef}
           style={{
@@ -697,9 +653,9 @@ function LWChart({ rawData, prevPrice, range, isLoading, isUp }: LWChartProps) {
   );
 }
 
-/* =======================
+/* ─────────────────────────────────────────────
    TimeframeChips
-======================= */
+───────────────────────────────────────────── */
 
 function TimeframeChips({
   value,
@@ -724,7 +680,7 @@ function TimeframeChips({
       >
         กรอบเวลา
       </div>
-      <div style={{ display: "flex", gap: 6, width: "100%" }}>
+      <div style={{ display: "flex", gap: 6 }}>
         {TIMEFRAMES.map((tf) => {
           const active = tf.value === value;
           return (
@@ -733,8 +689,8 @@ function TimeframeChips({
               onClick={() => onChange(tf.value)}
               disabled={isLoading}
               style={{
-                width: "100%",
-                padding: "4px 12px",
+                flex: 1,
+                padding: "4px 0",
                 borderRadius: 20,
                 fontSize: 12,
                 fontWeight: active ? 700 : 500,
@@ -763,9 +719,9 @@ function TimeframeChips({
   );
 }
 
-/* =======================
+/* ─────────────────────────────────────────────
    StatRow / SectionLabel
-======================= */
+───────────────────────────────────────────── */
 
 function StatRow({
   label,
@@ -778,8 +734,8 @@ function StatRow({
   subValue?: string;
   signed?: boolean;
 }) {
-  const isPositive = signed && value.startsWith("+");
-  const isNegative = signed && value.startsWith("-");
+  const isPos = signed && value.startsWith("+");
+  const isNeg = signed && value.startsWith("-");
   return (
     <div
       style={{
@@ -802,9 +758,7 @@ function StatRow({
         }}
       >
         <span
-          className={
-            isPositive ? "!text-green-500" : isNegative ? "!text-red-500" : ""
-          }
+          className={isPos ? "!text-green-500" : isNeg ? "!text-red-500" : ""}
           style={{
             fontSize: 13,
             fontWeight: 600,
@@ -847,20 +801,20 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-/* =======================
-   Modal
-======================= */
+/* ─────────────────────────────────────────────
+   StockDetailModal
+───────────────────────────────────────────── */
 
 export function StockDetailModal({
   asset,
   onClose,
   currencyRate,
-  symbol: symbolProp,
+  symbol,
   storeCurrentPrice,
   storePreviousPrice,
 }: StockDetailModalProps) {
-  const [marketData, setMarketData] = useState<PrePostData | null>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
+
   const [visible, setVisible] = useState(false);
   const [range, setRange] = useState<TimeRange>("1m");
   const [chartHistory, setChartHistory] = useState<ChartHistoryResponse | null>(
@@ -868,22 +822,12 @@ export function StockDetailModal({
   );
   const [isLoadingChart, setIsLoadingChart] = useState(false);
   const [chartError, setChartError] = useState<string | null>(null);
-  const [displayedRange, setDisplayedRange] = useState<TimeRange>("1m");
+  const [marketData, setMarketData] = useState<PrePostData | null>(null);
+
   const isMarketOpen = useMarketStore((s) => s.marketStatus?.isOpen ?? true);
+  const isPageVisible = usePageVisible();
 
-  const fetchMarketData = useCallback(async () => {
-    const res = await fetch(
-      `/api/prepost?symbol=${encodeURIComponent(symbolProp)}`,
-      { cache: "no-store" },
-    );
-    if (!res.ok) return;
-    setMarketData(await res.json());
-  }, [symbolProp]);
-
-  useEffect(() => {
-    fetchMarketData();
-  }, [fetchMarketData]);
-
+  /* ── Modal open/close ─────────────────────────────────────────────────── */
   useEffect(() => {
     requestAnimationFrame(() => setVisible(true));
     document.body.style.overflow = "hidden";
@@ -892,36 +836,62 @@ export function StockDetailModal({
     };
   }, []);
 
+  const handleClose = useCallback(() => {
+    setVisible(false);
+    setTimeout(onClose, 200);
+  }, [onClose]);
+
+  const handleOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.target === overlayRef.current) handleClose();
+  };
+
+  /* ── Market data (pre/post price) ─────────────────────────────────────── */
+  const fetchMarketData = useCallback(async () => {
+    const res = await fetch(
+      `/api/prepost?symbol=${encodeURIComponent(symbol)}`,
+      { cache: "no-store" },
+    );
+    if (res.ok) setMarketData(await res.json());
+  }, [symbol]);
+
+  useEffect(() => {
+    fetchMarketData();
+  }, [fetchMarketData]);
+
+  useEffect(() => {
+    if (!isPageVisible || !isMarketOpen) return;
+    const id = setInterval(fetchMarketData, AUTO_REFRESH_1M_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, [fetchMarketData, isPageVisible, isMarketOpen]);
+
+  /* ── Chart history ────────────────────────────────────────────────────── */
   const fetchChartHistory = useCallback(
     async (r: TimeRange) => {
       setIsLoadingChart(true);
       setChartError(null);
+      setChartHistory(null); // clear stale data immediately so old range data never feeds new chart
       try {
         const res = await fetch(
-          `/api/chart-history?symbol=${encodeURIComponent(symbolProp)}&range=${r}`,
+          `/api/chart-history?symbol=${encodeURIComponent(symbol)}&range=${r}`,
         );
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const json: ChartHistoryResponse = await res.json();
-        setChartHistory(json);
-        setDisplayedRange(r);
+        setChartHistory(await res.json());
       } catch (err) {
-        console.error("chart-history fetch failed", err);
+        console.error("chart-history", err);
         setChartError("โหลดข้อมูลไม่ได้");
       } finally {
         setIsLoadingChart(false);
       }
     },
-    [symbolProp],
+    [symbol],
   );
 
   useEffect(() => {
     fetchChartHistory(range);
   }, [range, fetchChartHistory]);
 
-  const isPageVisible = usePageVisible();
   useEffect(() => {
-    const isIntraday = ["1m", "5m", "15m", "1h", "4h"].includes(range);
-    if (!isIntraday || !isPageVisible || !isMarketOpen) return;
+    if (!INTRADAY_RANGES.has(range) || !isPageVisible || !isMarketOpen) return;
     const id = setInterval(
       () => fetchChartHistory(range),
       AUTO_REFRESH_1M_INTERVAL_MS,
@@ -929,36 +899,15 @@ export function StockDetailModal({
     return () => clearInterval(id);
   }, [range, fetchChartHistory, isPageVisible, isMarketOpen]);
 
-  useEffect(() => {
-    if (!isPageVisible || !isMarketOpen) return;
-    const id = setInterval(
-      () => fetchMarketData(),
-      AUTO_REFRESH_1M_INTERVAL_MS,
-    );
-    return () => clearInterval(id);
-  }, [fetchMarketData, isPageVisible, isMarketOpen]);
-
-  const handleOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (e.target === overlayRef.current) {
-      setVisible(false);
-      setTimeout(onClose, 200);
-    }
-  };
-  const handleClose = () => {
-    setVisible(false);
-    setTimeout(onClose, 200);
-  };
-
-  const symbol = symbolProp;
-  const isThai = isThaiStock(symbol);
+  /* ── Derived values ───────────────────────────────────────────────────── */
   const pp = marketData;
+  const isThai = isThaiStock(symbol);
 
   const displayPrice =
     pp?.regularMarketPrice ?? storeCurrentPrice ?? pp?.currentPrice ?? null;
   const priceForPct =
     storeCurrentPrice ?? pp?.regularMarketPrice ?? pp?.currentPrice ?? null;
   const prevForPct = storePreviousPrice ?? pp?.previousClose ?? null;
-
   const percentChange =
     priceForPct != null && prevForPct != null && prevForPct !== 0
       ? ((priceForPct - prevForPct) / prevForPct) * 100
@@ -989,16 +938,15 @@ export function StockDetailModal({
       : null;
 
   const rawChartData = chartHistory?.data ?? [];
-  const chartData = rawChartData;
-
-  const minPrice = chartData.length
-    ? Math.min(...chartData.map((d) => d.price))
-    : null;
-  const maxPrice = chartData.length
-    ? Math.max(...chartData.map((d) => d.price))
-    : null;
   const chartPrevPrice = chartHistory?.previousClose ?? prevForPct;
+  const minPrice = rawChartData.length
+    ? Math.min(...rawChartData.map((d) => d.price))
+    : null;
+  const maxPrice = rawChartData.length
+    ? Math.max(...rawChartData.map((d) => d.price))
+    : null;
 
+  /* ── Render ──────────────────────────────────────────────────────────── */
   return (
     <div
       ref={overlayRef}
@@ -1015,7 +963,7 @@ export function StockDetailModal({
         style={{
           maxHeight: "88vh",
           transform: visible ? "scale(1)" : "scale(0.95)",
-          transition: "transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)",
+          transition: "transform 0.2s cubic-bezier(0.34,1.56,0.64,1)",
         }}
       >
         {/* Header */}
@@ -1066,7 +1014,7 @@ export function StockDetailModal({
           </button>
         </div>
 
-        {/* Scrollable Body */}
+        {/* Body */}
         <div
           className="overflow-y-auto flex-1 px-5"
           style={{ scrollbarWidth: "none" }}
@@ -1108,7 +1056,7 @@ export function StockDetailModal({
             )}
           </div>
 
-          {/* Chart + Chips */}
+          {/* Chart — key={range} forces full remount on timeframe change */}
           <div className="py-3 border-b border-accent-yellow border-opacity-10">
             <div style={{ marginTop: 8 }}>
               {chartError ? (
@@ -1126,11 +1074,11 @@ export function StockDetailModal({
                 </div>
               ) : (
                 <LWChart
-                  rawData={chartData}
+                  key={`${range}-${isLoadingChart}`}
+                  rawData={rawChartData}
                   prevPrice={chartPrevPrice}
-                  range={displayedRange}
+                  range={range}
                   isLoading={isLoadingChart}
-                  isUp={isUp}
                 />
               )}
             </div>

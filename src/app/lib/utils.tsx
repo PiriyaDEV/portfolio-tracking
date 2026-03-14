@@ -177,6 +177,9 @@ export function getLogo(symbol: string): string {
     case "BTC-USD":
       return DEFAULT_CRYPTO_LOGO;
 
+    case "GOLD-USD":
+      return DEFAULT_GOLD_LOGO;
+
     case "GC=F":
       return DEFAULT_GOLD_LOGO;
 
