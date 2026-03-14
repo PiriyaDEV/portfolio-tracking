@@ -79,6 +79,7 @@ export default function ViewScreen({
           levels={searchedItem.levels}
           pinned={wishlist.includes(searchedItem.symbol)}
           onTogglePin={onTogglePin}
+          onSelect={(sym) => setSelectedSymbol(sym)}
         />
       )}
 
