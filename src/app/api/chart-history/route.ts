@@ -2,15 +2,28 @@ import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "edge";
 
-export type TimeRange = "1m" | "1h" | "1d" | "5d" | "1mo";
+export type TimeRange =
+  | "1m"
+  | "5m"
+  | "15m"
+  | "1h"
+  | "4h"
+  | "1d"
+  | "1wk"
+  | "1mo";
 
 const RANGE_CONFIG: Record<TimeRange, { interval: string; range: string }> = {
-  "1m": { interval: "1m", range: "1d" },
-  "1h": { interval: "1h", range: "5d" },
-  "1d": { interval: "1d", range: "1mo" },
-  "5d": { interval: "1wk", range: "6mo" },
-  "1mo": { interval: "1mo", range: "2y" },
+  "1m": { interval: "1m", range: "1d" }, // intraday — last session
+  "5m": { interval: "5m", range: "5d" }, // ~5 days of 5-min bars
+  "15m": { interval: "15m", range: "1mo" }, // ~1 month of 15-min bars
+  "1h": { interval: "1h", range: "3mo" }, // 3 months hourly
+  "4h": { interval: "1h", range: "6mo" }, // 6 months hourly (resampled client-side if needed)
+  "1d": { interval: "1d", range: "2y" }, // 2 years daily
+  "1wk": { interval: "1wk", range: "5y" }, // 5 years weekly
+  "1mo": { interval: "1mo", range: "10y" }, // 10 years monthly
 };
+
+const INTRADAY_RANGES = new Set<TimeRange>(["1m", "5m", "15m", "1h", "4h"]);
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -22,8 +35,7 @@ export async function GET(req: NextRequest) {
   }
 
   const config = RANGE_CONFIG[range] ?? RANGE_CONFIG["1d"];
-
-  const includePrePost = range === "1m" || range === "1h";
+  const includePrePost = INTRADAY_RANGES.has(range);
 
   try {
     const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=${config.interval}&range=${config.range}&includePrePost=${includePrePost}`;
@@ -60,16 +72,19 @@ export async function GET(req: NextRequest) {
     const previousClose: number | null =
       result.meta?.chartPreviousClose ?? result.meta?.previousClose ?? null;
 
-    const points = timestamps
+    // For 4h we receive 1h bars from Yahoo — resample into 4-bar buckets
+    const rawPoints = timestamps
       .map((ts, i) => ({
         time: ts * 1000,
         price: closes[i],
         high: highs[i],
         low: lows[i],
         open: opens[i],
-        volume: volumes[i],
+        volume: volumes[i] ?? 0,
       }))
       .filter((p) => p.price != null && !isNaN(p.price));
+
+    const points = range === "4h" ? resample4h(rawPoints) : rawPoints;
 
     return NextResponse.json({
       symbol,
@@ -83,4 +98,42 @@ export async function GET(req: NextRequest) {
     console.error("chart-history error", err);
     return NextResponse.json({ error: "Internal error" }, { status: 500 });
   }
+}
+
+/* ── Resample 1h → 4h buckets ──────────────────────────────────────────── */
+type Bar = {
+  time: number;
+  price: number;
+  high: number;
+  low: number;
+  open: number;
+  volume: number;
+};
+
+function resample4h(bars: Bar[]): Bar[] {
+  if (!bars.length) return [];
+  const out: Bar[] = [];
+  let bucket: Bar[] = [];
+
+  const flush = () => {
+    if (!bucket.length) return;
+    out.push({
+      time: bucket[0].time,
+      open: bucket[0].open,
+      high: Math.max(...bucket.map((b) => b.high)),
+      low: Math.min(...bucket.map((b) => b.low)),
+      price: bucket[bucket.length - 1].price,
+      volume: bucket.reduce((s, b) => s + b.volume, 0),
+    });
+    bucket = [];
+  };
+
+  bars.forEach((bar) => {
+    const hour = new Date(bar.time).getUTCHours();
+    // Start a new 4h bucket at hours 0, 4, 8, 12, 16, 20
+    if (bucket.length > 0 && hour % 4 === 0) flush();
+    bucket.push(bar);
+  });
+  flush();
+  return out;
 }

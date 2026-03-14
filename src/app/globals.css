@@ -17,6 +17,10 @@ body {
   font-family: "Sarabun", sans-serif !important;
 }
 
+#tv-attr-logo{
+  opacity: 0.5;
+}
+
 h1,
 p,
 span {

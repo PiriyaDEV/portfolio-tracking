@@ -1,6 +1,16 @@
 "use client";
 
 import React, { useEffect, useRef, useState, useCallback } from "react";
+import {
+  createChart,
+  IChartApi,
+  ISeriesApi,
+  CandlestickSeries,
+  HistogramSeries,
+  CrosshairMode,
+  LineStyle,
+  Time,
+} from "lightweight-charts";
 import { Asset } from "@/app/lib/interface";
 import { fNumber, getLogo, getName, isThaiStock } from "@/app/lib/utils";
 import { TimeRange } from "@/app/api/chart-history/route";
@@ -12,7 +22,6 @@ import { useMarketStore } from "@/store/useMarketStore";
    Types
 ======================= */
 
-type GraphPoint = { time: number; price: number };
 type PrePostData = {
   currentPrice: number | null;
   regularMarketPrice: number | null;
@@ -24,7 +33,7 @@ type PrePostData = {
 };
 
 type ChartHistoryPoint = {
-  time: number;
+  time: number; // ms
   price: number;
   high: number;
   low: number;
@@ -41,175 +50,265 @@ type ChartHistoryResponse = {
   data: ChartHistoryPoint[];
 };
 
-type HACandle = {
-  time: number;
-  open: number;
-  close: number;
-  high: number;
-  low: number;
-  isUp: boolean;
-};
-
-// ─── Props now accept store-sourced prices so % is always consistent ─────────
 type StockDetailModalProps = {
   symbol: string;
   asset?: Asset | null;
   onClose: () => void;
   currencyRate: number;
-  /** Pass prices[symbol] from useMarketStore — used as the display price */
   storeCurrentPrice?: number | null;
-  /** Pass previousPrice[symbol] from useMarketStore — used for % change calc */
   storePreviousPrice?: number | null;
 };
 
 const TIMEFRAMES: { label: string; value: TimeRange }[] = [
-  { label: "นาที", value: "1m" },
+  { label: "1 นาที", value: "1m" },
+  // { label: "5m", value: "5m" },
+  // { label: "15m", value: "15m" },
+  { label: "ชั่วโมง", value: "1h" },
+  // { label: "4H", value: "4h" },
   { label: "วัน", value: "1d" },
-  { label: "สัปดาห์", value: "5d" },
+  { label: "สัปดาห์", value: "1wk" },
   { label: "เดือน", value: "1mo" },
 ];
 
-function formatTime(ts: number, range: TimeRange): string {
-  const d = new Date(ts);
-  if (range === "1m")
-    return d.toLocaleTimeString("th-TH", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  if (range === "1h")
-    return d.toLocaleTimeString("th-TH", {
-      weekday: "short",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  if (range === "1d")
-    return d.toLocaleDateString("th-TH", { day: "numeric", month: "short" });
-  if (range === "5d")
-    return d.toLocaleDateString("th-TH", { day: "numeric", month: "short" });
-  return d.toLocaleDateString("th-TH", { month: "short", year: "2-digit" });
-}
+// Number of candles visible in the default right-anchored window.
+// User can still scroll left to see all historical data.
+const VISIBLE_CANDLES: Record<TimeRange, number> = {
+  "1m": 60,
+  "5m": 60,
+  "15m": 60,
+  "1h": 48,
+  "4h": 60,
+  "1d": 60,
+  "1wk": 52,
+  "1mo": 24,
+};
 
-function fmt(value: number | null | undefined): string {
-  if (value == null) return "—";
-  return fNumber(value) ?? "—";
-}
+/* =======================
+   Helpers
+======================= */
 
-function fmtUsd(value: number | null | undefined): string {
-  if (value == null) return "—";
-  return `${fNumber(value) ?? "—"} USD`;
+function fmt(v: number | null | undefined): string {
+  if (v == null) return "—";
+  return fNumber(v) ?? "—";
 }
-
+function fmtUsd(v: number | null | undefined): string {
+  if (v == null) return "—";
+  return `${fNumber(v) ?? "—"} USD`;
+}
 function signedFmt(val: number | null, pct = false, usd = false): string {
   if (val == null) return "—";
   const sign = val >= 0 ? "+" : "";
   return `${sign}${fmt(val)}${pct ? "%" : usd ? " USD" : ""}`;
 }
-
 function toBaht(usd: number | null | undefined, rate: number): string {
   if (usd == null) return "—";
   return `${fNumber(usd * rate) ?? "—"} บาท`;
 }
 
-const TARGET_CANDLES_BY_RANGE: Record<TimeRange, number> = {
-  "1m": 9999,
-  "1h": 9999,
-  "1d": 30,
-  "5d": 26,
-  "1mo": 24,
-};
-
-function buildHeikinAshi(
-  data: {
-    time: number;
-    price: number;
-    open?: number;
-    high?: number;
-    low?: number;
-  }[],
-  targetCandles = 30,
-): HACandle[] {
-  if (!data || data.length < 2) return [];
-  const bucketSize = Math.max(Math.floor(data.length / targetCandles), 1);
-  const buckets: (typeof data)[] = [];
-  for (let i = 0; i < data.length; i += bucketSize)
-    buckets.push(data.slice(i, i + bucketSize));
-  const raw = buckets.map((pts) => ({
-    time: pts[Math.floor(pts.length / 2)].time,
-    open: pts[0].open ?? pts[0].price,
-    close: pts[pts.length - 1].price,
-    high: pts[0].high ?? Math.max(...pts.map((p) => p.price)),
-    low: pts[0].low ?? Math.min(...pts.map((p) => p.price)),
-  }));
-  const ha: HACandle[] = [];
-  raw.forEach((c, i) => {
-    const haClose = (c.open + c.high + c.low + c.close) / 4;
-    const haOpen =
-      i === 0 ? (c.open + c.close) / 2 : (ha[i - 1].open + ha[i - 1].close) / 2;
-    ha.push({
-      time: c.time,
-      open: haOpen,
-      close: haClose,
-      high: Math.max(c.high, haOpen, haClose),
-      low: Math.min(c.low, haOpen, haClose),
-      isUp: haClose >= haOpen,
-    });
-  });
-  return ha;
-}
-
 /* =======================
-   HAChart
+   LWChart
 ======================= */
 
-function HAChart({
-  data,
-  rawData,
-  prevPrice,
-  currentPrice,
-  range,
-  isLoading,
-}: {
-  data: HACandle[];
+const CHART_HEIGHT = 266;
+
+interface LWChartProps {
   rawData: ChartHistoryPoint[];
   prevPrice: number | null;
-  currentPrice: number | null;
   range: TimeRange;
   isLoading: boolean;
-}) {
-  const svgRef = useRef<SVGSVGElement>(null);
-  const [crosshair, setCrosshair] = useState<{
-    x: number;
-    idx: number;
-  } | null>(null);
+  isUp: boolean;
+}
 
-  const W = 380;
-  // ── Layout: price chart on top, volume panel below, time axis at bottom ──
-  const VOL_H = 32; // height of volume panel
-  const AXIS_H = 20; // height of time axis
-  const RANGE_BAR_H = 14; // height of day-range bar strip
-  const CHART_H = 160; // height of price area
-  const H = CHART_H + VOL_H + AXIS_H + RANGE_BAR_H;
-  const PAD = { top: 8, left: 48, right: 4 };
+function LWChart({ rawData, prevPrice, range, isLoading, isUp }: LWChartProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<IChartApi | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const candleRef = useRef<ISeriesApi<"Candlestick", any> | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const volRef = useRef<ISeriesApi<"Histogram", any> | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const prevLineRef = useRef<any | null>(null);
 
-  // derived Y zones
-  const priceTop = PAD.top;
-  const priceBot = priceTop + CHART_H;
-  const volTop = priceBot + 2;
-  const volBot = volTop + VOL_H;
-  const rangeBarY = volBot + 3;
-  const axisY = rangeBarY + RANGE_BAR_H + 4;
+  // ── Create chart once — use autoSize so lightweight-charts owns resizing ───
+  useEffect(() => {
+    if (!containerRef.current) return;
 
+    let chart: IChartApi | null = null;
+
+    chart = createChart(containerRef.current, {
+      autoSize: true,
+      height: CHART_HEIGHT,
+      layout: {
+        background: { color: "transparent" },
+        textColor: "rgba(255,255,255,0.35)",
+        fontFamily: "monospace",
+        fontSize: 10,
+      },
+      grid: {
+        vertLines: { color: "rgba(255,255,255,0.04)" },
+        horzLines: { color: "rgba(255,255,255,0.04)" },
+      },
+      crosshair: {
+        mode: CrosshairMode.Magnet,
+        vertLine: {
+          color: "rgba(255,255,255,0.25)",
+          width: 1,
+          style: LineStyle.Dashed,
+          labelBackgroundColor: "#1a1a1a",
+        },
+        horzLine: {
+          color: "rgba(255,255,255,0.2)",
+          width: 1,
+          style: LineStyle.Dashed,
+          labelBackgroundColor: "#1a1a1a",
+        },
+      },
+      rightPriceScale: {
+        borderVisible: false,
+        scaleMargins: { top: 0.06, bottom: 0.24 },
+        textColor: "rgba(255,255,255,0.3)",
+      },
+      timeScale: {
+        borderVisible: false,
+        timeVisible:
+          range === "1m" ||
+          range === "5m" ||
+          range === "15m" ||
+          range === "1h" ||
+          range === "4h",
+        secondsVisible: false,
+        fixLeftEdge: false,
+        fixRightEdge: true,
+        rightBarStaysOnScroll: true,
+      },
+      handleScroll: {
+        mouseWheel: true,
+        pressedMouseMove: true,
+        horzTouchDrag: true,
+      },
+      handleScale: { mouseWheel: true, pinch: true },
+    });
+
+    // Candlestick series (v5 API)
+    const candle = chart.addSeries(CandlestickSeries, {
+      upColor: "#4ade80",
+      downColor: "#f87171",
+      borderUpColor: "#4ade80",
+      borderDownColor: "#f87171",
+      wickUpColor: "rgba(74,222,128,0.65)",
+      wickDownColor: "rgba(248,113,113,0.65)",
+    });
+
+    // Volume histogram — separate scale, bottom 18%, clear gap from candles
+    const vol = chart.addSeries(HistogramSeries, {
+      color: "rgba(100,100,100,0.3)",
+      priceFormat: { type: "volume" },
+      priceScaleId: "vol",
+      lastValueVisible: false,
+      priceLineVisible: false,
+    });
+    chart.priceScale("vol").applyOptions({
+      scaleMargins: { top: 0.82, bottom: 0 },
+      visible: false,
+    });
+
+    chartRef.current = chart;
+    candleRef.current = candle;
+    volRef.current = vol;
+
+    return () => {
+      chart.remove();
+      chartRef.current = null;
+      candleRef.current = null;
+      volRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Sync timeScale options when range changes ────────────────────────────
+  useEffect(() => {
+    chartRef.current?.applyOptions({
+      timeScale: {
+        timeVisible:
+          range === "1m" ||
+          range === "5m" ||
+          range === "15m" ||
+          range === "1h" ||
+          range === "4h",
+      },
+    });
+  }, [range]);
+
+  // ── Feed data ────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!candleRef.current || !volRef.current || !rawData.length) return;
+
+    // Deduplicate by unix-second timestamp, sort ascending
+    const candleMap = new Map<
+      number,
+      { time: Time; open: number; high: number; low: number; close: number }
+    >();
+    const volMap = new Map<
+      number,
+      { time: Time; value: number; color: string }
+    >();
+
+    for (const d of rawData) {
+      if (d.price == null || isNaN(d.price)) continue;
+      const t = Math.floor(d.time / 1000) as unknown as Time;
+      const ts = t as unknown as number;
+
+      candleMap.set(ts, {
+        time: t,
+        open: d.open ?? d.price,
+        high: d.high ?? d.price,
+        low: d.low ?? d.price,
+        close: d.price,
+      });
+
+      const upBar = d.price >= (d.open ?? d.price);
+      volMap.set(ts, {
+        time: t,
+        value: d.volume ?? 0,
+        color: upBar ? "rgba(74,222,128,0.28)" : "rgba(248,113,113,0.22)",
+      });
+    }
+
+    const candles = Array.from(candleMap.values()).sort(
+      (a, b) => (a.time as unknown as number) - (b.time as unknown as number),
+    );
+    const volBars = Array.from(volMap.values()).sort(
+      (a, b) => (a.time as unknown as number) - (b.time as unknown as number),
+    );
+
+    candleRef.current.setData(candles);
+    volRef.current.setData(volBars);
+
+    // Scroll so the last N candles are visible; user can pan left freely
+    const visibleCount = VISIBLE_CANDLES[range];
+    chartRef.current?.timeScale().setVisibleLogicalRange({
+      from: Math.max(0, candles.length - visibleCount),
+      to: candles.length - 1,
+    });
+
+    // Previous-close dashed price line — remove stale line before re-creating
+    if (prevLineRef.current) {
+      try {
+        candleRef.current.removePriceLine(prevLineRef.current);
+      } catch (_) {}
+      prevLineRef.current = null;
+    }
+  }, [rawData, range, prevPrice]);
+
+  // ── Loading state ────────────────────────────────────────────────────────
   if (isLoading) {
     return (
       <div
         style={{
-          width: "100%",
-          height: H,
+          height: CHART_HEIGHT,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: "rgba(255,255,255,0.02)",
-          borderRadius: 8,
         }}
       >
         <div
@@ -219,20 +318,19 @@ function HAChart({
             borderRadius: "50%",
             border: "2px solid rgba(255,198,0,0.15)",
             borderTopColor: "rgba(255,198,0,0.7)",
-            animation: "spin 0.7s linear infinite",
+            animation: "lwspin 0.7s linear infinite",
           }}
         />
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        <style>{`@keyframes lwspin { to { transform: rotate(360deg); } }`}</style>
       </div>
     );
   }
 
-  if (!data.length) {
+  if (!rawData.length) {
     return (
       <div
         style={{
-          width: "100%",
-          height: H,
+          height: CHART_HEIGHT,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -245,350 +343,16 @@ function HAChart({
     );
   }
 
-  // ── Price scale ──────────────────────────────────────────────────────────
-  const allPrices = data.flatMap((c) => [c.high, c.low]);
-  if (prevPrice) allPrices.push(prevPrice);
-  if (currentPrice) allPrices.push(currentPrice);
-  const minP = Math.min(...allPrices);
-  const maxP = Math.max(...allPrices);
-  const priceRange = maxP - minP || 1;
-  const chartW = W - PAD.left - PAD.right;
-  const toY = (p: number) => priceTop + ((maxP - p) / priceRange) * CHART_H;
-
-  // ── Candle layout ────────────────────────────────────────────────────────
-  const n = data.length;
-  const gap = 1.5;
-  const candleW = Math.max(chartW / n - gap, 2);
-  const step = chartW / n;
-  const cx = (i: number) => PAD.left + i * step + step / 2;
-
-  // ── Volume scale ─────────────────────────────────────────────────────────
-  const volumes = rawData.map((d) => d.volume ?? 0);
-  const maxVol = Math.max(...volumes, 1);
-  // map volume index → HACandle index (same bucketing logic, approximate)
-  const bucketSize = Math.max(Math.floor(rawData.length / n), 1);
-  const bucketedVol = Array.from({ length: n }, (_, i) => {
-    const slice = rawData.slice(i * bucketSize, (i + 1) * bucketSize);
-    return slice.reduce((s, d) => s + (d.volume ?? 0), 0);
-  });
-  const maxBucketVol = Math.max(...bucketedVol, 1);
-
-  // ── Previous close line ──────────────────────────────────────────────────
-  const prevY = prevPrice ? toY(prevPrice) : null;
-
-  // ── Current price line ───────────────────────────────────────────────────
-  const curY = currentPrice ? toY(currentPrice) : null;
-  const isUp =
-    currentPrice != null && prevPrice != null
-      ? currentPrice >= prevPrice
-      : true;
-  const accentColor = isUp ? "#4ade80" : "#f87171";
-
-  // ── Day range (from raw data) ────────────────────────────────────────────
-  const dayLow = rawData.length
-    ? Math.min(...rawData.map((d) => d.low ?? d.price))
-    : null;
-  const dayHigh = rawData.length
-    ? Math.max(...rawData.map((d) => d.high ?? d.price))
-    : null;
-
-  // ── Grid ─────────────────────────────────────────────────────────────────
-  const GRID_LINES = 4;
-  const gridLevels = Array.from({ length: GRID_LINES }, (_, i) => {
-    const price = minP + (priceRange * i) / (GRID_LINES - 1);
-    return { price, y: toY(price) };
-  });
-
-  function fmtPrice(p: number): string {
-    if (p >= 1_000_000) return `${(p / 1_000_000).toFixed(1)}M`;
-    if (p >= 1_000) return `${(p / 1_000).toFixed(1)}K`;
-    return p.toFixed(2);
-  }
-
-  // ── Time axis labels ─────────────────────────────────────────────────────
-  const labelIndices = [0, 1, 2, 3, 4].map((i) =>
-    Math.round((i / 4) * (n - 1)),
-  );
-
-  // ── Crosshair mouse handler ──────────────────────────────────────────────
-  function handleMouseMove(e: React.MouseEvent<SVGSVGElement>) {
-    const rect = svgRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    const svgX = ((e.clientX - rect.left) / rect.width) * W;
-    const relX = svgX - PAD.left;
-    const idx = Math.max(0, Math.min(n - 1, Math.floor(relX / step)));
-    setCrosshair({ x: cx(idx), idx });
-  }
-
-  // ── Crosshair candle data ────────────────────────────────────────────────
-  const hoveredCandle = crosshair ? data[crosshair.idx] : null;
-
-  // ── Gradient area path (midpoint of each candle close) ───────────────────
-  const closePts = data.map((c, i) => ({ x: cx(i), y: toY(c.close) }));
-  const areaPath =
-    closePts.length > 1
-      ? [
-          `M ${closePts[0].x} ${priceBot}`,
-          `L ${closePts[0].x} ${closePts[0].y}`,
-          ...closePts.slice(1).map((p) => `L ${p.x} ${p.y}`),
-          `L ${closePts[closePts.length - 1].x} ${priceBot}`,
-          "Z",
-        ].join(" ")
-      : "";
-
-  const gradId = `area-grad-${isUp ? "up" : "dn"}`;
-
   return (
-    <div style={{ position: "relative", width: "100%" }}>
-      {/* ── Crosshair OHLC badge (top of chart) ───────────────────────────── */}
-      {hoveredCandle && (
-        <div
-          style={{
-            position: "absolute",
-            top: 2,
-            left: PAD.left,
-            right: PAD.right,
-            display: "flex",
-            gap: 8,
-            pointerEvents: "none",
-            zIndex: 5,
-          }}
-        >
-          {(["open", "high", "low", "close"] as const).map((k) => (
-            <span
-              key={k}
-              style={{
-                fontSize: 10,
-                fontFamily: "monospace",
-                color: "rgba(255,255,255,0.55)",
-              }}
-            >
-              <span
-                style={{
-                  color: "rgba(255,198,0,0.5)",
-                  textTransform: "uppercase",
-                }}
-              >
-                {k[0]}
-              </span>
-              <span
-                style={{
-                  color: k === "close" ? accentColor : "rgba(255,255,255,0.85)",
-                  fontWeight: k === "close" ? 700 : 400,
-                }}
-              >
-                {" "}
-                {fmtPrice(hoveredCandle[k])}
-              </span>
-            </span>
-          ))}
-        </div>
-      )}
-
-      <svg
-        ref={svgRef}
-        viewBox={`0 0 ${W} ${H}`}
-        style={{
-          width: "100%",
-          height: H,
-          display: "block",
-          cursor: "crosshair",
-        }}
-        onMouseMove={handleMouseMove}
-        onMouseLeave={() => setCrosshair(null)}
-      >
-        <defs>
-          {/* gradient fill under close line */}
-          <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={accentColor} stopOpacity={0.18} />
-            <stop offset="100%" stopColor={accentColor} stopOpacity={0.01} />
-          </linearGradient>
-          {/* clip price area */}
-          <clipPath id="price-clip">
-            <rect x={PAD.left} y={priceTop} width={chartW} height={CHART_H} />
-          </clipPath>
-          <clipPath id="vol-clip">
-            <rect x={PAD.left} y={volTop} width={chartW} height={VOL_H} />
-          </clipPath>
-        </defs>
-
-        {/* ── Grid lines ──────────────────────────────────────────────────── */}
-        {gridLevels.map(({ price, y }, i) => (
-          <g key={i}>
-            <line
-              x1={PAD.left}
-              y1={y}
-              x2={W - PAD.right}
-              y2={y}
-              stroke="rgba(255,255,255,0.05)"
-              strokeWidth={0.5}
-            />
-            <text
-              x={PAD.left - 4}
-              y={y + 3.5}
-              textAnchor="end"
-              fontSize={8.5}
-              fill="rgba(255,255,255,0.25)"
-              fontFamily="monospace"
-            >
-              {fmtPrice(price)}
-            </text>
-          </g>
-        ))}
-
-        {/* ── Gradient area under close line ──────────────────────────────── */}
-        {areaPath && (
-          <path
-            d={areaPath}
-            fill={`url(#${gradId})`}
-            clipPath="url(#price-clip)"
-          />
-        )}
-
-        {/* ── Candles ─────────────────────────────────────────────────────── */}
-        <g clipPath="url(#price-clip)">
-          {data.map((c, i) => {
-            const x = cx(i);
-            const bodyTop = toY(Math.max(c.open, c.close));
-            const bodyBot = toY(Math.min(c.open, c.close));
-            const bodyH = Math.max(bodyBot - bodyTop, 1.5);
-            const color = c.isUp ? "#4ade80" : "#f87171";
-            const isCrosshaired = crosshair?.idx === i;
-            return (
-              <g key={i} opacity={isCrosshaired ? 1 : 0.88}>
-                {/* wick top */}
-                <line
-                  x1={x}
-                  y1={toY(c.high)}
-                  x2={x}
-                  y2={bodyTop}
-                  stroke={color}
-                  strokeWidth={isCrosshaired ? 1.8 : 1.2}
-                />
-                {/* body */}
-                <rect
-                  x={x - candleW / 2}
-                  y={bodyTop}
-                  width={candleW}
-                  height={bodyH}
-                  fill={color}
-                  rx={0.5}
-                  opacity={c.isUp ? 0.9 : 0.75}
-                />
-                {/* wick bottom */}
-                <line
-                  x1={x}
-                  y1={bodyBot}
-                  x2={x}
-                  y2={toY(c.low)}
-                  stroke={color}
-                  strokeWidth={isCrosshaired ? 1.8 : 1.2}
-                />
-              </g>
-            );
-          })}
-        </g>
-
-        {/* ── Current price dashed line ────────────────────────────────────── */}
-        {curY !== null && (
-          <g>
-            <line
-              x1={PAD.left}
-              y1={curY}
-              x2={W - PAD.right}
-              y2={curY}
-              stroke={accentColor}
-              strokeWidth={0.8}
-              strokeDasharray="3 3"
-              opacity={0.9}
-            />
-            <rect
-              x={PAD.left - 36}
-              y={curY - 6}
-              width={35}
-              height={12}
-              rx={3}
-              fill={accentColor}
-            />
-            <text
-              x={PAD.left - 4}
-              y={curY + 3.5}
-              textAnchor="end"
-              fontSize={8}
-              fill="black"
-              fontFamily="monospace"
-              fontWeight="bold"
-            >
-              {fmtPrice(currentPrice!)}
-            </text>
-          </g>
-        )}
-
-        {/* ── Volume separator line ────────────────────────────────────────── */}
-        <line
-          x1={PAD.left}
-          y1={volTop - 1}
-          x2={W - PAD.right}
-          y2={volTop - 1}
-          stroke="rgba(255,255,255,0.06)"
-          strokeWidth={0.5}
-        />
-
-        {/* ── Volume bars ─────────────────────────────────────────────────── */}
-        <g clipPath="url(#vol-clip)">
-          {bucketedVol.map((vol, i) => {
-            const barH = Math.max((vol / maxBucketVol) * VOL_H, 1);
-            const color = data[i]?.isUp ? "#4ade80" : "#f87171";
-            const isCrosshaired = crosshair?.idx === i;
-            return (
-              <rect
-                key={i}
-                x={cx(i) - candleW / 2}
-                y={volBot - barH}
-                width={candleW}
-                height={barH}
-                fill={color}
-                opacity={isCrosshaired ? 0.7 : 0.28}
-                rx={0.5}
-              />
-            );
-          })}
-        </g>
-
-        {/* ── Crosshair vertical line ──────────────────────────────────────── */}
-        {crosshair && (
-          <line
-            x1={crosshair.x}
-            y1={priceTop}
-            x2={crosshair.x}
-            y2={volBot}
-            stroke="rgba(255,255,255,0.2)"
-            strokeWidth={0.8}
-            strokeDasharray="2 3"
-          />
-        )}
-
-        {/* ── Time axis ───────────────────────────────────────────────────── */}
-        {labelIndices.map((idx) => {
-          const x = cx(idx);
-          const label = formatTime(data[idx].time, range);
-          const anchor = idx === 0 ? "start" : idx === n - 1 ? "end" : "middle";
-          return (
-            <text
-              key={idx}
-              x={x}
-              y={axisY}
-              textAnchor={anchor}
-              fontSize={9}
-              fill="rgba(255,255,255,0.28)"
-              fontFamily="monospace"
-            >
-              {label}
-            </text>
-          );
-        })}
-      </svg>
-    </div>
+    <div
+      ref={containerRef}
+      style={{
+        width: "100%",
+        height: CHART_HEIGHT,
+        overflow: "hidden",
+        borderRadius: 8,
+      }}
+    />
   );
 }
 
@@ -757,13 +521,13 @@ export function StockDetailModal({
   const [marketData, setMarketData] = useState<PrePostData | null>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
-  const [range, setRange] = useState<TimeRange>("1m");
+  const [range, setRange] = useState<TimeRange>("1d");
   const [chartHistory, setChartHistory] = useState<ChartHistoryResponse | null>(
     null,
   );
   const [isLoadingChart, setIsLoadingChart] = useState(false);
   const [chartError, setChartError] = useState<string | null>(null);
-  const [displayedRange, setDisplayedRange] = useState<TimeRange>("1m");
+  const [displayedRange, setDisplayedRange] = useState<TimeRange>("1d");
   const isMarketOpen = useMarketStore((s) => s.marketStatus?.isOpen ?? true);
 
   const fetchMarketData = useCallback(async () => {
@@ -772,8 +536,7 @@ export function StockDetailModal({
       { cache: "no-store" },
     );
     if (!res.ok) return;
-    const json = await res.json();
-    setMarketData(json);
+    setMarketData(await res.json());
   }, [symbolProp]);
 
   useEffect(() => {
@@ -816,8 +579,8 @@ export function StockDetailModal({
 
   const isPageVisible = usePageVisible();
   useEffect(() => {
-    // ไม่ refresh chart ถ้าตลาดปิด, ไม่ใช่ timeframe นาที, หรือ tab ไม่ active
-    if (range !== "1m" || !isPageVisible || !isMarketOpen) return;
+    const isIntraday = ["1m", "5m", "15m", "1h", "4h"].includes(range);
+    if (!isIntraday || !isPageVisible || !isMarketOpen) return;
     const id = setInterval(
       () => fetchChartHistory(range),
       AUTO_REFRESH_1M_INTERVAL_MS,
@@ -826,7 +589,6 @@ export function StockDetailModal({
   }, [range, fetchChartHistory, isPageVisible, isMarketOpen]);
 
   useEffect(() => {
-    // ไม่ refresh prepost ถ้าตลาดปิด หรือ tab ไม่ active
     if (!isPageVisible || !isMarketOpen) return;
     const id = setInterval(
       () => fetchMarketData(),
@@ -850,21 +612,8 @@ export function StockDetailModal({
   const isThai = isThaiStock(symbol);
   const pp = marketData;
 
-  // ─── Price resolution priority ────────────────────────────────────────────
-  //
-  // Display price:
-  //   1. prepost regularMarketPrice (most accurate session price)
-  //   2. storeCurrentPrice (from useMarketStore — same source as the row)
-  //   3. prepost currentPrice
-  //
-  // % change — ALWAYS use store values so it matches the row exactly.
-  //   Formula: (storeCurrentPrice - storePreviousPrice) / storePreviousPrice
-  //   Fallback to prepost if store values are not available.
-
   const displayPrice =
     pp?.regularMarketPrice ?? storeCurrentPrice ?? pp?.currentPrice ?? null;
-
-  // Use store prices for % calculation to stay in sync with the row
   const priceForPct =
     storeCurrentPrice ?? pp?.regularMarketPrice ?? pp?.currentPrice ?? null;
   const prevForPct = storePreviousPrice ?? pp?.previousClose ?? null;
@@ -873,13 +622,10 @@ export function StockDetailModal({
     priceForPct != null && prevForPct != null && prevForPct !== 0
       ? ((priceForPct - prevForPct) / prevForPct) * 100
       : 0;
-
   const priceChange =
     priceForPct != null && prevForPct != null ? priceForPct - prevForPct : 0;
-
   const isUp = percentChange >= 0;
 
-  // Pre/post session badge
   const hasPrePost = pp && pp.session !== "regular" && pp.session !== "closed";
   const ppChange = pp?.prePostChangePercent ?? null;
   const sessionLabel: Record<PrePostData["session"], string> = {
@@ -889,7 +635,6 @@ export function StockDetailModal({
     closed: "ปิด",
   };
 
-  // Portfolio stats
   const holdingValue = asset ? asset.quantity * asset.costPerShare : null;
   const currentValue =
     asset && priceForPct != null ? asset.quantity * priceForPct : null;
@@ -898,38 +643,26 @@ export function StockDetailModal({
       ? currentValue - holdingValue
       : null;
   const profitPct =
-    profitLoss != null && holdingValue && holdingValue !== 0
+    profitLoss != null && holdingValue
       ? (profitLoss / holdingValue) * 100
       : null;
 
-  const minPrice = chartHistory?.data?.length
-    ? Math.min(...chartHistory.data.map((d) => d.price))
-    : null;
-  const maxPrice = chartHistory?.data?.length
-    ? Math.max(...chartHistory.data.map((d) => d.price))
-    : null;
-
   const rawChartData = chartHistory?.data ?? [];
   const chartData = (() => {
-    if (displayedRange === "1h" && rawChartData.length > 0) {
-      const lastTime = rawChartData[rawChartData.length - 1].time;
-      const cutoff = lastTime - 24 * 60 * 60 * 1000;
-      const filtered = rawChartData.filter((d) => d.time >= cutoff);
-      return filtered.length > 0 ? filtered : rawChartData.slice(-24);
-    }
     if (displayedRange === "1m" && rawChartData.length > 0) {
-      const cutoff = Date.now() - 30 * 60 * 1000;
-      const filtered = rawChartData.filter((d) => d.time >= cutoff);
-      return filtered.length > 0 ? filtered : rawChartData.slice(-30);
+      // route already returns only today's 1m bars — use them all
+      return rawChartData;
     }
     return rawChartData;
   })();
 
+  const minPrice = chartData.length
+    ? Math.min(...chartData.map((d) => d.price))
+    : null;
+  const maxPrice = chartData.length
+    ? Math.max(...chartData.map((d) => d.price))
+    : null;
   const chartPrevPrice = chartHistory?.previousClose ?? prevForPct;
-  const haData = buildHeikinAshi(
-    chartData,
-    TARGET_CANDLES_BY_RANGE[displayedRange],
-  );
 
   return (
     <div
@@ -1046,7 +779,7 @@ export function StockDetailModal({
               {chartError ? (
                 <div
                   style={{
-                    height: 180,
+                    height: CHART_HEIGHT,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -1057,13 +790,12 @@ export function StockDetailModal({
                   {chartError}
                 </div>
               ) : (
-                <HAChart
-                  data={haData}
+                <LWChart
                   rawData={chartData}
                   prevPrice={chartPrevPrice}
-                  currentPrice={displayPrice}
                   range={displayedRange}
                   isLoading={isLoadingChart}
+                  isUp={isUp}
                 />
               )}
             </div>
