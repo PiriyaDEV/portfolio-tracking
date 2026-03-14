@@ -1,16 +1,24 @@
 "use client";
 
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useCallback,
+} from "react";
 import {
   createChart,
   IChartApi,
   ISeriesApi,
   CandlestickSeries,
   HistogramSeries,
+  LineSeries,
   CrosshairMode,
   LineStyle,
   Time,
 } from "lightweight-charts";
+import { RSI, EMA } from "lightweight-charts-indicators";
 import { Asset } from "@/app/lib/interface";
 import { fNumber, getLogo, getName, isThaiStock } from "@/app/lib/utils";
 import { TimeRange } from "@/app/api/chart-history/route";
@@ -61,17 +69,12 @@ type StockDetailModalProps = {
 
 const TIMEFRAMES: { label: string; value: TimeRange }[] = [
   { label: "1 นาที", value: "1m" },
-  // { label: "5m", value: "5m" },
-  // { label: "15m", value: "15m" },
   { label: "ชั่วโมง", value: "1h" },
-  // { label: "4H", value: "4h" },
   { label: "วัน", value: "1d" },
   { label: "สัปดาห์", value: "1wk" },
   { label: "เดือน", value: "1mo" },
 ];
 
-// Number of candles visible in the default right-anchored window.
-// User can still scroll left to see all historical data.
 const VISIBLE_CANDLES: Record<TimeRange, number> = {
   "1m": 60,
   "5m": 60,
@@ -106,10 +109,23 @@ function toBaht(usd: number | null | undefined, rate: number): string {
 }
 
 /* =======================
+   EMA config
+======================= */
+
+const EMA_CONFIGS = [
+  { length: 30, color: "rgba(30,130,220,0.90)", label: "EMA 30" },
+  { length: 50, color: "rgba(255,140,40,0.90)", label: "EMA 50" },
+  { length: 100, color: "rgba(180,100,255,0.90)", label: "EMA 100" },
+  { length: 200, color: "rgba(255,210,40,0.90)", label: "EMA 200" },
+] as const;
+
+/* =======================
    LWChart
 ======================= */
 
-const CHART_HEIGHT = 266;
+const MAIN_CHART_HEIGHT = 240;
+const RSI_CHART_HEIGHT = 100;
+const MIN_CHART_DIMENSION = 32;
 
 interface LWChartProps {
   rawData: ChartHistoryPoint[];
@@ -120,77 +136,139 @@ interface LWChartProps {
 }
 
 function LWChart({ rawData, prevPrice, range, isLoading, isUp }: LWChartProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const chartRef = useRef<IChartApi | null>(null);
+  // Wrapper ref — we watch THIS for size before creating charts
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const mainContainerRef = useRef<HTMLDivElement>(null);
+  const rsiContainerRef = useRef<HTMLDivElement>(null);
+
+  // "ready" = wrapper has a usable pixel size (≥ MIN_CHART_DIMENSION)
+  const [isReady, setIsReady] = useState(false);
+  // Latest EMA values shown in the legend
+  const [emaValues, setEmaValues] = useState<(number | null)[]>([
+    null,
+    null,
+    null,
+    null,
+  ]);
+  // Latest RSI value shown in the divider label
+  const [rsiValue, setRsiValue] = useState<number | null>(null);
+
+  const mainChartRef = useRef<IChartApi | null>(null);
+  const rsiChartRef = useRef<IChartApi | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const candleRef = useRef<ISeriesApi<"Candlestick", any> | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const volRef = useRef<ISeriesApi<"Histogram", any> | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const prevLineRef = useRef<any | null>(null);
+  const emaRefs = useRef<Array<ISeriesApi<"Line", any> | null>>([
+    null,
+    null,
+    null,
+    null,
+  ]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const rsiRef = useRef<ISeriesApi<"Line", any> | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const rsiObRef = useRef<ISeriesApi<"Line", any> | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const rsiOsRef = useRef<ISeriesApi<"Line", any> | null>(null);
+  const isSyncingRef = useRef(false);
 
-  // ── Create chart once — use autoSize so lightweight-charts owns resizing ───
+  // ── Step 1: Wait for the wrapper to have real pixel dimensions ──────────
+  // Uses ResizeObserver (same pattern as ChartContainer in chart.tsx) so we
+  // never call createChart while width/height are still -1 or 0.
+  useLayoutEffect(() => {
+    const el = wrapperRef.current;
+    if (!el) return;
+
+    const check = (rect: DOMRectReadOnly | DOMRect) => {
+      if (
+        rect.width >= MIN_CHART_DIMENSION &&
+        rect.height >= MIN_CHART_DIMENSION
+      ) {
+        setIsReady(true);
+      }
+    };
+
+    // Immediate check — may already be laid out (e.g. modal opened with animation)
+    check(el.getBoundingClientRect());
+
+    if (typeof ResizeObserver === "undefined") return;
+
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.target === el) check(entry.contentRect);
+      }
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const buildCommonOptions = (height: number) => ({
+    autoSize: true,
+    height,
+    layout: {
+      background: { color: "transparent" },
+      textColor: "rgba(255,255,255,0.35)",
+      fontFamily: "monospace",
+      fontSize: 10,
+    },
+    grid: {
+      vertLines: { color: "rgba(255,255,255,0.04)" },
+      horzLines: { color: "rgba(255,255,255,0.04)" },
+    },
+    crosshair: {
+      mode: CrosshairMode.Magnet,
+      vertLine: {
+        color: "rgba(255,255,255,0.25)",
+        width: 1 as const,
+        style: LineStyle.Dashed,
+        labelBackgroundColor: "#1a1a1a",
+      },
+      horzLine: {
+        color: "rgba(255,255,255,0.2)",
+        width: 1 as const,
+        style: LineStyle.Dashed,
+        labelBackgroundColor: "#1a1a1a",
+      },
+    },
+    timeScale: {
+      borderVisible: false,
+      fixLeftEdge: false,
+      fixRightEdge: true,
+      rightBarStaysOnScroll: true,
+    },
+    handleScroll: {
+      mouseWheel: true,
+      pressedMouseMove: true,
+      horzTouchDrag: true,
+    },
+    handleScale: { mouseWheel: true, pinch: true },
+  });
+
+  // ── Step 2: Create charts only AFTER wrapper is ready ───────────────────
   useEffect(() => {
-    if (!containerRef.current) return;
+    if (!isReady) return;
+    if (!mainContainerRef.current || !rsiContainerRef.current) return;
+    // Bail out if charts already created (StrictMode double-invoke guard)
+    if (mainChartRef.current) return;
 
-    let chart: IChartApi | null = null;
-
-    chart = createChart(containerRef.current, {
-      autoSize: true,
-      height: CHART_HEIGHT,
-      layout: {
-        background: { color: "transparent" },
-        textColor: "rgba(255,255,255,0.35)",
-        fontFamily: "monospace",
-        fontSize: 10,
-      },
-      grid: {
-        vertLines: { color: "rgba(255,255,255,0.04)" },
-        horzLines: { color: "rgba(255,255,255,0.04)" },
-      },
-      crosshair: {
-        mode: CrosshairMode.Magnet,
-        vertLine: {
-          color: "rgba(255,255,255,0.25)",
-          width: 1,
-          style: LineStyle.Dashed,
-          labelBackgroundColor: "#1a1a1a",
-        },
-        horzLine: {
-          color: "rgba(255,255,255,0.2)",
-          width: 1,
-          style: LineStyle.Dashed,
-          labelBackgroundColor: "#1a1a1a",
-        },
-      },
+    // ── Main chart ──────────────────────────────────────────────────────
+    const mainChart = createChart(mainContainerRef.current, {
+      ...buildCommonOptions(MAIN_CHART_HEIGHT),
       rightPriceScale: {
         borderVisible: false,
         scaleMargins: { top: 0.06, bottom: 0.24 },
         textColor: "rgba(255,255,255,0.3)",
       },
       timeScale: {
-        borderVisible: false,
-        timeVisible:
-          range === "1m" ||
-          range === "5m" ||
-          range === "15m" ||
-          range === "1h" ||
-          range === "4h",
+        ...buildCommonOptions(MAIN_CHART_HEIGHT).timeScale,
+        timeVisible: false,
         secondsVisible: false,
-        fixLeftEdge: false,
-        fixRightEdge: true,
-        rightBarStaysOnScroll: true,
       },
-      handleScroll: {
-        mouseWheel: true,
-        pressedMouseMove: true,
-        horzTouchDrag: true,
-      },
-      handleScale: { mouseWheel: true, pinch: true },
     });
 
-    // Candlestick series (v5 API)
-    const candle = chart.addSeries(CandlestickSeries, {
+    const candle = mainChart.addSeries(CandlestickSeries, {
       upColor: "#4ade80",
       downColor: "#f87171",
       borderUpColor: "#4ade80",
@@ -199,51 +277,124 @@ function LWChart({ rawData, prevPrice, range, isLoading, isUp }: LWChartProps) {
       wickDownColor: "rgba(248,113,113,0.65)",
     });
 
-    // Volume histogram — separate scale, bottom 18%, clear gap from candles
-    const vol = chart.addSeries(HistogramSeries, {
+    const vol = mainChart.addSeries(HistogramSeries, {
       color: "rgba(100,100,100,0.3)",
-      priceFormat: { type: "volume" },
+      priceFormat: { type: "volume" as const },
       priceScaleId: "vol",
       lastValueVisible: false,
       priceLineVisible: false,
     });
-    chart.priceScale("vol").applyOptions({
+    mainChart.priceScale("vol").applyOptions({
       scaleMargins: { top: 0.82, bottom: 0 },
       visible: false,
     });
 
-    chartRef.current = chart;
+    // EMA series (3 lines on main chart)
+    const emaSeriesList = EMA_CONFIGS.map((cfg) =>
+      mainChart.addSeries(LineSeries, {
+        color: cfg.color,
+        lineWidth: 1,
+        priceLineVisible: false,
+        lastValueVisible: false,
+        crosshairMarkerVisible: false,
+      }),
+    );
+
+    // ── RSI chart ───────────────────────────────────────────────────────
+    const rsiChart = createChart(rsiContainerRef.current, {
+      ...buildCommonOptions(RSI_CHART_HEIGHT),
+      rightPriceScale: {
+        borderVisible: false,
+        scaleMargins: { top: 0.1, bottom: 0.1 },
+        textColor: "rgba(255,255,255,0.3)",
+      },
+      timeScale: {
+        ...buildCommonOptions(RSI_CHART_HEIGHT).timeScale,
+        timeVisible: false,
+        secondsVisible: false,
+        visible: false,
+      },
+    });
+
+    const rsiSeries = rsiChart.addSeries(LineSeries, {
+      color: "#1e7fcb",
+      lineWidth: 1,
+      priceLineVisible: false,
+      lastValueVisible: true,
+      crosshairMarkerVisible: true,
+    });
+
+    const rsiOb = rsiChart.addSeries(LineSeries, {
+      color: "rgba(248,113,113,0.4)",
+      lineWidth: 1,
+      lineStyle: LineStyle.Dashed,
+      priceLineVisible: false,
+      lastValueVisible: false,
+      crosshairMarkerVisible: false,
+    });
+    const rsiOs = rsiChart.addSeries(LineSeries, {
+      color: "rgba(74,222,128,0.4)",
+      lineWidth: 1,
+      lineStyle: LineStyle.Dashed,
+      priceLineVisible: false,
+      lastValueVisible: false,
+      crosshairMarkerVisible: false,
+    });
+
+    // Save to refs
+    mainChartRef.current = mainChart;
+    rsiChartRef.current = rsiChart;
     candleRef.current = candle;
     volRef.current = vol;
+    emaRefs.current = emaSeriesList;
+    rsiRef.current = rsiSeries;
+    rsiObRef.current = rsiOb;
+    rsiOsRef.current = rsiOs;
+
+    // ── Sync scrolling between main ↔ RSI ──────────────────────────────
+    mainChart.timeScale().subscribeVisibleLogicalRangeChange((r) => {
+      if (isSyncingRef.current || !r) return;
+      isSyncingRef.current = true;
+      rsiChart.timeScale().setVisibleLogicalRange(r);
+      isSyncingRef.current = false;
+    });
+    rsiChart.timeScale().subscribeVisibleLogicalRangeChange((r) => {
+      if (isSyncingRef.current || !r) return;
+      isSyncingRef.current = true;
+      mainChart.timeScale().setVisibleLogicalRange(r);
+      isSyncingRef.current = false;
+    });
 
     return () => {
-      chart.remove();
-      chartRef.current = null;
+      mainChart.remove();
+      rsiChart.remove();
+      mainChartRef.current = null;
+      rsiChartRef.current = null;
       candleRef.current = null;
       volRef.current = null;
+      emaRefs.current = [null, null, null, null];
+      rsiRef.current = null;
+      rsiObRef.current = null;
+      rsiOsRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isReady]);
 
-  // ── Sync timeScale options when range changes ────────────────────────────
+  // ── Sync timeScale time-visibility when range changes ────────────────────
   useEffect(() => {
-    chartRef.current?.applyOptions({
-      timeScale: {
-        timeVisible:
-          range === "1m" ||
-          range === "5m" ||
-          range === "15m" ||
-          range === "1h" ||
-          range === "4h",
-      },
+    if (!mainChartRef.current) return;
+    const timeVisible = ["1m", "5m", "15m", "1h", "4h"].includes(range);
+    mainChartRef.current.applyOptions({
+      timeScale: { timeVisible, secondsVisible: false },
     });
   }, [range]);
 
-  // ── Feed data ────────────────────────────────────────────────────────────
+  // ── Feed data whenever rawData / range / prevPrice change ────────────────
   useEffect(() => {
+    if (!isReady) return;
     if (!candleRef.current || !volRef.current || !rawData.length) return;
 
-    // Deduplicate by unix-second timestamp, sort ascending
+    // Build deduped + sorted candle/volume data
     const candleMap = new Map<
       number,
       { time: Time; open: number; high: number; low: number; close: number }
@@ -255,10 +406,10 @@ function LWChart({ rawData, prevPrice, range, isLoading, isUp }: LWChartProps) {
 
     for (const d of rawData) {
       if (d.price == null || isNaN(d.price)) continue;
-      const t = Math.floor(d.time / 1000) as unknown as Time;
-      const ts = t as unknown as number;
+      const tSec = Math.floor(d.time / 1000);
+      const t = tSec as unknown as Time;
 
-      candleMap.set(ts, {
+      candleMap.set(tSec, {
         time: t,
         open: d.open ?? d.price,
         high: d.high ?? d.price,
@@ -267,7 +418,7 @@ function LWChart({ rawData, prevPrice, range, isLoading, isUp }: LWChartProps) {
       });
 
       const upBar = d.price >= (d.open ?? d.price);
-      volMap.set(ts, {
+      volMap.set(tSec, {
         time: t,
         value: d.volume ?? 0,
         color: upBar ? "rgba(74,222,128,0.28)" : "rgba(248,113,113,0.22)",
@@ -284,75 +435,265 @@ function LWChart({ rawData, prevPrice, range, isLoading, isUp }: LWChartProps) {
     candleRef.current.setData(candles);
     volRef.current.setData(volBars);
 
-    // Scroll so the last N candles are visible; user can pan left freely
-    const visibleCount = VISIBLE_CANDLES[range];
-    chartRef.current?.timeScale().setVisibleLogicalRange({
-      from: Math.max(0, candles.length - visibleCount),
-      to: candles.length - 1,
-    });
+    // Indicator bar array (time in unix seconds, same as candles)
+    const indicatorBars = candles.map((c) => ({
+      time: c.time as unknown as number,
+      open: c.open,
+      high: c.high,
+      low: c.low,
+      close: c.close,
+      volume: 0,
+    }));
 
-    // Previous-close dashed price line — remove stale line before re-creating
-    if (prevLineRef.current) {
+    // ── EMA overlays ────────────────────────────────────────────────────
+    const newEmaValues: (number | null)[] = [null, null, null, null];
+    EMA_CONFIGS.forEach((cfg, idx) => {
+      const series = emaRefs.current[idx];
+      if (!series || indicatorBars.length < cfg.length) return;
       try {
-        candleRef.current.removePriceLine(prevLineRef.current);
-      } catch (_) {}
-      prevLineRef.current = null;
+        const result = EMA.calculate(indicatorBars, {
+          length: cfg.length,
+          src: "close",
+        });
+        const plotData = result?.plots?.plot0;
+        if (plotData?.length) {
+          const valid = plotData.filter(
+            (p: { time: unknown; value: unknown }) =>
+              p.value != null && !isNaN(p.value as number),
+          );
+          series.setData(valid);
+          // Grab the last value for the legend
+          const last = valid[valid.length - 1];
+          if (last?.value != null) newEmaValues[idx] = last.value as number;
+        }
+      } catch (e) {
+        console.warn(`EMA ${cfg.length} calc error`, e);
+      }
+    });
+    setEmaValues(newEmaValues);
+
+    // ── RSI ─────────────────────────────────────────────────────────────
+    if (
+      rsiRef.current &&
+      rsiObRef.current &&
+      rsiOsRef.current &&
+      indicatorBars.length >= 14
+    ) {
+      try {
+        const rsiResult = RSI.calculate(indicatorBars, {
+          length: 14,
+          src: "close",
+        });
+        const rsiPlot = rsiResult?.plots?.plot0;
+        if (rsiPlot?.length) {
+          const validRsi = rsiPlot.filter(
+            (p: { time: unknown; value: unknown }) =>
+              p.value != null && !isNaN(p.value as number),
+          );
+          rsiRef.current.setData(validRsi);
+
+          // Capture last RSI value for divider label
+          const lastRsi = validRsi[validRsi.length - 1];
+          setRsiValue(
+            lastRsi?.value != null ? (lastRsi.value as number) : null,
+          );
+
+          rsiObRef.current.setData(
+            validRsi.map((p: { time: unknown }) => ({
+              time: p.time,
+              value: 70,
+            })),
+          );
+          rsiOsRef.current.setData(
+            validRsi.map((p: { time: unknown }) => ({
+              time: p.time,
+              value: 30,
+            })),
+          );
+        }
+      } catch (e) {
+        console.warn("RSI calc error", e);
+      }
     }
-  }, [rawData, range, prevPrice]);
 
-  // ── Loading state ────────────────────────────────────────────────────────
-  if (isLoading) {
-    return (
-      <div
-        style={{
-          height: CHART_HEIGHT,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <div
-          style={{
-            width: 24,
-            height: 24,
-            borderRadius: "50%",
-            border: "2px solid rgba(255,198,0,0.15)",
-            borderTopColor: "rgba(255,198,0,0.7)",
-            animation: "lwspin 0.7s linear infinite",
-          }}
-        />
-        <style>{`@keyframes lwspin { to { transform: rotate(360deg); } }`}</style>
-      </div>
-    );
-  }
+    // ── Force rightmost position after chart has painted ─────────────────
+    // rAF ensures lightweight-charts has completed its first layout pass
+    // before we touch the timeScale — this is what prevents the off-by-a-few
+    // bars issue when range changes or the chart first loads.
+    const vc = VISIBLE_CANDLES[range];
+    const totalBars = candles.length;
 
-  if (!rawData.length) {
-    return (
-      <div
-        style={{
-          height: CHART_HEIGHT,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          color: "rgba(255,255,255,0.2)",
-          fontSize: 13,
-        }}
-      >
-        ไม่มีข้อมูล
-      </div>
-    );
-  }
+    const scrollToEnd = () => {
+      if (!mainChartRef.current) return;
+      mainChartRef.current.timeScale().setVisibleLogicalRange({
+        from: Math.max(0, totalBars - vc),
+        to: totalBars - 1,
+      });
+      rsiChartRef.current?.timeScale().setVisibleLogicalRange({
+        from: Math.max(0, totalBars - vc),
+        to: totalBars - 1,
+      });
+    };
+
+    // Double rAF: first frame = DOM commit, second frame = paint complete
+    requestAnimationFrame(() => requestAnimationFrame(scrollToEnd));
+  }, [isReady, rawData, range, prevPrice]);
+
+  // ── Render ───────────────────────────────────────────────────────────────
+  const totalHeight = MAIN_CHART_HEIGHT + RSI_CHART_HEIGHT + 28; // 28 = divider
 
   return (
+    // wrapperRef is watched by ResizeObserver — stays visible always so
+    // the observer can measure it, but chart DOM is only added once isReady.
     <div
-      ref={containerRef}
-      style={{
-        width: "100%",
-        height: CHART_HEIGHT,
-        overflow: "hidden",
-        borderRadius: 8,
-      }}
-    />
+      ref={wrapperRef}
+      data-chart-ready={isReady ? "true" : "false"}
+      style={{ width: "100%", minHeight: totalHeight }}
+    >
+      {/* Loading spinner — shown while data is fetching OR charts not ready */}
+      {(isLoading || !isReady) && (
+        <div
+          style={{
+            height: totalHeight,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <div
+            style={{
+              width: 24,
+              height: 24,
+              borderRadius: "50%",
+              border: "2px solid rgba(255,198,0,0.15)",
+              borderTopColor: "rgba(255,198,0,0.7)",
+              animation: "lwspin 0.7s linear infinite",
+            }}
+          />
+          <style>{`@keyframes lwspin { to { transform: rotate(360deg); } }`}</style>
+        </div>
+      )}
+
+      {/* Empty state */}
+      {isReady && !isLoading && !rawData.length && (
+        <div
+          style={{
+            height: totalHeight,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "rgba(255,255,255,0.2)",
+            fontSize: 13,
+          }}
+        >
+          ไม่มีข้อมูล
+        </div>
+      )}
+
+      {/* Chart UI — rendered (and thus measurable) even before isReady,
+          but createChart is only called once isReady flips true */}
+      <div
+        style={{
+          display: isReady && !isLoading && rawData.length ? "block" : "none",
+        }}
+      >
+        {/* Legend */}
+        <div
+          style={{
+            display: "flex",
+            gap: 10,
+            padding: "0 2px 6px",
+            flexWrap: "wrap",
+          }}
+        >
+          {EMA_CONFIGS.map((cfg, idx) => (
+            <div
+              key={cfg.length}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 5,
+                fontSize: 10,
+                fontFamily: "monospace",
+                color: cfg.color,
+              }}
+            >
+              <div
+                style={{
+                  width: 14,
+                  height: 2,
+                  borderRadius: 1,
+                  background: cfg.color,
+                  flexShrink: 0,
+                }}
+              />
+              <span
+                style={{ color: "rgba(255,255,255,0.45)", fontWeight: 400 }}
+              >
+                {cfg.label}:
+              </span>
+              <span style={{ color: cfg.color, fontWeight: 700 }}>
+                {emaValues[idx] != null ? fmt(emaValues[idx]) : "—"}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        {/* Main candlestick */}
+        <div
+          ref={mainContainerRef}
+          style={{
+            width: "100%",
+            height: MAIN_CHART_HEIGHT,
+            overflow: "hidden",
+            borderRadius: "8px 8px 0 0",
+          }}
+        />
+
+        {/* RSI divider label */}
+        <div
+          style={{
+            padding: "3px 8px",
+            background: "rgba(30,127,203,0.06)",
+            borderLeft: "2px solid rgba(30,127,203,0.5)",
+            fontSize: 9,
+            fontFamily: "monospace",
+            letterSpacing: "0.06em",
+            textTransform: "uppercase",
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+          }}
+        >
+          <span style={{ color: "rgba(30,127,203,0.8)" }}>RSI(14)</span>
+          <span
+            style={{
+              color: "#1e7fcb",
+              fontWeight: 700,
+              fontSize: 10,
+              textTransform: "none",
+              letterSpacing: 0,
+            }}
+          >
+            {rsiValue != null ? rsiValue.toFixed(2) : "—"}
+          </span>
+          <span style={{ color: "rgba(255,255,255,0.2)", marginLeft: "auto" }}>
+            OB 70 · OS 30
+          </span>
+        </div>
+
+        {/* RSI pane */}
+        <div
+          ref={rsiContainerRef}
+          style={{
+            width: "100%",
+            height: RSI_CHART_HEIGHT,
+            overflow: "hidden",
+            borderRadius: "0 0 8px 8px",
+          }}
+        />
+      </div>
+    </div>
   );
 }
 
@@ -521,13 +862,13 @@ export function StockDetailModal({
   const [marketData, setMarketData] = useState<PrePostData | null>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
-  const [range, setRange] = useState<TimeRange>("1d");
+  const [range, setRange] = useState<TimeRange>("1m");
   const [chartHistory, setChartHistory] = useState<ChartHistoryResponse | null>(
     null,
   );
   const [isLoadingChart, setIsLoadingChart] = useState(false);
   const [chartError, setChartError] = useState<string | null>(null);
-  const [displayedRange, setDisplayedRange] = useState<TimeRange>("1d");
+  const [displayedRange, setDisplayedRange] = useState<TimeRange>("1m");
   const isMarketOpen = useMarketStore((s) => s.marketStatus?.isOpen ?? true);
 
   const fetchMarketData = useCallback(async () => {
@@ -648,13 +989,7 @@ export function StockDetailModal({
       : null;
 
   const rawChartData = chartHistory?.data ?? [];
-  const chartData = (() => {
-    if (displayedRange === "1m" && rawChartData.length > 0) {
-      // route already returns only today's 1m bars — use them all
-      return rawChartData;
-    }
-    return rawChartData;
-  })();
+  const chartData = rawChartData;
 
   const minPrice = chartData.length
     ? Math.min(...chartData.map((d) => d.price))
@@ -779,7 +1114,7 @@ export function StockDetailModal({
               {chartError ? (
                 <div
                   style={{
-                    height: CHART_HEIGHT,
+                    height: MAIN_CHART_HEIGHT + RSI_CHART_HEIGHT + 28,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
