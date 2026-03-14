@@ -89,19 +89,6 @@ export async function getAdvancedLevels(
       ? (closes[closes.length - 3] ?? closes[closes.length - 2])
       : closes[closes.length - 2];
 
-    // console.log(
-    //   "stock",
-    //   symbol,
-    //   "lastClose",
-    //   lastClose,
-    //   "prevClose",
-    //   prevClose,
-    //   "isIncomplete",
-    //   isIncomplete,
-    //   "previousClose",
-    //   previousClose,
-    // );
-
     /* ================= EMA ================= */
     function calcEMA(data: number[], period: number): number {
       const p = Math.min(period, data.length);
