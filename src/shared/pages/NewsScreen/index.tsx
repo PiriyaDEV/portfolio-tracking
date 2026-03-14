@@ -9,7 +9,7 @@ import {
   CHANNELS,
   CHANNEL_DEFAULT_AUTHOR,
 } from "./config.constants";
-import { StockDetailModal } from "../AnalystScreen/components/GraphPrice/components/GraphModal";
+import { GraphModal } from "../AnalystScreen/components/GraphPrice/components/GraphModal";
 import { useMarketStore } from "@/store/useMarketStore";
 
 /* =======================
@@ -449,7 +449,7 @@ export default function NewsScreen() {
   return (
     <div className="max-w-[600px] mx-auto">
       {selectedSymbol && (
-        <StockDetailModal
+        <GraphModal
           symbol={selectedSymbol}
           onClose={() => setSelectedSymbol(null)}
           currencyRate={currencyRate}

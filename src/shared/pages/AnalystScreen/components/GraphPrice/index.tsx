@@ -17,7 +17,7 @@ import {
   getFearGreedText,
   mapFearGreed,
 } from "../FearGreedGauge";
-import { StockDetailModal } from "./components/GraphModal";
+import { GraphModal } from "./components/GraphModal";
 import {
   SkeletonMarketBar,
   SkeletonPulse,
@@ -269,7 +269,7 @@ export function GraphPrice({ assets, market }: Props) {
       )}
 
       {selectedSymbol && selectedAsset && (
-        <StockDetailModal
+        <GraphModal
           symbol={selectedSymbol}
           asset={assets.find((a) => a.symbol === selectedSymbol) ?? null}
           onClose={() => setSelectedSymbol(null)}

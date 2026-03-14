@@ -3,7 +3,7 @@
 import { getLogo, getName } from "@/app/lib/utils";
 import CommonLoading from "@/shared/components/common/CommonLoading";
 import { useEffect, useMemo, useState } from "react";
-import { StockDetailModal } from "../GraphPrice/components/GraphModal";
+import { GraphModal } from "../GraphPrice/components/GraphModal";
 import { useMarketStore } from "@/store/useMarketStore";
 
 /* =======================
@@ -423,7 +423,7 @@ export default function EarningsPage({
   return (
     <div>
       {selectedSymbol && (
-        <StockDetailModal
+        <GraphModal
           symbol={selectedSymbol}
           onClose={() => setSelectedSymbol(null)}
           currencyRate={currencyRate}

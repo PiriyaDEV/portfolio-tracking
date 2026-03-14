@@ -5,7 +5,7 @@ import { AdvancedLevels } from "@/app/api/stock/support.function";
 import StockCard from "../AnalystScreen/components/StockCard";
 import StockSearchSelect from "./components/StockSearchSelect";
 import { useState } from "react";
-import { StockDetailModal } from "../AnalystScreen/components/GraphPrice/components/GraphModal";
+import { GraphModal } from "../AnalystScreen/components/GraphPrice/components/GraphModal";
 import { useMarketStore } from "@/store/useMarketStore";
 
 export interface StockResult {
@@ -50,7 +50,7 @@ export default function ViewScreen({
   return (
     <div className="w-full px-4 mt-4 space-y-4 pb-[120px]">
       {selectedSymbol && (
-        <StockDetailModal
+        <GraphModal
           symbol={selectedSymbol}
           onClose={() => setSelectedSymbol(null)}
           currencyRate={currencyRate}

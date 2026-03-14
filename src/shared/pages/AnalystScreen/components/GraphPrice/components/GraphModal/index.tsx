@@ -67,7 +67,7 @@ type ChartHistoryResponse = {
   data: ChartHistoryPoint[];
 };
 
-type StockDetailModalProps = {
+type GraphModalProps = {
   symbol: string;
   asset?: Asset | null;
   onClose: () => void;
@@ -1092,15 +1092,15 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 }
 
 /* ─────────────────────────────────────────────
-   StockDetailModal
+   GraphModal
 ───────────────────────────────────────────── */
 
-export function StockDetailModal({
+export function GraphModal({
   asset,
   onClose,
   currencyRate,
   symbol,
-}: StockDetailModalProps) {
+}: GraphModalProps) {
   const overlayRef = useRef<HTMLDivElement>(null);
   const [levels, setLevels] = useState<AdvancedLevels | null>(null);
   const [activeTab, setActiveTab] = useState<"info" | "analysis">("info");

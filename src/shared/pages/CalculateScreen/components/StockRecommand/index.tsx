@@ -17,7 +17,7 @@ import { FaSeedling, FaShieldAlt, FaUniversity } from "react-icons/fa";
 import { TbMoneybag } from "react-icons/tb";
 import { getLogo } from "@/app/lib/utils";
 import CommonLoading from "@/shared/components/common/CommonLoading";
-import { StockDetailModal } from "@/shared/pages/AnalystScreen/components/GraphPrice/components/GraphModal";
+import { GraphModal } from "@/shared/pages/AnalystScreen/components/GraphPrice/components/GraphModal";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -696,7 +696,7 @@ export default function StockRecommendScreen({
   return (
     <div className="w-full pb-[20px]">
       {selectedSymbol && (
-        <StockDetailModal
+        <GraphModal
           symbol={selectedSymbol}
           onClose={() => setSelectedSymbol(null)}
           currencyRate={currencyRate}

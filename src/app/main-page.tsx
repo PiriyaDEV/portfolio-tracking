@@ -49,7 +49,7 @@ import {
 import { AUTO_REFRESH_INTERVAL_MS } from "./config";
 import { usePageVisible } from "@/shared/hooks/usePageVisible";
 import { useMarketStore } from "@/store/useMarketStore";
-import { StockDetailModal } from "@/shared/pages/AnalystScreen/components/GraphPrice/components/GraphModal";
+import { GraphModal } from "@/shared/pages/AnalystScreen/components/GraphPrice/components/GraphModal";
 
 const isMock = false;
 
@@ -577,7 +577,7 @@ export default function MainApp() {
       className={`mt-[81px] ${currentPage === "portfolio" ? "mb-[172px]" : ""}`}
     >
       {selectedSymbol && (
-        <StockDetailModal
+        <GraphModal
           symbol={selectedSymbol}
           asset={assets.find((a) => a.symbol === selectedSymbol) ?? null}
           onClose={() => setSelectedSymbol(null)}

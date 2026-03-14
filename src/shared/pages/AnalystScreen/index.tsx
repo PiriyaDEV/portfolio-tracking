@@ -19,7 +19,7 @@ import StockCard from "./components/StockCard";
 import NewsScreen from "../NewsScreen";
 import Earning from "./components/Earning";
 import StockRecommendScreen from "../CalculateScreen/components/StockRecommand";
-import { StockDetailModal } from "./components/GraphPrice/components/GraphModal";
+import { GraphModal } from "./components/GraphPrice/components/GraphModal";
 
 // Re-export MarketResponse so existing imports still work
 export type { MarketResponse } from "./components/GraphPrice";
@@ -76,7 +76,7 @@ export default function AnalystScreen({ assets, wishlist, userId }: Props) {
   return (
     <div className="w-full px-4 mt-[50px] pb-[90px]">
       {selectedSymbol && (
-        <StockDetailModal
+        <GraphModal
           symbol={selectedSymbol}
           onClose={() => setSelectedSymbol(null)}
           currencyRate={currencyRate}

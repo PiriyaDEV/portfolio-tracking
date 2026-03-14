@@ -2,7 +2,7 @@
 
 import { getLogo, getName } from "@/app/lib/utils";
 import { useState } from "react";
-import { StockDetailModal } from "../GraphPrice/components/GraphModal";
+import { GraphModal } from "../GraphPrice/components/GraphModal";
 import { useMarketStore } from "@/store/useMarketStore";
 
 type Currency = "THB" | "USD";
@@ -172,7 +172,7 @@ export default function DividendSummary({ data }: DividendSummaryProps) {
   return (
     <div className="mt-[80px] pb-[100px] flex flex-col gap-0">
       {selectedSymbol && (
-        <StockDetailModal
+        <GraphModal
           symbol={selectedSymbol}
           onClose={() => setSelectedSymbol(null)}
           currencyRate={currencyRate}
