@@ -43,6 +43,11 @@ const RANGE_MAP: Record<TimeRange, ApiRange> = {
    Time formatter
 ======================= */
 
+const formatMoney = (v: number) =>
+  new Intl.NumberFormat("th-TH", {
+    maximumFractionDigits: 0,
+  }).format(v);
+
 const formatTime = (t: number, r: TimeRange) => {
   const d = new Date(t * 1000);
 
@@ -150,12 +155,39 @@ export default function SNPCompare({ assets }: { assets: Asset[] }) {
     fetchData();
   }, [range, assets]);
 
-  const chartEnd = data.at(-1) ?? { portfolio: 0, snp500: 0 };
-
   // ── 1D summary cards: คำนวณจาก store โดยตรง ──────────────────────────────
   // ใช้ prices/previousPrice จาก store เหมือนกับ row และ chip
   // เพื่อให้ % ตรงกันทุกที่
   const { prices, previousPrice, currencyRate } = useMarketStore();
+
+  const portfolioBase = (() => {
+    let total = 0;
+
+    for (const a of assets) {
+      if (isCash(a.symbol)) continue;
+
+      const price = prices[a.symbol];
+      if (!price) continue;
+
+      const rate = isThaiStock(a.symbol) ? 1 : currencyRate;
+
+      total += price * a.quantity * rate;
+    }
+
+    return total;
+  })();
+
+  const chartEnd = (() => {
+    if (!data.length) return { portfolio: 0, snp500: 0, portfolioMoney: 0 };
+
+    const last = data[data.length - 1];
+
+    return {
+      ...last,
+      portfolioMoney: (portfolioBase * last.portfolio) / 100,
+      snpMoney: (portfolioBase * last.snp500) / 100,
+    };
+  })();
 
   const storeEnd1D = (() => {
     const filteredAssets = assets.filter((a) => !isCash(a.symbol));
@@ -183,14 +215,26 @@ export default function SNPCompare({ assets }: { assets: Asset[] }) {
     if (!hasAll || !spCur || !spPrev || portfolioPrev === 0 || spPrev === 0)
       return null;
 
+    const snpPercent = (spCur / spPrev - 1) * 100;
+
     return {
       portfolio: (portfolioNow / portfolioPrev - 1) * 100,
       snp500: (spCur / spPrev - 1) * 100,
+      portfolioMoney: portfolioNow - portfolioPrev,
+      snpMoney: (portfolioBase * snpPercent) / 100,
     };
   })();
 
   // 1D → ใช้ store, range อื่น → ใช้ chart end point
-  const end = range === "1D" && storeEnd1D ? storeEnd1D : chartEnd;
+  const end =
+    range === "1D" && storeEnd1D
+      ? storeEnd1D
+      : (chartEnd ?? {
+          portfolio: 0,
+          snp500: 0,
+          portfolioMoney: 0,
+          snpMoney: 0,
+        });
 
   const getAdvice = (portfolio: number, snp500: number) => {
     const diff = portfolio - snp500;
@@ -463,6 +507,44 @@ export default function SNPCompare({ assets }: { assets: Asset[] }) {
                   {val >= 0 ? "+" : ""}
                   {val.toFixed(2)}%
                 </p>
+                {label === "📈 S&P 500" && (
+                  <p
+                    className="!text-gray-500 text-[10px]"
+                    style={{
+                      fontSize: "12px",
+                      marginTop: "4px",
+                      fontVariantNumeric: "tabular-nums",
+                      color:
+                        end.snpMoney > 0
+                          ? "#4ade80"
+                          : end.snpMoney < 0
+                            ? "#f87171"
+                            : "#9ca3af",
+                    }}
+                  >
+                    ({end.snpMoney >= 0 ? "+" : ""}
+                    {formatMoney(end?.snpMoney ?? 0)} บาท)
+                  </p>
+                )}
+                {label === "💼 พอร์ตของคุณ" && (
+                  <p
+                    className="!text-gray-500 text-[10px]"
+                    style={{
+                      fontSize: "12px",
+                      marginTop: "4px",
+                      fontVariantNumeric: "tabular-nums",
+                      color:
+                        end.portfolioMoney > 0
+                          ? "#4ade80"
+                          : end.portfolioMoney < 0
+                            ? "#f87171"
+                            : "#9ca3af",
+                    }}
+                  >
+                    ({end.portfolioMoney >= 0 ? "+" : ""}
+                    {formatMoney(end?.portfolioMoney ?? 0)} บาท)
+                  </p>
+                )}
               </div>
             );
           })}
