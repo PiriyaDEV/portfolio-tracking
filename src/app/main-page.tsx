@@ -49,6 +49,7 @@ import {
 import { AUTO_REFRESH_INTERVAL_MS } from "./config";
 import { usePageVisible } from "@/shared/hooks/usePageVisible";
 import { useMarketStore } from "@/store/useMarketStore";
+import { StockDetailModal } from "@/shared/pages/AnalystScreen/components/GraphPrice/components/GraphModal";
 
 const isMock = false;
 
@@ -96,6 +97,7 @@ export default function MainApp() {
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [sortBy, setSortBy] = useState<"asset" | "value" | "profit">("value");
+  const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [currentPage, setCurrentPage] = useState<
     "portfolio" | "market" | "calculator" | "view"
@@ -574,6 +576,14 @@ export default function MainApp() {
     <div
       className={`mt-[81px] ${currentPage === "portfolio" ? "mb-[172px]" : ""}`}
     >
+      {selectedSymbol && (
+        <StockDetailModal
+          symbol={selectedSymbol}
+          asset={assets.find((a) => a.symbol === selectedSymbol) ?? null}
+          onClose={() => setSelectedSymbol(null)}
+          currencyRate={currencyRate}
+        />
+      )}
       {isEditOpen && (
         <EditModal
           editAssets={editAssets}
@@ -724,18 +734,29 @@ export default function MainApp() {
                     <div className="flex flex-col gap-1">
                       <div className="flex items-center gap-2">
                         <div
-                          className={`w-[32px] h-[32px] rounded-full bg-cover bg-center border border-white/10 shrink-0 ${logoUrl ? "" : "bg-white"}`}
-                          style={{ backgroundImage: `url(${logoUrl})` }}
-                        />
-                        <div>
-                          <div className="font-bold text-[15px] text-white leading-tight">
-                            {getName(asset.symbol)}
-                          </div>
-                          <div className="font-normal text-[11px] text-gray-500 max-w-[90px] truncate">
-                            {graphs[asset.symbol]?.shortName ?? ""}
+                          className="flex items-center gap-2 cursor-pointer"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedSymbol(asset.symbol);
+                          }}
+                        >
+                          <div
+                            className={`w-[32px] h-[32px] rounded-full bg-cover bg-center border border-white/10 shrink-0 ${logoUrl ? "" : "bg-white"}`}
+                            style={{ backgroundImage: `url(${logoUrl})` }}
+                          />
+
+                          <div>
+                            <div className="font-bold text-[15px] text-white leading-tight">
+                              {getName(asset.symbol)}
+                            </div>
+
+                            <div className="font-normal text-[11px] text-gray-500 max-w-[90px] truncate">
+                              {graphs[asset.symbol]?.shortName ?? ""}
+                            </div>
                           </div>
                         </div>
                       </div>
+
                       <div className="text-[11px] text-gray-500 flex items-center gap-1">
                         <ChartIcon className="text-accent-yellow/60" />
                         {portfolioValueThb > 0

@@ -19,6 +19,7 @@ import StockCard from "./components/StockCard";
 import NewsScreen from "../NewsScreen";
 import Earning from "./components/Earning";
 import StockRecommendScreen from "../CalculateScreen/components/StockRecommand";
+import { StockDetailModal } from "./components/GraphPrice/components/GraphModal";
 
 // Re-export MarketResponse so existing imports still work
 export type { MarketResponse } from "./components/GraphPrice";
@@ -48,6 +49,8 @@ export default function AnalystScreen({ assets, wishlist, userId }: Props) {
     market,
   } = useMarketStore();
 
+  const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
+
   const [activeTab, setActiveTab] = useState<TabKey>("graph");
 
   const sortedSymbols = Object.keys(advancedLevels)
@@ -72,6 +75,14 @@ export default function AnalystScreen({ assets, wishlist, userId }: Props) {
 
   return (
     <div className="w-full px-4 mt-[50px] pb-[90px]">
+      {selectedSymbol && (
+        <StockDetailModal
+          symbol={selectedSymbol}
+          onClose={() => setSelectedSymbol(null)}
+          currencyRate={currencyRate}
+        />
+      )}
+
       {/* Tabs */}
       <div className="fixed top-[67px] left-1/2 -translate-x-1/2 max-w-[450px] w-full z-[99] bg-black py-3 border-b border-black-lighter2">
         <div className="flex justify-around">
@@ -113,6 +124,7 @@ export default function AnalystScreen({ assets, wishlist, userId }: Props) {
                 symbol={symbol}
                 price={prices[symbol]!}
                 levels={advancedLevels[symbol]}
+                onSelect={(sym) => setSelectedSymbol(sym)}
                 showAnalyst
               />
             ))}

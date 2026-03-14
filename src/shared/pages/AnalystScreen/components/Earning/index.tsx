@@ -3,6 +3,8 @@
 import { getLogo, getName } from "@/app/lib/utils";
 import CommonLoading from "@/shared/components/common/CommonLoading";
 import { useEffect, useMemo, useState } from "react";
+import { StockDetailModal } from "../GraphPrice/components/GraphModal";
+import { useMarketStore } from "@/store/useMarketStore";
 
 /* =======================
    Types
@@ -203,6 +205,8 @@ export default function EarningsPage({
 }) {
   const [data, setData] = useState<UiEarning[]>([]);
   const [loading, setLoading] = useState(true);
+  const { currencyRate, graphs } = useMarketStore();
+  const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
 
   /* ===== merge wishlist + assets ===== */
   const mergedAssets = useMemo(() => {
@@ -344,7 +348,13 @@ export default function EarningsPage({
 
                       {/* Card Header */}
                       <div className="flex justify-between items-start mb-3">
-                        <div className="flex items-center gap-3">
+                        <div
+                          className="flex items-center gap-3"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setSelectedSymbol(e.symbol);
+                          }}
+                        >
                           <div
                             className={`
                               w-9 h-9 rounded-full bg-cover bg-center flex-shrink-0
@@ -356,12 +366,18 @@ export default function EarningsPage({
                               backgroundImage: `url(${getLogo(e.symbol)})`,
                             }}
                           />
-                          <div
-                            className={`font-bold text-[15px] tracking-wide ${
-                              past ? "text-white/60" : "text-white"
-                            }`}
-                          >
-                            {getName(e.symbol)}
+                          <div className="flex flex-col gap-1">
+                            <div
+                              className={`font-bold text-[15px] tracking-wide ${
+                                past ? "text-white/60" : "text-white"
+                              }`}
+                            >
+                              {getName(e.symbol)}
+                            </div>
+
+                            <div className="font-normal text-[11px] text-gray-500 max-w-[90px] truncate">
+                              {graphs[e.symbol]?.shortName ?? ""}
+                            </div>
                           </div>
                         </div>
 
@@ -406,6 +422,14 @@ export default function EarningsPage({
 
   return (
     <div>
+      {selectedSymbol && (
+        <StockDetailModal
+          symbol={selectedSymbol}
+          onClose={() => setSelectedSymbol(null)}
+          currencyRate={currencyRate}
+        />
+      )}
+
       {/* Ambient background glow */}
       <div className="fixed inset-0 pointer-events-none">
         <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-900/10 rounded-full blur-3xl" />

@@ -4,6 +4,9 @@
 import { AdvancedLevels } from "@/app/api/stock/support.function";
 import StockCard from "../AnalystScreen/components/StockCard";
 import StockSearchSelect from "./components/StockSearchSelect";
+import { useState } from "react";
+import { StockDetailModal } from "../AnalystScreen/components/GraphPrice/components/GraphModal";
+import { useMarketStore } from "@/store/useMarketStore";
 
 export interface StockResult {
   symbol: string;
@@ -29,6 +32,8 @@ export default function ViewScreen({
   onTogglePin,
 }: Props) {
   const safeData: StockResult[] = Array.isArray(data) ? data : [];
+  const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
+  const { currencyRate } = useMarketStore();
 
   const searchedItem = searchedSymbol
     ? safeData.find((d) => d.symbol === searchedSymbol)
@@ -44,11 +49,15 @@ export default function ViewScreen({
 
   return (
     <div className="w-full px-4 mt-4 space-y-4 pb-[120px]">
+      {selectedSymbol && (
+        <StockDetailModal
+          symbol={selectedSymbol}
+          onClose={() => setSelectedSymbol(null)}
+          currencyRate={currencyRate}
+        />
+      )}
       {/* Search */}
-      <StockSearchSelect
-        onSelect={handleSearch}
-        clearAfterSelect
-      />
+      <StockSearchSelect onSelect={handleSearch} clearAfterSelect />
 
       {loading && <div className="text-gray-400">กำลังโหลด...</div>}
 
@@ -86,6 +95,7 @@ export default function ViewScreen({
           symbol={item.symbol}
           price={item.price}
           levels={item.levels}
+          onSelect={(sym) => setSelectedSymbol(sym)}
           pinned
           onTogglePin={onTogglePin}
         />

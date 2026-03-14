@@ -26,6 +26,7 @@ interface Props {
   pinned?: boolean;
   onTogglePin?: (symbol: string) => void;
   showAnalyst?: boolean;
+  onSelect?: (symbol: string) => void; // ← NEW
 }
 
 export default function StockCard({
@@ -35,6 +36,7 @@ export default function StockCard({
   pinned = false,
   onTogglePin,
   showAnalyst = false,
+  onSelect, // ← NEW
 }: Props) {
   const strongBuy = isStrongBuy(price, levels.entry2);
   const buyZone = isNormalBuy(price, levels.entry1, levels.entry2);
@@ -155,63 +157,74 @@ export default function StockCard({
       {/* ─── Content ─────────────────────────────────────────────── */}
       <div className="relative z-10 flex flex-col gap-2.5">
         {/* ── Row 1: Logo + Name + Price + Pin ── */}
-        <div className="flex items-center gap-2.5">
-          {/* Logo */}
+        <div className="flex items-center justify-between">
           <div
-            className="w-9 h-9 rounded-full bg-cover bg-center bg-white border border-white/15 shrink-0 shadow-[0_0_0_1px_rgba(255,255,255,0.06)]"
-            style={{ backgroundImage: `url(${getLogo(symbol)})` }}
-          />
+            className="flex items-center gap-2.5"
+            onClick={() => onSelect?.(symbol)}
+          >
+            {/* Logo — click opens detail modal */}
+            <div
+              className={`w-9 h-9 rounded-full bg-cover bg-center bg-white border border-white/15 shrink-0 shadow-[0_0_0_1px_rgba(255,255,255,0.06)] ${
+                onSelect
+                  ? "cursor-pointer hover:ring-2 hover:ring-white/30 hover:scale-110 transition-all duration-150"
+                  : ""
+              }`}
+              style={{ backgroundImage: `url(${getLogo(symbol)})` }}
+            />
 
-          {/* Name + pill */}
-          <div className="flex-1 min-w-0">
-            <p className="text-[14px] font-bold text-[#f0f0f0] leading-tight truncate">
-              {getName(symbol)}
-            </p>
-            <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-[11px] !text-white/35 truncate max-w-[90px]">
-                {levels.shortName ?? getName(symbol)}
-              </span>
-              {/* % change pill */}
-              <span
-                className={`inline-flex items-center gap-1 rounded-[6px] px-1.5 py-0.5 text-[10px] font-semibold font-mono shrink-0 ${pillVariant}`}
-              >
-                {isUp ? (
-                  <TrendingUp size={8} />
-                ) : isDown ? (
-                  <TrendingDown size={8} />
-                ) : (
-                  <Minus size={8} />
-                )}
-                {isUp && "+"}
-                {percentChange.toFixed(2)}%
-              </span>
+            {/* Name + pill */}
+            <div className="flex-1 min-w-0">
+              <p className="text-[14px] font-bold text-[#f0f0f0] leading-tight truncate">
+                {getName(symbol)}
+              </p>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span className="text-[11px] !text-white/35 truncate max-w-[90px]">
+                  {levels.shortName ?? getName(symbol)}
+                </span>
+                {/* % change pill */}
+                <span
+                  className={`inline-flex items-center gap-1 rounded-[6px] px-1.5 py-0.5 text-[10px] font-semibold font-mono shrink-0 ${pillVariant}`}
+                >
+                  {isUp ? (
+                    <TrendingUp size={8} />
+                  ) : isDown ? (
+                    <TrendingDown size={8} />
+                  ) : (
+                    <Minus size={8} />
+                  )}
+                  {isUp && "+"}
+                  {percentChange.toFixed(2)}%
+                </span>
+              </div>
             </div>
           </div>
 
-          {/* Price */}
-          <div className="shrink-0 text-right">
-            <p className="text-[17px] font-bold text-[#f0f0f0] font-mono leading-none">
-              {fNumber(price)}
-            </p>
-            <p className="text-[9px] font-semibold !text-white/20 uppercase mt-0.5 text-right">
-              USD
-            </p>
-          </div>
+          <div className="flex items-center gap-2.5">
+            {/* Price */}
+            <div className="shrink-0 text-right">
+              <p className="text-[17px] font-bold text-[#f0f0f0] font-mono leading-none">
+                {fNumber(price)}
+              </p>
+              <p className="text-[9px] font-semibold !text-white/20 uppercase mt-0.5 text-right">
+                USD
+              </p>
+            </div>
 
-          {/* Pin */}
-          {onTogglePin && (
-            <button
-              onClick={() => onTogglePin(symbol)}
-              title="Pin to watchlist"
-              className={`shrink-0 rounded-lg p-1.5 transition-all hover:bg-white/[0.05] ${
-                pinned
-                  ? "!text-amber-400"
-                  : "!text-white/20 hover:!text-amber-400"
-              }`}
-            >
-              <FaThumbtack size={11} />
-            </button>
-          )}
+            {/* Pin */}
+            {onTogglePin && (
+              <button
+                onClick={() => onTogglePin(symbol)}
+                title="Pin to watchlist"
+                className={`shrink-0 rounded-lg p-1.5 transition-all hover:bg-white/[0.05] ${
+                  pinned
+                    ? "!text-amber-400"
+                    : "!text-white/20 hover:!text-amber-400"
+                }`}
+              >
+                <FaThumbtack size={11} />
+              </button>
+            )}
+          </div>
         </div>
 
         {/* ── Signal badge ── */}

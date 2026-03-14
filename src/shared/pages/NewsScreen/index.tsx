@@ -9,6 +9,8 @@ import {
   CHANNELS,
   CHANNEL_DEFAULT_AUTHOR,
 } from "./config.constants";
+import { StockDetailModal } from "../AnalystScreen/components/GraphPrice/components/GraphModal";
+import { useMarketStore } from "@/store/useMarketStore";
 
 /* =======================
    Types
@@ -29,7 +31,13 @@ type ChannelCache = {
 /* =======================
    TickerChip Component
 ======================= */
-function TickerChip({ ticker }: { ticker: string }) {
+function TickerChip({
+  ticker,
+  setSelectedSymbol,
+}: {
+  ticker: string;
+  setSelectedSymbol: any;
+}) {
   const token = process.env.NEXT_PUBLIC_LOGOKIT_TOKEN;
   const logoUrl = token
     ? `https://img.logokit.com/ticker/${ticker}?token=${token}`
@@ -37,7 +45,13 @@ function TickerChip({ ticker }: { ticker: string }) {
   const [imgError, setImgError] = useState(false);
 
   return (
-    <span className="bg-accent-yellow inline-flex items-center gap-1.5 mx-0.5 px-2 py-0.5 rounded-full border border-white/20 text-white/90 text-[13px] font-semibold align-middle mb-1">
+    <span
+      className="bg-accent-yellow inline-flex items-center gap-1.5 mx-0.5 px-2 py-0.5 rounded-full border border-white/20 text-white/90 text-[13px] font-semibold align-middle mb-1"
+      onClick={(e) => {
+        e.stopPropagation();
+        setSelectedSymbol(ticker);
+      }}
+    >
       {logoUrl && !imgError ? (
         <img
           src={logoUrl}
@@ -75,7 +89,10 @@ export default function NewsScreen() {
   // Per-channel cache: keyed by channel id
   const cacheRef = useRef<Record<string, ChannelCache>>({});
 
+  const { currencyRate } = useMarketStore();
+
   const [messages, setMessages] = useState<TelegramMessage[]>([]);
+  const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -380,7 +397,11 @@ export default function NewsScreen() {
 
       if (tickerCapture) {
         parts.push(
-          <TickerChip key={`chip-${keyCounter++}`} ticker={tickerCapture} />,
+          <TickerChip
+            key={`chip-${keyCounter++}`}
+            ticker={tickerCapture}
+            setSelectedSymbol={setSelectedSymbol}
+          />,
         );
       } else if (signalEmoji !== undefined || signalText2 !== undefined) {
         const raw =
@@ -427,6 +448,14 @@ export default function NewsScreen() {
   ======================= */
   return (
     <div className="max-w-[600px] mx-auto">
+      {selectedSymbol && (
+        <StockDetailModal
+          symbol={selectedSymbol}
+          onClose={() => setSelectedSymbol(null)}
+          currencyRate={currencyRate}
+        />
+      )}
+
       {/* ======================= HEADER ======================= */}
       <div className="fixed top-[160px] left-1/2 -translate-x-1/2 max-w-[450px] w-full z-[99]">
         {/* Title row */}
