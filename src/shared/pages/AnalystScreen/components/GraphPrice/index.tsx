@@ -148,7 +148,7 @@ export function GraphPrice({ assets, market }: Props) {
   // silentRefresh is intentionally NOT used here —
   // MainApp already calls it on the shared interval. Using it here too
   // would cause double-fetching every 20s.
-  const { prices, graphs, previousPrice, currencyRate } = useMarketStore();
+  const { prices, graphs, previousPrice, currencyRate, marketStatus } = useMarketStore();
 
   const [sortBy, setSortBy] = useState<SortBy>("none");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
@@ -192,11 +192,7 @@ export function GraphPrice({ assets, market }: Props) {
 
     const checkSessionAndFetch = async () => {
       try {
-        const res = await fetch("/api/market-status");
-        const json = await res.json();
-        const isPrePost =
-          json?.session === "pre-market" || json?.session === "post-market";
-        if (!isPrePost) {
+        if (!marketStatus.isPrePost) {
           setIsLoadingPrePost(false);
           return;
         }

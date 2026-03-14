@@ -173,12 +173,6 @@ function HAChart({
   range: TimeRange;
   isLoading: boolean;
 }) {
-  const [tooltip, setTooltip] = useState<{
-    x: number;
-    y: number;
-    candle: HACandle;
-  } | null>(null);
-
   const W = 380;
   const H = 204;
   const PAD = { top: 8, bottom: 28, left: 48, right: 4 };
@@ -268,7 +262,6 @@ function HAChart({
       <svg
         viewBox={`0 0 ${W} ${H}`}
         style={{ width: "100%", height: H, display: "block" }}
-        onMouseLeave={() => setTooltip(null)}
       >
         {gridLevels.map(({ price, y }, i) => (
           <g key={i}>
@@ -344,16 +337,7 @@ function HAChart({
           const color = c.isUp ? "#4ade80" : "#f87171";
           const x = cx - candleW / 2;
           return (
-            <g
-              key={i}
-              onMouseEnter={() =>
-                setTooltip({
-                  x: ((cx - PAD.left) / chartW) * 100,
-                  y: bodyTop,
-                  candle: c,
-                })
-              }
-            >
+            <g key={i}>
               <line
                 x1={cx}
                 y1={toY(c.high)}
@@ -401,70 +385,6 @@ function HAChart({
           );
         })}
       </svg>
-
-      {tooltip && (
-        <div
-          style={{
-            position: "absolute",
-            top: 4,
-            left: tooltip.x > 60 ? undefined : `calc(${tooltip.x}% + 48px)`,
-            right: tooltip.x > 60 ? `${100 - tooltip.x}%` : undefined,
-            background: "#1a1a1a",
-            border: "1px solid rgba(255,198,0,0.2)",
-            borderRadius: 8,
-            padding: "6px 10px",
-            fontSize: 11,
-            fontFamily: "monospace",
-            color: "#fff",
-            pointerEvents: "none",
-            zIndex: 10,
-            minWidth: 90,
-          }}
-        >
-          <div
-            style={{
-              color: "rgba(255,255,255,0.4)",
-              marginBottom: 3,
-              fontSize: 10,
-            }}
-          >
-            {formatTime(tooltip.candle.time, range)}
-          </div>
-          {(["open", "high", "low", "close"] as const).map((k) => (
-            <div
-              key={k}
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                gap: 10,
-              }}
-            >
-              <span
-                style={{
-                  color: "rgba(255,255,255,0.35)",
-                  textTransform: "uppercase",
-                  fontSize: 10,
-                }}
-              >
-                {k}
-              </span>
-              <span
-                style={{
-                  color:
-                    k === "close"
-                      ? tooltip.candle.isUp
-                        ? "#4ade80"
-                        : "#f87171"
-                      : "#fff",
-                  fontWeight: k === "close" ? 700 : 400,
-                }}
-              >
-                {fmt(tooltip.candle[k])}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }

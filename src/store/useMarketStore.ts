@@ -52,6 +52,13 @@ export interface MarketState {
   dividend: any;
   currencyRate: number;
   market: MarketResponse;
+
+  marketStatus: {
+    isOpen: boolean;
+    session: string | null;
+    isPrePost: boolean;
+  };
+
   formattedDate: string;
 
   isLoading: boolean;
@@ -66,6 +73,7 @@ export interface MarketState {
   ) => Promise<void>;
   silentRefresh: (assets: Asset[]) => Promise<void>;
   resetMarket: () => void;
+  fetchMarketStatus: () => Promise<void>;
 }
 
 // ─── Guard: prevent overlapping silent refresh ────────────────────────────────
@@ -85,6 +93,38 @@ export const useMarketStore = create<MarketState>((set, get) => ({
   isLoading: true,
   isFirstBatchLoaded: false,
   isSilentRefreshing: false,
+
+  marketStatus: {
+    isOpen: false,
+    session: null,
+    isPrePost: false,
+  },
+
+  fetchMarketStatus: async () => {
+    try {
+      const res = await fetch("/api/market-status");
+      const json = await res.json();
+
+      const session = json?.session ?? null;
+
+      const isPrePost = session === "pre-market" || session === "post-market";
+
+      const isOpen =
+        session === "regular" ||
+        session === "pre-market" ||
+        session === "post-market";
+
+      useMarketStore.setState({
+        marketStatus: {
+          session,
+          isOpen,
+          isPrePost,
+        },
+      });
+    } catch (err) {
+      console.error("fetchMarketStatus error:", err);
+    }
+  },
 
   resetMarket: () =>
     set({

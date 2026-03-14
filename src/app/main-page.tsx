@@ -77,6 +77,8 @@ export default function MainApp() {
     loadData,
     silentRefresh,
     resetMarket,
+    fetchMarketStatus,
+    marketStatus,
   } = useMarketStore();
 
   // ─── User / session state (stays local — not shared across pages) ─────────
@@ -192,11 +194,8 @@ export default function MainApp() {
 
     const checkAndRefresh = async () => {
       try {
-        const res = await fetch("/api/market-status");
-        const { isOpen } = await res.json();
-        // silentRefresh calls fetchFinancialData + fetchMarket + fetchFxRate
-        // → updates prices/previousPrice/graphs in the store
-        // → GraphPrice and portfolio rows re-render automatically
+        await fetchMarketStatus();
+        const { isOpen } = useMarketStore.getState().marketStatus;
         if (isOpen) silentRefreshRef.current(assets);
       } catch (err) {
         console.error("Auto-refresh check failed:", err);
