@@ -436,18 +436,13 @@ function LWChart({ rawData, prevPrice, range, isLoading }: LWChartProps) {
       volume: 0,
     }));
 
-    // Zip indicator plot values with candle times by index.
-    // We ignore the time field from the indicator entirely and use candle[i].time.
-    // plot0 length === indicatorBars.length, nulls appear at the start (warmup period).
-    const zipWithCandleTime = (plots: { time: unknown; value: unknown }[]) => {
-      const offset = candles.length - plots.length; // how many leading candles have no indicator value
-      return plots
-        .map((p, i) => ({
-          time: candles[offset + i]?.time,
-          value: p.value as number,
-        }))
+    // plot0.length === indicatorBars.length always.
+    // Each entry has time = bars[i].time (our sequential int) and value = NaN during warmup.
+    // Map directly by index back to candle time, then filter out NaN warmup values.
+    const zipWithCandleTime = (plots: { time: unknown; value: unknown }[]) =>
+      plots
+        .map((p, i) => ({ time: candles[i]?.time, value: p.value as number }))
         .filter((p) => p.time != null && p.value != null && !isNaN(p.value));
-    };
 
     /* EMA */
     const newEmaValues: (number | null)[] = [null, null, null, null];
@@ -481,12 +476,21 @@ function LWChart({ rawData, prevPrice, range, isLoading }: LWChartProps) {
             ?.plot0 ?? [];
         const mappedRsi = zipWithCandleTime(raw);
         rsiRef.current.setData(mappedRsi);
-        rsiObRef.current.setData(
-          mappedRsi.map((p) => ({ time: p.time, value: 70 })),
-        );
-        rsiOsRef.current.setData(
-          mappedRsi.map((p) => ({ time: p.time, value: 30 })),
-        );
+
+        // OB/OS lines span the FULL candle time domain — this anchors the RSI
+        // chart's time axis to be identical to the main chart, so the RSI line
+        // never appears clipped or offset even during the warmup period.
+        const obFull = candles.map((c) => ({
+          time: c.time as Time,
+          value: 70,
+        }));
+        const osFull = candles.map((c) => ({
+          time: c.time as Time,
+          value: 30,
+        }));
+        rsiObRef.current.setData(obFull);
+        rsiOsRef.current.setData(osFull);
+
         const last = mappedRsi[mappedRsi.length - 1];
         setRsiValue(last?.value ?? null);
       } catch (e) {
