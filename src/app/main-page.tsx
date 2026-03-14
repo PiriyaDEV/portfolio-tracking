@@ -745,7 +745,7 @@ export default function MainApp() {
                           }}
                         >
                           <div
-                            className={`w-[32px] h-[32px] rounded-full bg-cover bg-center border border-white/10 shrink-0 ${logoUrl ? "" : "bg-white"}`}
+                            className={`w-[32px] h-[32px] rounded-full bg-cover bg-center border border-white/10 shrink-0 bg-white ${logoUrl ? "" : "bg-white"}`}
                             style={{ backgroundImage: `url(${logoUrl})` }}
                           />
 
