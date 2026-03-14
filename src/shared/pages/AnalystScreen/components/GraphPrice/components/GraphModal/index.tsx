@@ -321,6 +321,7 @@ function LWChart({ rawData, prevPrice, range, isLoading }: LWChartProps) {
         rightBarStaysOnScroll: true,
         timeVisible: intraday,
         secondsVisible: false,
+        ignoreWhitespaceIndices: true,
       },
       handleScroll: {
         mouseWheel: true,
@@ -850,7 +851,7 @@ export function StockDetailModal({
   const overlayRef = useRef<HTMLDivElement>(null);
 
   const [visible, setVisible] = useState(false);
-  const [range, setRange] = useState<TimeRange>("1m");
+  const [range, setRange] = useState<TimeRange>("1d");
   const [chartHistory, setChartHistory] = useState<ChartHistoryResponse | null>(
     null,
   );
@@ -985,7 +986,7 @@ export function StockDetailModal({
     <div
       ref={overlayRef}
       onClick={handleOverlayClick}
-      className="fixed inset-0 flex items-center justify-center !z-[100] p-4 backdrop-blur-sm"
+      className="fixed inset-0 flex items-center justify-center !z-[100] py-4 px-3 backdrop-blur-sm"
       style={{
         background: "rgba(0,0,0,0.80)",
         opacity: visible ? 1 : 0,
@@ -1051,7 +1052,7 @@ export function StockDetailModal({
 
         {/* Scrollable body */}
         <div
-          className="overflow-y-auto flex-1 px-5"
+          className="overflow-y-auto flex-1 px-3"
           style={{ scrollbarWidth: "none" }}
         >
           {/* Price */}
