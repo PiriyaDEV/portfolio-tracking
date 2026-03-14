@@ -20,6 +20,9 @@ const ASSET_TYPES: {
   { value: "BTC", label: "Bitcoin", emoji: "₿", forcedSymbol: "BTC-USD" },
 ];
 
+// Raw string values for numeric inputs (to preserve "0.000..." while typing)
+type RawValues = Record<number, { quantity?: string; costPerShare?: string }>;
+
 const EditModal = ({
   editAssets,
   setEditAssets,
@@ -36,10 +39,10 @@ const EditModal = ({
   setIsEditOpen: React.Dispatch<React.SetStateAction<boolean>>;
 }) => {
   const [isSaving, setIsSaving] = useState(false);
-  // Track asset type per card (index → AssetType)
   const [assetTypes, setAssetTypes] = useState<Record<number, AssetType>>({});
-  // Track which cards are "new" (showing type picker + search)
   const [newCardIndices, setNewCardIndices] = useState<Set<number>>(new Set());
+  // Store raw string values so "0.000001" isn't eaten by || "" coercion
+  const [rawValues, setRawValues] = useState<RawValues>({});
 
   const updateAsset = (
     index: number,
@@ -51,10 +54,8 @@ const EditModal = ({
     setEditAssets(updated);
   };
 
-  // Cards that are still in "new" state (incomplete) block saving
   const hasIncompleteCards = newCardIndices.size > 0;
 
-  // Also block if any existing asset is missing symbol, quantity, or costPerShare
   const hasInvalidAssets = editAssets.some(
     (a) => !a.symbol?.trim() || !a.quantity || !a.costPerShare,
   );
@@ -76,9 +77,18 @@ const EditModal = ({
 
   const handleAddNew = () => {
     addNewAsset();
-    // The new asset will be at the end
     const newIndex = editAssets.length;
     setNewCardIndices((prev) => new Set(prev).add(newIndex));
+  };
+
+  const handleRemoveAsset = (index: number) => {
+    removeAsset(index);
+    // Clean up raw values for this card
+    setRawValues((prev) => {
+      const next = { ...prev };
+      delete next[index];
+      return next;
+    });
   };
 
   const handleSelectAssetType = (cardIndex: number, type: AssetType) => {
@@ -86,7 +96,6 @@ const EditModal = ({
     const config = ASSET_TYPES.find((t) => t.value === type)!;
     if (config.forcedSymbol) {
       updateAsset(cardIndex, "symbol", config.forcedSymbol);
-      // Remove from new cards — symbol is set
       setNewCardIndices((prev) => {
         const next = new Set(prev);
         next.delete(cardIndex);
@@ -102,6 +111,29 @@ const EditModal = ({
       next.delete(cardIndex);
       return next;
     });
+  };
+
+  const handleQuantityChange = (index: number, raw: string) => {
+    // Always store the raw string so leading zeros / "0.000..." are preserved
+    setRawValues((prev) => ({
+      ...prev,
+      [index]: { ...prev[index], quantity: raw },
+    }));
+    const num = parseFloat(raw);
+    if (!isNaN(num)) {
+      updateAsset(index, "quantity", num);
+    }
+  };
+
+  const handleCostPerShareChange = (index: number, raw: string) => {
+    setRawValues((prev) => ({
+      ...prev,
+      [index]: { ...prev[index], costPerShare: raw },
+    }));
+    const num = parseFloat(raw);
+    if (!isNaN(num)) {
+      updateAsset(index, "costPerShare", num);
+    }
   };
 
   return (
@@ -150,6 +182,21 @@ const EditModal = ({
               ? ASSET_TYPES.find((t) => t.value === selectedType)
               : null;
 
+            // Use rawValues while the user is typing; fall back to asset value
+            const quantityDisplay =
+              rawValues[index]?.quantity !== undefined
+                ? rawValues[index].quantity
+                : asset.quantity
+                  ? String(asset.quantity)
+                  : "";
+
+            const costDisplay =
+              rawValues[index]?.costPerShare !== undefined
+                ? rawValues[index].costPerShare
+                : asset.costPerShare
+                  ? String(asset.costPerShare)
+                  : "";
+
             return (
               <div
                 key={index}
@@ -186,7 +233,7 @@ const EditModal = ({
                     )}
                   </div>
                   <button
-                    onClick={() => removeAsset(index)}
+                    onClick={() => handleRemoveAsset(index)}
                     disabled={isSaving}
                     className="text-xs px-3 py-1 rounded-lg text-red-400 hover:text-red-300 hover:bg-red-900 hover:bg-opacity-30 border border-red-500 border-opacity-20 transition-all disabled:opacity-40"
                   >
@@ -227,12 +274,9 @@ const EditModal = ({
                       })}
                     </div>
 
-                    {/* Show search only for US/TH stocks */}
                     {selectedType &&
                       (selectedType === "US" || selectedType === "TH") && (
                         <div className="pt-1">
-                          {/* key={selectedType} forces remount when toggling US↔TH,
-                            so defaultExchange is always picked up fresh */}
                           <StockSearchSelect
                             key={`search-${index}-${selectedType}`}
                             onSelect={(symbol) =>
@@ -279,13 +323,9 @@ const EditModal = ({
                           type="number"
                           step="any"
                           className="w-full px-3 py-2 rounded-lg bg-black border border-accent-yellow border-opacity-30 text-white text-sm outline-none focus:border-opacity-70 transition-all placeholder-gray-600"
-                          value={asset.quantity || ""}
+                          value={quantityDisplay}
                           onChange={(e) =>
-                            updateAsset(
-                              index,
-                              "quantity",
-                              Number(e.target.value),
-                            )
+                            handleQuantityChange(index, e.target.value)
                           }
                           placeholder="0"
                           disabled={isSaving}
@@ -297,13 +337,9 @@ const EditModal = ({
                           type="number"
                           step="any"
                           className="w-full px-3 py-2 rounded-lg bg-black border border-accent-yellow border-opacity-30 text-white text-sm outline-none focus:border-opacity-70 transition-all placeholder-gray-600"
-                          value={asset.costPerShare || ""}
+                          value={costDisplay}
                           onChange={(e) =>
-                            updateAsset(
-                              index,
-                              "costPerShare",
-                              Number(e.target.value),
-                            )
+                            handleCostPerShareChange(index, e.target.value)
                           }
                           placeholder="0.00"
                           disabled={isSaving}
