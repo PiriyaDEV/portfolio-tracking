@@ -174,25 +174,35 @@ async function fetchFinancialData(assets: Asset[]) {
       if (!res.ok) throw new Error("Failed to fetch /api/stock");
       const data = await res.json();
 
-      useMarketStore.setState((prev) => ({
-        prices: { ...prev.prices, ...(data.prices ?? {}) },
-        previousPrice: { ...prev.previousPrice, ...(data.previousPrice ?? {}) },
-        graphs: { ...prev.graphs, ...(data.graphs ?? {}) },
-        advancedLevels: {
-          ...prev.advancedLevels,
-          ...(data.advancedLevels ?? {}),
-        },
-        dividend: {
-          baseCurrency: data.dividendSummary?.baseCurrency,
-          perAsset: {
-            ...prev.dividend?.perAsset,
-            ...(data.dividendSummary?.perAsset ?? {}),
+      useMarketStore.setState((prev) => {
+        const mergedPerAsset = {
+          ...prev.dividend?.perAsset,
+          ...(data.dividendSummary?.perAsset ?? {}),
+        };
+
+        const total = Object.values(mergedPerAsset).reduce(
+          (sum: number, d: any) => sum + (d?.annualDividendBase ?? 0),
+          0,
+        );
+
+        return {
+          prices: { ...prev.prices, ...(data.prices ?? {}) },
+          previousPrice: {
+            ...prev.previousPrice,
+            ...(data.previousPrice ?? {}),
           },
-          totalAnnualDividend:
-            (prev.dividend?.totalAnnualDividend ?? 0) +
-            (data.dividendSummary?.totalAnnualDividend ?? 0),
-        },
-      }));
+          graphs: { ...prev.graphs, ...(data.graphs ?? {}) },
+          advancedLevels: {
+            ...prev.advancedLevels,
+            ...(data.advancedLevels ?? {}),
+          },
+          dividend: {
+            baseCurrency: data.dividendSummary?.baseCurrency,
+            perAsset: mergedPerAsset,
+            totalAnnualDividend: total,
+          },
+        };
+      });
 
       if (index === 0) {
         useMarketStore.setState({ isFirstBatchLoaded: true, isLoading: false });

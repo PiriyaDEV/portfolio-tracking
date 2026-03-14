@@ -48,7 +48,7 @@ import {
 } from "./lib/constants";
 import { AUTO_REFRESH_INTERVAL_MS } from "./config";
 import { usePageVisible } from "@/shared/hooks/usePageVisible";
-import { useMarketStore } from "@/store/useMarketStore"; // ← NEW
+import { useMarketStore } from "@/store/useMarketStore";
 
 const isMock = false;
 
@@ -177,6 +177,14 @@ export default function MainApp() {
     loadWishlist();
   }, [userColId]);
 
+  // ─── Keep a stable ref to silentRefresh ───────────────────────────────────
+  // Zustand functions are already stable, but using a ref makes the intent
+  // explicit and avoids any accidental re-renders from dependency changes.
+  const silentRefreshRef = useRef(silentRefresh);
+  useEffect(() => {
+    silentRefreshRef.current = silentRefresh;
+  }, [silentRefresh]);
+
   // ─── Auto-refresh every interval when market is open ──────────────────────
   useEffect(() => {
     if (!assets || assets.length === 0) return;
@@ -186,7 +194,10 @@ export default function MainApp() {
       try {
         const res = await fetch("/api/market-status");
         const { isOpen } = await res.json();
-        if (isOpen) silentRefresh(assets);
+        // silentRefresh calls fetchFinancialData + fetchMarket + fetchFxRate
+        // → updates prices/previousPrice/graphs in the store
+        // → GraphPrice and portfolio rows re-render automatically
+        if (isOpen) silentRefreshRef.current(assets);
       } catch (err) {
         console.error("Auto-refresh check failed:", err);
       }
@@ -194,6 +205,7 @@ export default function MainApp() {
 
     const interval = setInterval(checkAndRefresh, AUTO_REFRESH_INTERVAL_MS);
     return () => clearInterval(interval);
+    // ✅ silentRefresh is intentionally omitted — we use silentRefreshRef instead
   }, [assets, isPageVisible]);
 
   // ─── Toggle pin ────────────────────────────────────────────────────────────
@@ -658,13 +670,9 @@ export default function MainApp() {
           />
         )}
         {currentPage === "market" && (
-          // AnalystScreen ดึงจาก store เองโดยตรง — ไม่ต้องส่ง props เหล่านี้แล้ว
           <AnalystScreen assets={assets} wishlist={wishlist} userId={userId} />
         )}
-        {currentPage === "calculator" && (
-          // CalculateScreen ดึงจาก store เองโดยตรง
-          <CalculateScreen assets={assets} />
-        )}
+        {currentPage === "calculator" && <CalculateScreen assets={assets} />}
 
         {currentPage === "portfolio" && (
           <div className="mt-[90px] mb-[50px] w-full">
@@ -704,7 +712,9 @@ export default function MainApp() {
                   : 0;
               const currencyLabel = isThai ? "THB" : "USD";
               const logoUrl = getLogo(asset.symbol);
-              const isLoadingThis = !(asset.symbol in prices);
+              // ✅ เช็คทั้ง key และ value — prices[symbol] อาจเป็น null ได้ระหว่าง load
+              const isLoadingThis =
+                !(asset.symbol in prices) || prices[asset.symbol] == null;
 
               return (
                 <div key={asset.symbol} className="w-full">

@@ -131,13 +131,6 @@ type Props = {
    Helpers
 ======================= */
 
-/**
- * Compute % change using the same formula used everywhere in the app:
- *   (currentPrice - previousPrice) / previousPrice * 100
- *
- * For market-bar chips we fall back to the API's changePercent only when
- * we don't have the symbol tracked in the store.
- */
 function calcPct(
   current: number | null | undefined,
   previous: number | null | undefined,
@@ -152,6 +145,9 @@ function calcPct(
 
 export function GraphPrice({ assets, market }: Props) {
   // ─── All market data from shared store ───────────────────────────────────
+  // silentRefresh is intentionally NOT used here —
+  // MainApp already calls it on the shared interval. Using it here too
+  // would cause double-fetching every 20s.
   const { prices, graphs, previousPrice, currencyRate } = useMarketStore();
 
   const [sortBy, setSortBy] = useState<SortBy>("none");
@@ -168,6 +164,7 @@ export function GraphPrice({ assets, market }: Props) {
   const isLoading = !graphs || Object.keys(graphs).length === 0;
   const isPageVisible = usePageVisible();
 
+  // ─── Pre/post market data (separate from main refresh) ───────────────────
   useEffect(() => {
     const usSymbols = assets
       .map((a) => a.symbol)
@@ -232,7 +229,6 @@ export function GraphPrice({ assets, market }: Props) {
       );
     }
     return list.sort((a, b) => {
-      // Use same formula as row rendering
       const pa = calcPct(prices?.[a.symbol], previousPrice?.[a.symbol]);
       const pb = calcPct(prices?.[b.symbol], previousPrice?.[b.symbol]);
       return sortOrder === "asc" ? pa - pb : pb - pa;
@@ -266,7 +262,6 @@ export function GraphPrice({ assets, market }: Props) {
         />
       )}
 
-      {/* ── Detail modal — receive store prices so % is consistent with the row ── */}
       {selectedSymbol && selectedAsset && (
         <StockDetailModal
           symbol={selectedSymbol}
@@ -299,7 +294,6 @@ export function GraphPrice({ assets, market }: Props) {
                     ] as MarketItem;
                     if (!data?.price) return null;
 
-                    // ── Bug 2 fix: use store prices when available, fall back to API ──
                     const marketSymbol =
                       item.key in MARKET_SYMBOLS
                         ? MARKET_SYMBOLS[
@@ -314,8 +308,8 @@ export function GraphPrice({ assets, market }: Props) {
                       : null;
                     const pct =
                       storePrice && storePrev
-                        ? calcPct(storePrice, storePrev) // same formula as row
-                        : (data.changePercent ?? 0); // fallback to API value
+                        ? calcPct(storePrice, storePrev)
+                        : (data.changePercent ?? 0);
                     const displayPrice = storePrice ?? data.price;
                     const isUp = pct >= 0;
 
@@ -489,7 +483,6 @@ export function GraphPrice({ assets, market }: Props) {
           const currentPrice = prices?.[symbol];
           const prevPrice = previousPrice?.[symbol];
 
-          // ── Single source of truth for % in this row ──────────────────────
           const percentChange = calcPct(currentPrice, prevPrice);
           const color =
             percentChange > 0
@@ -569,7 +562,6 @@ export function GraphPrice({ assets, market }: Props) {
                     const pp = prePostData[symbol];
                     const ppChange = pp?.prePostChangePercent;
 
-                    // null-safe display price
                     const rawPrice =
                       pp?.regularMarketPrice ?? currentPrice ?? undefined;
                     const displayPrice =
