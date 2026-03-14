@@ -1,8 +1,12 @@
-// app/user/[id]/route.ts
+// app/api/user/[id]/route.ts
+// [id] = column A internal key (set at create time, stored in session).
+//
+// GET  — fetch user profile + assets (session-authenticated, no password needed)
+// POST — save/update encrypted assets
+
 import { google } from "googleapis";
 import { encrypt, decrypt } from "@/app/lib/utils";
 
-// Module-level singleton: reuse auth + sheets client across requests
 let sheetsClient: ReturnType<typeof google.sheets> | null = null;
 
 function getGoogleSheets() {
@@ -33,40 +37,48 @@ const ENV_ERROR = new Response(
   { status: 400, headers: { "Content-Type": "application/json" } },
 );
 
+// ---------------------------------------------------------------------------
+// GET /api/user/[id]  — fetch profile + assets by column A internal key
+// ---------------------------------------------------------------------------
 export async function GET(req: Request, context: any) {
   if (missingEnv()) return ENV_ERROR;
 
   try {
-    const { id } = await context.params;
+    const params = await context.params;
+    const id: string = params.id;
+
+    if (!id) {
+      return new Response(JSON.stringify({ error: "Missing user id" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
     const spreadsheetId = process.env.GOOGLE_SHEET_ID!;
     const sheets = getGoogleSheets();
 
+    // Fetch columns A–L (indices 0–11)
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId,
-      range: "Sheet1!A:E",
+      range: "Sheet1!A:L",
     });
 
     const rows = response.data.values;
     if (!rows || rows.length <= 1) {
-      return new Response(JSON.stringify({ error: "User not found" }), {
+      return new Response(JSON.stringify({ error: "ไม่เจอผู้ใช้งาน" }), {
         status: 404,
         headers: { "Content-Type": "application/json" },
       });
     }
 
-    // Skip header (index 0), find matching row in one pass
+    // Match by column A (index 0) = internal id
     const dataRows = rows.slice(1);
     const userRowIndex = dataRows.findIndex(
-      (row) => row[0] && row[0].toString() === id.toString(),
+      (row) => row[0] && row[0].toString() === id,
     );
 
     if (userRowIndex === -1) {
-      console.log("Looking for ID:", id);
-      console.log(
-        "Available IDs:",
-        dataRows.map((r) => r[0]),
-      );
-      return new Response(JSON.stringify({ error: "User not found" }), {
+      return new Response(JSON.stringify({ error: "ไม่เจอผู้ใช้งาน" }), {
         status: 404,
         headers: { "Content-Type": "application/json" },
       });
@@ -74,30 +86,32 @@ export async function GET(req: Request, context: any) {
 
     const userRow = dataRows[userRowIndex];
 
-    let userData = [];
+    // Parse assets — column B (index 1)
+    let assets = [];
     if (userRow[1]) {
       try {
-        userData = JSON.parse(decrypt(userRow[1]));
+        assets = JSON.parse(decrypt(userRow[1]));
       } catch {
         try {
-          userData = JSON.parse(userRow[1]);
+          assets = JSON.parse(userRow[1]);
         } catch {
-          userData = [];
+          assets = [];
         }
       }
     }
 
     return new Response(
       JSON.stringify({
-        userId: id,
-        username: userRow[3] ?? "",
-        assets: userData,
-        image: userRow[4] ?? "",
+        userId: userRow[0] ?? "", // column A — internal key
+        username: userRow[10] ?? "", // column K — username (login id)
+        displayName: userRow[3] ?? "", // column D — display name
+        assets,
+        image: userRow[4] ?? "", // column E
       }),
       { status: 200, headers: { "Content-Type": "application/json" } },
     );
   } catch (error: any) {
-    console.error("GET Error details:", error);
+    console.error("GET /api/user/[id] error:", error);
     return new Response(
       JSON.stringify({
         error: "Internal Server Error",
@@ -108,11 +122,23 @@ export async function GET(req: Request, context: any) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// POST /api/user/[id]  — save/update encrypted assets
+// ---------------------------------------------------------------------------
 export async function POST(req: Request, context: any) {
   if (missingEnv()) return ENV_ERROR;
 
   try {
-    const { id } = await context.params;
+    const params = await context.params;
+    const id: string = params.id;
+
+    if (!id) {
+      return new Response(JSON.stringify({ error: "Missing user id" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
     const spreadsheetId = process.env.GOOGLE_SHEET_ID!;
 
     const { assets } = await req.json();
@@ -138,7 +164,7 @@ export async function POST(req: Request, context: any) {
     const rows = response.data.values || [];
     const userRowIndex = rows
       .slice(1)
-      .findIndex((row) => row[0] && row[0].toString() === id.toString());
+      .findIndex((row) => row[0] && row[0].toString() === id);
 
     if (userRowIndex === -1) {
       await sheets.spreadsheets.values.append({
@@ -162,7 +188,7 @@ export async function POST(req: Request, context: any) {
       { status: 200, headers: { "Content-Type": "application/json" } },
     );
   } catch (error: any) {
-    console.error("POST Error details:", error);
+    console.error("POST /api/user/[id] error:", error);
     return new Response(
       JSON.stringify({
         error: "Internal Server Error",

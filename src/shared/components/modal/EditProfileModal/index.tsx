@@ -1,6 +1,6 @@
 import { useRef, useState, useCallback } from "react";
 import { FaTimes, FaSignOutAlt } from "react-icons/fa";
-import { FaCamera, FaCheck, FaUser, FaCrop } from "react-icons/fa6";
+import { FaCamera, FaCheck, FaUser, FaCrop, FaLock } from "react-icons/fa6";
 import Cropper from "react-easy-crop";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -11,7 +11,7 @@ interface Area {
   height: number;
 }
 
-// ─── Crop Image Helper ─────────────────────────────────────────────────────────
+// ─── Crop Image Helper ──────────────────────────────────────────────────────────
 async function getCroppedImg(
   imageSrc: string,
   pixelCrop: Area,
@@ -45,7 +45,7 @@ async function getCroppedImg(
   return canvas.toDataURL("image/jpeg", quality);
 }
 
-// ─── Image Crop Modal ──────────────────────────────────────────────────────────
+// ─── Image Crop Modal ───────────────────────────────────────────────────────────
 function ImageCropModal({
   imageSrc,
   onConfirm,
@@ -80,7 +80,6 @@ function ImageCropModal({
   return (
     <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/90 backdrop-blur-sm px-4">
       <div className="bg-[#111] border border-white/10 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl">
-        {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
           <h2 className="text-white font-semibold text-[15px] flex items-center gap-2">
             <FaCrop className="text-accent-yellow" />
@@ -94,7 +93,6 @@ function ImageCropModal({
           </button>
         </div>
 
-        {/* Crop area */}
         <div className="relative w-full" style={{ height: 300 }}>
           <Cropper
             image={imageSrc}
@@ -116,7 +114,6 @@ function ImageCropModal({
           />
         </div>
 
-        {/* Zoom slider */}
         <div className="px-5 pt-4 pb-2 space-y-1">
           <label className="text-[11px] text-gray-500">ซูม</label>
           <input
@@ -130,12 +127,10 @@ function ImageCropModal({
           />
         </div>
 
-        {/* Size note */}
         <p className="px-5 pb-2 text-[11px] text-gray-600">
           รูปจะถูกบีบอัดให้เหลือ 256×256px / JPEG 35%
         </p>
 
-        {/* Footer */}
         <div className="px-5 pb-5 flex gap-2">
           <button
             onClick={onCancel}
@@ -156,27 +151,31 @@ function ImageCropModal({
   );
 }
 
-// ─── Edit Profile Modal ────────────────────────────────────────────────────────
+// ─── Edit Profile Modal ─────────────────────────────────────────────────────────
 export function EditProfileModal({
-  userId,
-  username,
+  userId, // column A internal key — used for the API call
+  username, // column K — login username, shown read-only
+  displayName, // column D — editable display name
   profileImage,
   onClose,
   onSave,
   onLogout,
 }: {
   userId: string;
+  username: string; // column K — read-only
+  displayName: string; // column D — editable
   profileImage: string | null;
-  username: string;
   onClose: () => void;
   onSave: (data: {
-    newUsername: string;
+    displayName: string;
+    oldPassword: string;
     newPassword: string;
     imageUrl: string | null;
   }) => Promise<void>;
   onLogout: () => void;
 }) {
-  const [newUsername, setNewUsername] = useState(username);
+  const [newDisplayName, setNewDisplayName] = useState(displayName);
+  const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [imagePreview, setImagePreview] = useState<string | null>(profileImage);
@@ -206,22 +205,29 @@ export function EditProfileModal({
 
   const handleSave = async () => {
     setError("");
-    if (!newUsername.trim()) {
-      setError("กรุณากรอกชื่อผู้ใช้");
+
+    if (!newDisplayName.trim()) {
+      setError("กรุณากรอกชื่อที่แสดง");
+      return;
+    }
+    if (!oldPassword) {
+      setError("กรุณากรอกรหัสผ่านเดิมเพื่อยืนยัน");
       return;
     }
     if (newPassword && newPassword !== confirmPassword) {
-      setError("รหัสผ่านไม่ตรงกัน");
+      setError("รหัสผ่านใหม่ไม่ตรงกัน");
       return;
     }
     if (newPassword && newPassword.length < 4) {
-      setError("รหัสผ่านต้องมีอย่างน้อย 4 ตัวอักษร");
+      setError("รหัสผ่านใหม่ต้องมีอย่างน้อย 4 ตัวอักษร");
       return;
     }
+
     setIsSaving(true);
     try {
       await onSave({
-        newUsername: newUsername.trim(),
+        displayName: newDisplayName.trim(),
+        oldPassword,
         newPassword,
         imageUrl: imagePreview,
       });
@@ -235,7 +241,6 @@ export function EditProfileModal({
 
   return (
     <>
-      {/* Crop modal sits above edit modal */}
       {rawImageSrc && (
         <ImageCropModal
           imageSrc={rawImageSrc}
@@ -259,12 +264,12 @@ export function EditProfileModal({
             </button>
           </div>
 
-          <div className="px-5 py-5 space-y-5">
-            {/* Avatar Section */}
+          <div className="px-5 py-5 space-y-4 max-h-[70vh] overflow-y-auto">
+            {/* Avatar */}
             <div className="flex flex-col items-center gap-3">
               <div className="relative">
                 <ProfileAvatar
-                  username={username || userId}
+                  username={displayName || username}
                   imageUrl={imagePreview}
                   size="lg"
                 />
@@ -303,71 +308,106 @@ export function EditProfileModal({
               </div>
             </div>
 
-            {/* Username */}
+            {/* Read-only username (column K) */}
+            <div className="space-y-1.5">
+              <label className="text-[11px] text-gray-500 flex items-center gap-1.5">
+                <FaUser className="text-gray-600" />
+                ชื่อผู้ใช้
+                <span className="text-gray-600 text-[10px]">
+                  (เปลี่ยนไม่ได้)
+                </span>
+              </label>
+              <div className="w-full bg-black/40 border border-white/5 rounded-xl px-3 py-2.5 text-gray-500 text-[13px] select-none">
+                {username}
+              </div>
+            </div>
+
+            {/* Editable display name (column D) */}
             <div className="space-y-1.5">
               <label className="text-[11px] text-gray-500 flex items-center gap-1.5">
                 <FaUser className="text-accent-yellow/60" />
-                ชื่อผู้ใช้
+                ชื่อที่แสดง
               </label>
               <input
                 type="text"
-                value={newUsername}
-                onChange={(e) => setNewUsername(e.target.value)}
+                value={newDisplayName}
+                onChange={(e) => setNewDisplayName(e.target.value)}
                 className="w-full bg-black border border-white/10 rounded-xl px-3 py-2.5 text-white text-[13px] outline-none focus:border-accent-yellow/50 transition-colors placeholder-gray-600"
-                placeholder="กรอกชื่อผู้ใช้ใหม่"
+                placeholder="กรอกชื่อที่แสดง"
               />
             </div>
 
-            {/* Password */}
-            <div className="space-y-1.5">
-              <label className="text-[11px] text-gray-500">รหัสผ่านใหม่</label>
-              <input
-                type="password"
-                value={newPassword}
-                inputMode="numeric"
-                pattern="[0-9]*"
-                maxLength={4}
-                onChange={(e) => setNewPassword(e.target.value)}
-                className="w-full bg-black border border-white/10 rounded-xl px-3 py-2.5 text-white text-[13px] outline-none focus:border-accent-yellow/50 transition-colors placeholder-gray-600"
-                placeholder="เว้นว่างถ้าไม่ต้องการเปลี่ยน"
-              />
-            </div>
+            {/* Divider */}
+            <div className="border-t border-white/5 pt-1">
+              <p className="text-[11px] text-gray-600 mb-3 flex items-center gap-1.5">
+                <FaLock className="text-gray-600" />
+                เปลี่ยนรหัสผ่าน
+              </p>
 
-            {/* Confirm Password */}
-            {newPassword.length > 0 && (
-              <div className="space-y-1.5">
-                <label className="text-[11px] text-gray-500">
-                  ยืนยันรหัสผ่านใหม่
-                </label>
-                <div className="relative">
+              {/* Old password — always required to save */}
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <label className="text-[11px] text-gray-500">
+                    รหัสผ่านเดิม *
+                  </label>
                   <input
                     type="password"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    maxLength={4}
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="w-full bg-black border border-white/10 rounded-xl px-3 py-2.5 text-white text-[13px] outline-none focus:border-accent-yellow/50 transition-colors placeholder-gray-600 pr-9"
-                    placeholder="กรอกรหัสผ่านอีกครั้ง"
+                    value={oldPassword}
+                    onChange={(e) => setOldPassword(e.target.value)}
+                    className="w-full bg-black border border-white/10 rounded-xl px-3 py-2.5 text-white text-[13px] outline-none focus:border-accent-yellow/50 transition-colors placeholder-gray-600"
+                    placeholder="กรอกรหัสผ่านเดิมเพื่อยืนยัน"
                   />
-                  {confirmPassword && (
-                    <span
-                      className={`absolute right-3 top-1/2 -translate-y-1/2 text-[12px] ${
-                        confirmPassword === newPassword
-                          ? "text-green-400"
-                          : "text-red-400"
-                      }`}
-                    >
-                      {confirmPassword === newPassword ? (
-                        <FaCheck />
-                      ) : (
-                        <FaTimes />
-                      )}
-                    </span>
-                  )}
                 </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[11px] text-gray-500">
+                    รหัสผ่านใหม่{" "}
+                    <span className="text-gray-600">
+                      (เว้นว่างถ้าไม่ต้องการเปลี่ยน)
+                    </span>
+                  </label>
+                  <input
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="w-full bg-black border border-white/10 rounded-xl px-3 py-2.5 text-white text-[13px] outline-none focus:border-accent-yellow/50 transition-colors placeholder-gray-600"
+                    placeholder="รหัสผ่านใหม่"
+                  />
+                </div>
+
+                {newPassword.length > 0 && (
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] text-gray-500">
+                      ยืนยันรหัสผ่านใหม่
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="password"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        className="w-full bg-black border border-white/10 rounded-xl px-3 py-2.5 text-white text-[13px] outline-none focus:border-accent-yellow/50 transition-colors placeholder-gray-600 pr-9"
+                        placeholder="กรอกรหัสผ่านอีกครั้ง"
+                      />
+                      {confirmPassword && (
+                        <span
+                          className={`absolute right-3 top-1/2 -translate-y-1/2 text-[12px] ${
+                            confirmPassword === newPassword
+                              ? "text-green-400"
+                              : "text-red-400"
+                          }`}
+                        >
+                          {confirmPassword === newPassword ? (
+                            <FaCheck />
+                          ) : (
+                            <FaTimes />
+                          )}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
+            </div>
 
             {/* Error */}
             {error && (
@@ -378,8 +418,7 @@ export function EditProfileModal({
           </div>
 
           {/* Footer */}
-          <div className="px-5 pb-5 space-y-2">
-            {/* Save / Cancel */}
+          <div className="px-5 pb-5 pt-3 space-y-2 border-t border-white/5">
             <div className="flex gap-2">
               <button
                 onClick={onClose}
@@ -396,7 +435,6 @@ export function EditProfileModal({
               </button>
             </div>
 
-            {/* Logout */}
             {!showLogoutConfirm ? (
               <button
                 onClick={() => setShowLogoutConfirm(true)}
@@ -433,7 +471,7 @@ export function EditProfileModal({
   );
 }
 
-// ─── Profile Avatar ────────────────────────────────────────────────────────────
+// ─── Profile Avatar ─────────────────────────────────────────────────────────────
 export function ProfileAvatar({
   username,
   imageUrl,

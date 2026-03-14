@@ -4,15 +4,20 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import LoginModal from "@/shared/components/modal/LoginModal";
 import CommonLoading from "@/shared/components/common/CommonLoading";
-import { SESSION_COOKIE_MAX_AGE, SESSION_DURATION_MS, SESSION_KEY } from "./lib/constants";
+import {
+  SESSION_COOKIE_MAX_AGE,
+  SESSION_DURATION_MS,
+  SESSION_KEY,
+} from "./lib/constants";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [userId, setUserId] = useState("");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [loginError, setLoginError] = useState("");
 
-  // If valid session exists → skip login, go straight to /main
+  // If valid session exists → skip login
   useEffect(() => {
     try {
       const raw = localStorage.getItem(SESSION_KEY);
@@ -29,61 +34,56 @@ export default function LoginPage() {
   }, []);
 
   async function handleLogin() {
-    if (!userId) {
-      setLoginError("กรุณากรอกรหัสผ่าน");
+    if (!username.trim() || !password) {
+      setLoginError("กรุณากรอกชื่อผู้ใช้และรหัสผ่าน");
       return;
     }
     setIsLoading(true);
     setLoginError("");
     try {
-      const response = await fetch(`/api/user/${userId}`);
-      if (!response.ok) throw new Error("ไม่เจอผู้ใช้งาน");
+      const response = await fetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: username.trim(), password }),
+      });
 
-      const responseText = await response.text();
-      let userColId = userId;
+      const data = await response.json();
 
-      if (
-        responseText &&
-        responseText.trim() !== "" &&
-        responseText.trim() !== '""'
-      ) {
-        const data = JSON.parse(responseText);
-        userColId =
-          typeof data.userId === "string" && data.userId.startsWith('"')
-            ? JSON.parse(data.userId)
-            : data.userId || userId;
+      if (!response.ok) {
+        throw new Error(data.error || "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง");
       }
 
-      // Save session to localStorage
+      // data.userId = column A (internal key for asset updates)
+      // data.username = column D (display name)
       localStorage.setItem(
         SESSION_KEY,
         JSON.stringify({
-          userId,
-          userColId,
+          userId: data.userId, // column A — used for POST /api/user/[id]
+          username: data.username, // column D — display name
           expiresAt: Date.now() + SESSION_DURATION_MS,
         }),
       );
 
-      // Set lightweight cookie for middleware guard
       document.cookie = `${SESSION_KEY}=1; max-age=${SESSION_COOKIE_MAX_AGE}; path=/`;
 
       router.replace("/main");
     } catch (err: any) {
-      setLoginError(err.message || "ไม่เจอผู้ใช้งาน");
+      setLoginError(err.message || "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง");
       setIsLoading(false);
     }
   }
 
-  // Show nothing while checking session (avoids flash of login screen)
   if (isLoading) return <CommonLoading />;
 
   return (
     <LoginModal
       isLoggedIn={false}
       isLoading={isLoading}
-      userId={userId}
+      username={username}
+      password={password}
       loginError={loginError}
-      setUserId={setUserId}
+      setUsername={setUsername}
+      setPassword={setPassword}
       handleLogin={handleLogin}
     />
   );

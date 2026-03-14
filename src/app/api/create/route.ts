@@ -1,4 +1,16 @@
+// app/api/create/route.ts
+// Schema:
+//   A  = internalId (auto, timestamp)
+//   B  = assets (encrypted, filled later)
+//   C  = reserved
+//   D  = displayName (= username on create, editable later)
+//   E  = image
+//   F–J = reserved
+//   K  = username (index 10) — used for login lookup, duplicate check
+//   L  = password encrypted AES-256-CBC (index 11)
+
 import { google } from "googleapis";
+import { encrypt } from "@/app/lib/utils";
 
 async function getGoogleSheets() {
   const auth = new google.auth.GoogleAuth({
@@ -8,7 +20,6 @@ async function getGoogleSheets() {
     },
     scopes: ["https://www.googleapis.com/auth/spreadsheets"],
   });
-
   return google.sheets({ version: "v4", auth });
 }
 
@@ -23,89 +34,87 @@ export async function POST(req: Request) {
     ) {
       return new Response(
         JSON.stringify({ error: "Google Sheets env missing" }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
+        { status: 400, headers: { "Content-Type": "application/json" } },
       );
     }
 
-    const { userId, username, image } = await req.json();
+    const body = await req.json();
+    const username: string = (body.username ?? "").trim();
+    const password: string = body.password ?? "";
+    const image: string = body.image ?? "";
 
-    if (!userId || !username) {
+    if (!username || !password) {
       return new Response(
-        JSON.stringify({ error: "Missing required fields: userId and username" }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
-      );
-    }
-
-    // Validate userId is exactly 4 digits
-    if (!/^\d{4}$/.test(userId)) {
-      return new Response(
-        JSON.stringify({ error: "รหัสผู้ใช้ต้องเป็นตัวเลข 4 หลัก" }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({
+          error: "Missing required fields: username and password",
+        }),
+        { status: 400, headers: { "Content-Type": "application/json" } },
       );
     }
 
     const sheets = await getGoogleSheets();
 
-    // Read existing IDs (Column A) to check for duplicates
+    // Duplicate check — column K (username, index 10)
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId,
-      range: "Sheet1!A:A",
+      range: "Sheet1!K:K",
     });
 
     const rows = response.data.values || [];
-    const dataRows = rows.slice(1); // Skip header row
+    const dataRows = rows.slice(1); // skip header
 
-    // Check for duplicate userId
     const isDuplicate = dataRows.some(
-      (row) => row[0] && row[0].toString() === userId.toString()
+      (row) => row[0] && row[0].toString().trim() === username,
     );
 
     if (isDuplicate) {
       return new Response(
-        JSON.stringify({ error: "รหัสผู้ใช้นี้มีอยู่แล้ว กรุณาใช้รหัสอื่น" }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({ error: "ชื่อผู้ใช้นี้มีอยู่แล้ว กรุณาใช้ชื่ออื่น" }),
+        { status: 400, headers: { "Content-Type": "application/json" } },
       );
     }
 
-    // Append new row: [userId, "", "", username, image]
-    // Column A = userId/password, D = username, E = image
-    // Columns B and C are left empty to match existing schema
+    const internalId = Date.now().toString();
+
+    // Row A–L (12 columns, index 0–11)
+    const newRow = [
+      internalId, // A  (0)  internal row key
+      "", // B  (1)  assets
+      "", // C  (2)  reserved
+      username, // D  (3)  displayName = username on create
+      image, // E  (4)  avatar
+      "", // F  (5)
+      "", // G  (6)
+      "", // H  (7)
+      "", // I  (8)
+      "", // J  (9)
+      username, // K  (10) username — login lookup key
+      encrypt(password), // L  (11) password encrypted
+    ];
+
     await sheets.spreadsheets.values.append({
       spreadsheetId,
-      range: "Sheet1!A:E",
+      range: "Sheet1!A:L",
       valueInputOption: "RAW",
       insertDataOption: "INSERT_ROWS",
-      requestBody: {
-        values: [[userId, "", "", username, image || ""]],
-      },
+      requestBody: { values: [newRow] },
     });
 
     return new Response(
       JSON.stringify({
         message: "User created successfully",
-        user: {
-          id: userId,
-          username,
-          image: image || "",
-        },
+        user: { username, image },
       }),
-      {
-        status: 201,
-        headers: { "Content-Type": "application/json" },
-      }
+      { status: 201, headers: { "Content-Type": "application/json" } },
     );
   } catch (error: any) {
-    console.error("POST /api/user/create Error:", error);
-
+    console.error("POST /api/create error:", error);
     return new Response(
       JSON.stringify({
         error: "Internal Server Error",
         details: error?.message || "Unknown error",
       }),
-      {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
-      }
+      { status: 500, headers: { "Content-Type": "application/json" } },
     );
   }
 }

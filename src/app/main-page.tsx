@@ -54,7 +54,7 @@ import { GraphModal } from "@/shared/pages/AnalystScreen/components/GraphPrice/c
 const isMock = false;
 
 interface SessionData {
-  userId: string;
+  userId: string; // column A — internal key, used for GET/POST /api/user/[id]
   userColId: string;
   expiresAt: number;
 }
@@ -62,7 +62,7 @@ interface SessionData {
 export default function MainApp() {
   const router = useRouter();
 
-  // ─── Market state — all from Zustand store ────────────────────────────────
+  // ─── Market state ──────────────────────────────────────────────────────────
   const {
     prices,
     previousPrice,
@@ -82,15 +82,16 @@ export default function MainApp() {
     marketStatus,
   } = useMarketStore();
 
-  // ─── User / session state (stays local — not shared across pages) ─────────
-  const [userId, setUserId] = useState("");
-  const [username, setUsername] = useState<any>("");
+  // ─── User / session state ──────────────────────────────────────────────────
+  const [userId, setUserId] = useState(""); // column A internal key
+  const [username, setUsername] = useState(""); // column K — login username (read-only)
+  const [displayName, setDisplayName] = useState(""); // column D — display name (editable)
   const [assets, setAssets] = useState<Asset[] | null>(null);
-  const [userColId, setUserColId] = useState("");
+  const [userColId, setUserColId] = useState(""); // same as userId (column A)
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [profileImage, setProfileImage] = useState<string | null>(null);
 
-  // ─── UI state ─────────────────────────────────────────────────────────────
+  // ─── UI state ──────────────────────────────────────────────────────────────
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editAssets, setEditAssets] = useState<Asset[]>([]);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
@@ -103,7 +104,7 @@ export default function MainApp() {
     "portfolio" | "market" | "calculator" | "view"
   >("portfolio");
 
-  // ─── Wishlist / View screen state ─────────────────────────────────────────
+  // ─── Wishlist / View screen state ──────────────────────────────────────────
   const [wishlist, setWishlist] = useState<string[]>([]);
   const [data, setData] = useState<StockResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -150,10 +151,12 @@ export default function MainApp() {
           return;
         }
 
-        saveSession(session.userId, session.userColId);
-        setUserId(session.userId);
-        setUserColId(session.userColId);
-        await fetchUserData(session.userId);
+        // session.userId = column A internal key
+        const internalId = session.userId;
+        saveSession(internalId, internalId);
+        setUserId(internalId);
+        setUserColId(internalId);
+        await fetchUserData(internalId);
       } catch (error) {
         console.error("Session restore failed:", error);
         clearSession();
@@ -181,15 +184,13 @@ export default function MainApp() {
     loadWishlist();
   }, [userColId]);
 
-  // ─── Keep a stable ref to silentRefresh ───────────────────────────────────
-  // Zustand functions are already stable, but using a ref makes the intent
-  // explicit and avoids any accidental re-renders from dependency changes.
+  // ─── Stable ref for silentRefresh ─────────────────────────────────────────
   const silentRefreshRef = useRef(silentRefresh);
   useEffect(() => {
     silentRefreshRef.current = silentRefresh;
   }, [silentRefresh]);
 
-  // ─── Auto-refresh every interval when market is open ──────────────────────
+  // ─── Auto-refresh ──────────────────────────────────────────────────────────
   useEffect(() => {
     if (!assets || assets.length === 0) return;
     if (!isPageVisible) return;
@@ -206,7 +207,6 @@ export default function MainApp() {
 
     const interval = setInterval(checkAndRefresh, AUTO_REFRESH_INTERVAL_MS);
     return () => clearInterval(interval);
-    // ✅ silentRefresh is intentionally omitted — we use silentRefreshRef instead
   }, [assets, isPageVisible]);
 
   // ─── Toggle pin ────────────────────────────────────────────────────────────
@@ -273,7 +273,7 @@ export default function MainApp() {
   // ─── Trigger loadData when assets change ──────────────────────────────────
   useEffect(() => {
     if (assets && assets.length > 0) {
-      resetMarket(); // clear stale data before loading new assets
+      resetMarket();
       loadData(assets, userId, userColId, saveSession).then(() => {
         setIsInitialLoad(false);
       });
@@ -286,100 +286,61 @@ export default function MainApp() {
     setExpanded((prev) => ({ ...prev, [symbol]: !prev[symbol] }));
   };
 
-  // ─── Fetch user data ───────────────────────────────────────────────────────
-  async function fetchUserData(userIdParam?: string) {
-    const targetUserId = userIdParam || userId;
-    if (!targetUserId) throw new Error("กรุณากรอกรหัสผ่าน");
+  // ─── Fetch user data by column A internal key ─────────────────────────────
+  async function fetchUserData(internalId?: string) {
+    const targetId = internalId || userId;
+    if (!targetId) throw new Error("ไม่มี session");
 
-    const response = await fetch(`/api/user/${targetUserId}`);
-    if (!response.ok) throw new Error("ไม่เจอผู้ใช้งาน");
-
-    let parsedAssets: Asset[];
-    let parsedUserId: string;
-    let parsedUsername: string;
-    let parsedUserImage: string | null;
-
-    try {
-      const responseText = await response.text();
-      if (
-        !responseText ||
-        responseText.trim() === "" ||
-        responseText.trim() === '""'
-      ) {
-        setAssets([]);
-        setUserColId(targetUserId);
-        return;
-      }
-
-      const data = JSON.parse(responseText);
-      if (!data.assets || data.assets === "" || data.assets === '""') {
-        setAssets([]);
-        setUserColId(data.userId || targetUserId);
-        return;
-      }
-
-      parsedAssets =
-        typeof data.assets === "string"
-          ? JSON.parse(data.assets)
-          : data.assets || [];
-      parsedUserId =
-        typeof data.userId === "string" && data.userId.startsWith('"')
-          ? JSON.parse(data.userId)
-          : data.userId || targetUserId;
-      parsedUsername =
-        typeof data.username === "string" && data.username.startsWith('"')
-          ? JSON.parse(data.username)
-          : data.username || targetUserId;
-
-      if (typeof data.image === "string" && data.image.trim() !== "") {
-        try {
-          parsedUserImage = JSON.parse(data.image);
-        } catch {
-          parsedUserImage = data.image;
-        }
-      } else {
-        parsedUserImage = null;
-      }
-    } catch (err) {
-      console.error("Parse error:", err);
-      throw new Error("ไม่สามารถอ่านข้อมูลผู้ใช้งาน");
+    const response = await fetch(`/api/user/${targetId}`);
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || "ไม่เจอผู้ใช้งาน");
     }
 
-    if (!parsedAssets || parsedAssets.length === 0) {
-      setAssets([]);
-      setUserColId(parsedUserId);
-      setUsername(parsedUsername);
-      setProfileImage(parsedUserImage);
-      return;
+    const data = await response.json();
+
+    const parsedAssets: Asset[] =
+      typeof data.assets === "string"
+        ? JSON.parse(data.assets)
+        : data.assets || [];
+
+    const parsedDisplayName = data.displayName || data.username || targetId;
+    const parsedUsername = data.username || targetId; // column K
+
+    let parsedImage: string | null = null;
+    if (typeof data.image === "string" && data.image.trim() !== "") {
+      try {
+        parsedImage = JSON.parse(data.image);
+      } catch {
+        parsedImage = data.image;
+      }
     }
 
     setAssets(parsedAssets);
-    setUserColId(parsedUserId);
-    setProfileImage(parsedUserImage);
+    setUserColId(data.userId || targetId);
     setUsername(parsedUsername);
+    setDisplayName(parsedDisplayName);
+    setProfileImage(parsedImage);
   }
 
   // ─── Save Profile ──────────────────────────────────────────────────────────
   const handleSaveProfile = async ({
-    newUsername,
+    displayName: newDisplayName,
+    oldPassword,
     newPassword,
     imageUrl,
   }: {
-    newUsername: string;
+    displayName: string;
+    oldPassword: string;
     newPassword: string;
     imageUrl: string | null;
   }) => {
     const payload: any = {
-      oldPassword: userId,
-      username: newUsername,
+      displayName: newDisplayName,
+      oldPassword,
       image: imageUrl,
     };
-
-    if (newPassword && newPassword !== userId) {
-      payload.newPassword = newPassword;
-    } else {
-      payload.newPassword = userId;
-    }
+    if (newPassword) payload.newPassword = newPassword;
 
     const res = await fetch(`/api/profile/${userColId}`, {
       method: "POST",
@@ -392,15 +353,8 @@ export default function MainApp() {
       throw new Error(err.error || "บันทึกไม่สำเร็จ");
     }
 
-    const result = await res.json();
-
-    if (newPassword && newPassword !== userId) {
-      setUserId(newPassword);
-      saveSession(newPassword, userColId);
-    }
-
     setProfileImage(imageUrl);
-    await fetchUserData(result.user.id);
+    await fetchUserData(userColId);
   };
 
   // ─── Save Assets ───────────────────────────────────────────────────────────
@@ -445,10 +399,13 @@ export default function MainApp() {
           className="flex items-center gap-3 cursor-pointer"
           onClick={() => setIsEditProfileOpen(true)}
         >
-          <ProfileAvatar username={username} imageUrl={profileImage} />
+          <ProfileAvatar
+            username={displayName || username}
+            imageUrl={profileImage}
+          />
           <div>
             <p className="text-white font-semibold text-sm leading-tight">
-              {username}'s
+              {displayName || username}'s
             </p>
             <p className="text-accent-yellow/50 text-[11px]">พอร์ตโฟลิโอ</p>
           </div>
@@ -491,7 +448,6 @@ export default function MainApp() {
     </div>
   );
 
-  // AFTER
   if (assets === null) return <CommonLoading />;
   if (isLoading && !isFirstBatchLoaded && assets.length > 0)
     return <CommonLoading />;
@@ -513,6 +469,7 @@ export default function MainApp() {
           <EditProfileModal
             onLogout={handleLogout}
             username={username}
+            displayName={displayName}
             userId={userId}
             profileImage={profileImage}
             onClose={() => setIsEditProfileOpen(false)}
@@ -599,6 +556,7 @@ export default function MainApp() {
         <EditProfileModal
           onLogout={handleLogout}
           username={username}
+          displayName={displayName}
           userId={userId}
           profileImage={profileImage}
           onClose={() => setIsEditProfileOpen(false)}
@@ -722,8 +680,6 @@ export default function MainApp() {
                   : 0;
               const currencyLabel = isThai ? "THB" : "USD";
               const logoUrl = getLogo(asset.symbol);
-              // ✅ เช็คทั้ง key และ value — prices[symbol] อาจเป็น null หรือ 0 ได้ระหว่าง load
-              // ยกเว้น isCash เพราะ cash มีราคา = 0 โดย design
               const isLoadingThis =
                 !(asset.symbol in prices) ||
                 prices[asset.symbol] == null ||
@@ -748,19 +704,16 @@ export default function MainApp() {
                             className={`w-[32px] h-[32px] rounded-full bg-cover bg-center border border-white/10 shrink-0 bg-white ${logoUrl ? "" : "bg-white"}`}
                             style={{ backgroundImage: `url(${logoUrl})` }}
                           />
-
                           <div>
                             <div className="font-bold text-[15px] text-white leading-tight">
                               {getName(asset.symbol)}
                             </div>
-
                             <div className="font-normal text-[11px] text-gray-500 max-w-[90px] truncate">
                               {graphs[asset.symbol]?.shortName ?? ""}
                             </div>
                           </div>
                         </div>
                       </div>
-
                       <div className="text-[11px] text-gray-500 flex items-center gap-1">
                         <ChartIcon className="text-accent-yellow/60" />
                         {portfolioValueThb > 0

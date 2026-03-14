@@ -1,4 +1,11 @@
+// app/api/profile/[id]/route.ts
+// [id] = column A internal key
+// POST { displayName, oldPassword, newPassword?, image }
+// Updates: D=displayName, E=image, L=newPassword(encrypted)
+// Verifies oldPassword against column L before updating
+
 import { google } from "googleapis";
+import { encrypt, decrypt } from "@/app/lib/utils";
 
 async function getGoogleSheets() {
   const auth = new google.auth.GoogleAuth({
@@ -8,11 +15,10 @@ async function getGoogleSheets() {
     },
     scopes: ["https://www.googleapis.com/auth/spreadsheets"],
   });
-
   return google.sheets({ version: "v4", auth });
 }
 
-export async function POST(req: Request) {
+export async function POST(req: Request, context: any) {
   try {
     const spreadsheetId = process.env.GOOGLE_SHEET_ID;
 
@@ -27,109 +33,113 @@ export async function POST(req: Request) {
       );
     }
 
-    const { oldPassword, newPassword, username, image } = await req.json();
+    const params = await context.params;
+    const id: string = params.id;
 
-    if (!oldPassword || !newPassword || !username) {
+    if (!id) {
+      return new Response(JSON.stringify({ error: "Missing user id" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    const { displayName, oldPassword, newPassword, image } = await req.json();
+
+    if (!displayName || !oldPassword) {
       return new Response(
-        JSON.stringify({ error: "Missing required fields" }),
+        JSON.stringify({
+          error: "Missing required fields: displayName and oldPassword",
+        }),
         { status: 400, headers: { "Content-Type": "application/json" } },
       );
     }
 
     const sheets = await getGoogleSheets();
 
-    // ✅ Read only Column A (ID / Password)
+    // Fetch columns A–L (indices 0–11)
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId,
-      range: "Sheet1!A:A",
+      range: "Sheet1!A:L",
     });
 
     const rows = response.data.values || [];
-    const dataRows = rows.slice(1); // Skip header row
+    const dataRows = rows.slice(1); // skip header
 
-    // 🔎 Find current user row
+    // Find row by column A (internal key, index 0)
     const userRowIndex = dataRows.findIndex(
-      (row) => row[0] && row[0].toString() === oldPassword.toString(),
+      (row) => row[0] && row[0].toString() === id,
     );
 
     if (userRowIndex === -1) {
-      return new Response(JSON.stringify({ error: "User not found" }), {
+      return new Response(JSON.stringify({ error: "ไม่เจอผู้ใช้งาน" }), {
         status: 404,
         headers: { "Content-Type": "application/json" },
       });
     }
 
-    // 🔐 Check duplicate new password (exclude current row)
-    const isDuplicate = dataRows.some((row, index) => {
-      if (index === userRowIndex) return false;
-      return row[0] && row[0].toString() === newPassword.toString();
-    });
+    const userRow = dataRows[userRowIndex];
 
-    if (isDuplicate) {
-      return new Response(
-        JSON.stringify({ error: "ข้อมูลซ้ำโปรดกรอกรหัสอื่น" }),
-        { status: 400, headers: { "Content-Type": "application/json" } },
-      );
+    // Verify old password against column L (index 11)
+    const storedEncrypted = userRow[11] ?? "";
+    let storedPassword = "";
+    if (storedEncrypted) {
+      try {
+        storedPassword = decrypt(storedEncrypted);
+      } catch {
+        storedPassword = storedEncrypted; // legacy plain-text fallback
+      }
     }
 
-    const actualRowNumber = userRowIndex + 2; // +1 header, +1 index offset
+    if (storedPassword !== oldPassword) {
+      return new Response(JSON.stringify({ error: "รหัสผ่านเดิมไม่ถูกต้อง" }), {
+        status: 401,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
 
-    // ✅ Update Column A (ID / Password)
+    const actualRow = userRowIndex + 2; // +1 header, +1 for 1-based
+
+    // Update column D (displayName, index 3)
     await sheets.spreadsheets.values.update({
       spreadsheetId,
-      range: `Sheet1!A${actualRowNumber}`,
+      range: `Sheet1!D${actualRow}`,
       valueInputOption: "RAW",
-      requestBody: {
-        values: [[newPassword]],
-      },
+      requestBody: { values: [[displayName.trim()]] },
     });
 
-    // ✅ Update Column D (Username)
+    // Update column E (image, index 4)
     await sheets.spreadsheets.values.update({
       spreadsheetId,
-      range: `Sheet1!D${actualRowNumber}`,
+      range: `Sheet1!E${actualRow}`,
       valueInputOption: "RAW",
-      requestBody: {
-        values: [[username]],
-      },
+      requestBody: { values: [[image ?? ""]] },
     });
 
-    // ✅ Update Column E (Image)
-    await sheets.spreadsheets.values.update({
-      spreadsheetId,
-      range: `Sheet1!E${actualRowNumber}`,
-      valueInputOption: "RAW",
-      requestBody: {
-        values: [[image || ""]],
-      },
-    });
+    // Update column L (password) only if newPassword is provided
+    if (newPassword && newPassword.trim() !== "") {
+      await sheets.spreadsheets.values.update({
+        spreadsheetId,
+        range: `Sheet1!L${actualRow}`,
+        valueInputOption: "RAW",
+        requestBody: { values: [[encrypt(newPassword)]] },
+      });
+    }
 
     return new Response(
       JSON.stringify({
-        message: "User updated successfully (assets preserved)",
-        user: {
-          id: newPassword,
-          username,
-          image,
-        },
+        message: "Profile updated successfully",
+        user: { id, displayName: displayName.trim(), image: image ?? "" },
       }),
-      {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      },
+      { status: 200, headers: { "Content-Type": "application/json" } },
     );
   } catch (error: any) {
-    console.error("POST Error:", error);
-
+    console.error("POST /api/profile/[id] error:", error);
     return new Response(
       JSON.stringify({
         error: "Internal Server Error",
         details: error?.message || "Unknown error",
       }),
-      {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
-      },
+      { status: 500, headers: { "Content-Type": "application/json" } },
     );
   }
 }
