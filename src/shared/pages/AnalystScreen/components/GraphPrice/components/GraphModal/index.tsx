@@ -1272,7 +1272,7 @@ export function GraphModal({
       <div
         className="bg-black rounded-2xl w-full max-w-[440px] flex flex-col overflow-hidden border border-accent-yellow border-opacity-20 shadow-2xl"
         style={{
-          maxHeight: "88vh",
+          maxHeight: "94vh",
           transform: visible ? "scale(1)" : "scale(0.96)",
           transition: "transform 0.18s cubic-bezier(0.34,1.4,0.64,1)",
           willChange: "transform",
