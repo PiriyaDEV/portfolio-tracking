@@ -424,7 +424,7 @@ function StockCard({
             ฿{rec.allocateBaht.toLocaleString("th-TH")}
           </div>
           <div className="text-gray-500 text-[11px]">
-            {rec.allocatePercent}% ของพอร์ต
+            {rec.allocatePercent}% ของเงินลงทุน
           </div>
         </div>
       </div>
