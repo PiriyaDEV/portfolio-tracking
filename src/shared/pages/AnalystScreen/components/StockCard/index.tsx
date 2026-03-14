@@ -81,6 +81,55 @@ export default function StockCard({
       ? "bg-emerald-500/[0.04] border-emerald-500/[0.12] !text-emerald-200/70"
       : "bg-red-500/[0.06] border-red-500/[0.18] !text-red-300";
 
+  // ── Level active conditions ───────────────────────────────────────────
+  const levelItems = [
+    {
+      label: "จุดซื้อ 1",
+      value: levels.entry1,
+      icon: <Target size={8} />,
+      color: "!text-emerald-500/80",
+      active: price <= levels.entry1 && price > levels.entry2,
+      activeStyle:
+        "border-emerald-400/50 bg-emerald-500/[0.08] shadow-[0_0_10px_rgba(52,211,153,0.15),inset_0_1px_0_rgba(52,211,153,0.1)]",
+      activeColor: "!text-emerald-300",
+      pulseColor: "bg-emerald-900",
+    },
+    {
+      label: "จุดซื้อ 2",
+      value: levels.entry2,
+      icon: <Zap size={8} />,
+      color: "!text-emerald-500/80",
+      active: price <= levels.entry2,
+      activeStyle:
+        "border-emerald-400/60 bg-emerald-500/[0.12] shadow-[0_0_14px_rgba(52,211,153,0.20),inset_0_1px_0_rgba(52,211,153,0.12)]",
+      activeColor: "!text-emerald-300",
+      pulseColor: "bg-emerald-900",
+    },
+    {
+      label: "จุดตัดขาดทุน",
+      value: levels.stopLoss,
+      icon: <Shield size={8} />,
+      color: "!text-red-500/80",
+      active: price <= levels.stopLoss,
+      activeStyle:
+        "border-red-400/50 bg-red-500/[0.10] shadow-[0_0_10px_rgba(248,113,113,0.15),inset_0_1px_0_rgba(248,113,113,0.10)]",
+      activeColor: "!text-red-300",
+      pulseColor: "bg-red-900",
+    },
+    {
+      label: "แนวต้าน",
+      value: levels.resistance,
+      icon: <TrendingUp size={8} />,
+      color: "!text-orange-400/80",
+      active:
+        price >= levels.resistance * 0.98 && price <= levels.resistance * 1.02,
+      activeStyle:
+        "border-orange-400/50 bg-orange-500/[0.08] shadow-[0_0_10px_rgba(251,146,60,0.15),inset_0_1px_0_rgba(251,146,60,0.10)]",
+      activeColor: "!text-orange-300",
+      pulseColor: "bg-orange-900",
+    },
+  ];
+
   return (
     <div
       className={`relative rounded-[14px] border p-3.5 overflow-hidden transition-transform duration-150 hover:-translate-y-px cursor-default backdrop-blur-xl ${cardVariant}`}
@@ -122,7 +171,7 @@ export default function StockCard({
               <span className="text-[11px] !text-white/35 truncate max-w-[90px]">
                 {levels.shortName ?? getName(symbol)}
               </span>
-              {/* % change pill — same style as GraphPrice market pills */}
+              {/* % change pill */}
               <span
                 className={`inline-flex items-center gap-1 rounded-[6px] px-1.5 py-0.5 text-[10px] font-semibold font-mono shrink-0 ${pillVariant}`}
               >
@@ -195,46 +244,61 @@ export default function StockCard({
 
         {/* ── Levels 2×2 grid ── */}
         <div className="grid grid-cols-2 gap-1.5">
-          {[
-            {
-              label: "จุดซื้อ 1",
-              value: levels.entry1,
-              icon: <Target size={8} />,
-              color: "!text-emerald-500/80",
-            },
-            {
-              label: "จุดซื้อ 2",
-              value: levels.entry2,
-              icon: <Zap size={8} />,
-              color: "!text-emerald-500/80",
-            },
-            {
-              label: "จุดตัดขาดทุน",
-              value: levels.stopLoss,
-              icon: <Shield size={8} />,
-              color: "!text-red-500/80",
-            },
-            {
-              label: "แนวต้าน",
-              value: levels.resistance,
-              icon: <TrendingUp size={8} />,
-              color: "!text-orange-400/80",
-            },
-          ].map(({ label, value, icon, color }) => (
-            <div
-              key={label}
-              className="rounded-[10px] border border-white/[0.06] bg-white/[0.025] px-2.5 py-2 transition-colors hover:bg-white/[0.04] shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]"
-            >
+          {levelItems.map(
+            ({
+              label,
+              value,
+              icon,
+              color,
+              active,
+              activeStyle,
+              activeColor,
+              pulseColor,
+            }) => (
               <div
-                className={`flex items-center gap-1 text-[9px] font-semibold uppercase mb-1.5 ${color}`}
+                key={label}
+                className={`relative rounded-[10px] border px-2.5 py-2 transition-all duration-300 overflow-hidden shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] ${
+                  active
+                    ? activeStyle
+                    : "border-white/[0.06] bg-white/[0.025] hover:bg-white/[0.04]"
+                }`}
               >
-                {icon} {label}
+                {/* Pulse wash when active */}
+                {active && (
+                  <span
+                    className={`absolute inset-0 rounded-[10px] animate-pulse opacity-10 ${pulseColor}`}
+                  />
+                )}
+
+                <div
+                  className={`relative flex items-center gap-1 text-[9px] font-semibold uppercase mb-1.5 ${
+                    active ? activeColor : color
+                  }`}
+                >
+                  {/* Blinking dot when active */}
+                  {active && (
+                    <span className="relative flex h-[6px] w-[6px] shrink-0 mr-0.5">
+                      <span
+                        className={`absolute inline-flex h-full w-full animate-ping rounded-full opacity-75 ${pulseColor}`}
+                      />
+                      <span
+                        className={`relative inline-flex h-[6px] w-[6px] rounded-full ${pulseColor}`}
+                      />
+                    </span>
+                  )}
+                  {icon} {label}
+                </div>
+
+                <p
+                  className={`relative text-[13px] font-bold font-mono transition-colors duration-300 ${
+                    active ? "text-white" : "text-slate-200"
+                  }`}
+                >
+                  {fNumber(value)}
+                </p>
               </div>
-              <p className="text-[13px] font-bold text-slate-200 font-mono">
-                {fNumber(value)}
-              </p>
-            </div>
-          ))}
+            ),
+          )}
         </div>
 
         {/* ── Analyst row ── */}

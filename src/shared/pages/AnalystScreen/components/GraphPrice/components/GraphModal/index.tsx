@@ -28,6 +28,12 @@ import {
 } from "@/app/config";
 import { usePageVisible } from "@/shared/hooks/usePageVisible";
 import { useMarketStore } from "@/store/useMarketStore";
+import { AdvancedLevels } from "@/app/api/stock/support.function";
+import {
+  isNearResistance,
+  isNormalBuy,
+  isStrongBuy,
+} from "@/app/lib/market.logic";
 
 /* ─────────────────────────────────────────────
    Types
@@ -944,32 +950,94 @@ function TimeframeChips({
    StatRow / SectionLabel
 ───────────────────────────────────────────── */
 
+// ── StatRow ──────────────────────────────────────────────────────────────────
 function StatRow({
   label,
   value,
   subValue,
   signed,
+  active,
+  activeColor,
 }: {
   label: string;
   value: string;
   subValue?: string;
   signed?: boolean;
+  active?: boolean;
+  activeColor?: "emerald" | "red" | "orange";
 }) {
   const isPos = signed && value.startsWith("+");
   const isNeg = signed && value.startsWith("-");
+
+  const colorMap = {
+    emerald: {
+      label: "rgba(52,211,153,0.9)",
+      value: "rgba(52,211,153,1)",
+      dot: "#34d399",
+      dotGlow: "rgba(52,211,153,0.5)",
+      rowBg: "rgba(52,211,153,0.04)",
+      rowBorder: "rgba(52,211,153,0.12)",
+    },
+    red: {
+      label: "rgba(248,113,113,0.9)",
+      value: "rgba(248,113,113,1)",
+      dot: "#f87171",
+      dotGlow: "rgba(248,113,113,0.5)",
+      rowBg: "rgba(248,113,113,0.04)",
+      rowBorder: "rgba(248,113,113,0.12)",
+    },
+    orange: {
+      label: "rgba(251,146,60,0.9)",
+      value: "rgba(251,146,60,1)",
+      dot: "#fb923c",
+      dotGlow: "rgba(251,146,60,0.5)",
+      rowBg: "rgba(251,146,60,0.04)",
+      rowBorder: "rgba(251,146,60,0.12)",
+    },
+  };
+
+  const c = active && activeColor ? colorMap[activeColor] : null;
+
   return (
     <div
       style={{
         display: "flex",
         justifyContent: "space-between",
         alignItems: "center",
-        padding: "9px 0",
-        borderBottom: "1px solid rgba(255,198,0,0.05)",
+        padding: "9px 10px",
+        borderBottom: `1px solid ${c ? c.rowBorder : "rgba(255,198,0,0.05)"}`,
+        borderRadius: active ? 8 : 0,
+        background: c ? c.rowBg : "transparent",
+        transition: "background 0.2s, border-color 0.2s",
       }}
     >
-      <span style={{ fontSize: 13, color: "rgba(255,255,255,0.5)" }}>
-        {label}
-      </span>
+      {/* Label + dot */}
+      <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+        {c && (
+          <span
+            style={{
+              width: 6,
+              height: 6,
+              borderRadius: "50%",
+              background: c.dot,
+              boxShadow: `0 0 6px ${c.dotGlow}`,
+              flexShrink: 0,
+            }}
+          />
+        )}
+        <span
+          style={{
+            fontSize: 13,
+            color: c ? c.label : "rgba(255,255,255,0.5)",
+            fontWeight: active ? 600 : 400,
+            transition: "color 0.2s",
+          }}
+        >
+          {label}
+        </span>
+      </div>
+
+      {/* Value */}
       <div
         style={{
           display: "flex",
@@ -982,9 +1050,10 @@ function StatRow({
           className={isPos ? "!text-green-500" : isNeg ? "!text-red-500" : ""}
           style={{
             fontSize: 13,
-            fontWeight: 600,
+            fontWeight: active ? 700 : 600,
             fontFamily: "monospace",
-            color: !signed ? "rgba(255,255,255,0.88)" : undefined,
+            color: c ? c.value : !signed ? "rgba(255,255,255,0.88)" : undefined,
+            transition: "color 0.2s",
           }}
         >
           {value}
@@ -1033,6 +1102,8 @@ export function StockDetailModal({
   symbol,
 }: StockDetailModalProps) {
   const overlayRef = useRef<HTMLDivElement>(null);
+  const [levels, setLevels] = useState<AdvancedLevels | null>(null);
+  const [activeTab, setActiveTab] = useState<"info" | "analysis">("info");
 
   const storeCurrentPrice = useMarketStore((s) => s.prices?.[symbol] ?? null);
   const storePreviousPrice = useMarketStore(
@@ -1077,6 +1148,13 @@ export function StockDetailModal({
   const handleOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target === overlayRef.current) handleClose();
   };
+
+  useEffect(() => {
+    fetch(`/api/advanced-levels?symbol=${encodeURIComponent(symbol)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then(setLevels)
+      .catch(console.error);
+  }, [symbol]);
 
   /* ── Market data ──────────────────────────────────────────────────────── */
   const fetchMarketData = useCallback(async () => {
@@ -1357,142 +1435,257 @@ export function StockDetailModal({
             />
           </div>
 
+          {/* Tabs */}
+          <div
+            style={{
+              display: "flex",
+              gap: 0,
+              borderBottom: "1px solid rgba(255,255,255,0.07)",
+              margin: "12px 0 0",
+            }}
+          >
+            {(["info", "analysis"] as const).map((tab) => {
+              const active = tab === activeTab;
+              return (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  style={{
+                    padding: "8px 16px",
+                    fontSize: 13,
+                    fontWeight: active ? 600 : 400,
+                    fontFamily: "monospace",
+                    background: "transparent",
+                    border: "none",
+                    borderBottom: active
+                      ? "2px solid rgba(255,198,0,0.85)"
+                      : "2px solid transparent",
+                    color: active
+                      ? "rgba(255,198,0,0.95)"
+                      : "rgba(255,255,255,0.35)",
+                    cursor: "pointer",
+                    transition: "all 0.15s",
+                    outline: "none",
+                    marginBottom: -1, // ให้ underline ทับ border ด้านล่าง
+                    letterSpacing: "0.04em",
+                  }}
+                >
+                  {tab === "info" ? "ข้อมูล" : "วิเคราะห์"}
+                </button>
+              );
+            })}
+          </div>
+
           {/* Stats */}
           <div className="pb-5">
-            <SectionLabel>ราคาวันนี้</SectionLabel>
-            <StatRow
-              label="ราคาปัจจุบัน"
-              value={isThai ? fmt(displayPrice) : fmtUsd(displayPrice)}
-              subValue={
-                !isThai ? toBaht(displayPrice, currencyRate) : undefined
-              }
-            />
-            <StatRow
-              label="ราคาปิดก่อนหน้า"
-              value={isThai ? fmt(prevForPct) : fmtUsd(prevForPct)}
-              subValue={!isThai ? toBaht(prevForPct, currencyRate) : undefined}
-            />
-            <StatRow
-              label="เปลี่ยนแปลง"
-              value={signedFmt(priceChange, false, !isThai)}
-              signed
-            />
-            <StatRow
-              label="% เปลี่ยนแปลง"
-              value={signedFmt(percentChange, true)}
-              signed
-            />
-            <StatRow
-              label="สูงสุดวันนี้"
-              value={isThai ? fmt(maxPrice) : fmtUsd(maxPrice)}
-              subValue={!isThai ? toBaht(maxPrice, currencyRate) : undefined}
-            />
-            <StatRow
-              label="ต่ำสุดวันนี้"
-              value={isThai ? fmt(minPrice) : fmtUsd(minPrice)}
-              subValue={!isThai ? toBaht(minPrice, currencyRate) : undefined}
-            />
-
-            {asset && (
+            {activeTab === "info" && (
               <>
-                <SectionLabel>พอร์ตฉัน</SectionLabel>
-                <StatRow label="จำนวนหุ้น" value={`${asset.quantity} หุ้น`} />
+                <SectionLabel>ราคาวันนี้</SectionLabel>
                 <StatRow
-                  label="ต้นทุนเฉลี่ย"
-                  value={
-                    isThai
-                      ? fmt(asset.costPerShare)
-                      : fmtUsd(asset.costPerShare)
-                  }
+                  label="ราคาปัจจุบัน"
+                  value={isThai ? fmt(displayPrice) : fmtUsd(displayPrice)}
                   subValue={
-                    !isThai
-                      ? toBaht(asset.costPerShare, currencyRate)
-                      : undefined
-                  }
-                />
-                <StatRow
-                  label="มูลค่าต้นทุน"
-                  value={isThai ? fmt(holdingValue) : fmtUsd(holdingValue)}
-                  subValue={
-                    !isThai ? toBaht(holdingValue, currencyRate) : undefined
-                  }
-                />
-                <StatRow
-                  label="มูลค่าปัจจุบัน"
-                  value={isThai ? fmt(currentValue) : fmtUsd(currentValue)}
-                  subValue={
-                    !isThai ? toBaht(currentValue, currencyRate) : undefined
-                  }
-                />
-                <StatRow
-                  label="กำไร / ขาดทุน"
-                  value={signedFmt(profitLoss, false, !isThai)}
-                  subValue={
-                    !isThai && profitLoss != null
-                      ? `${profitLoss >= 0 ? "+" : ""}${toBaht(profitLoss, currencyRate)}`
-                      : undefined
-                  }
-                  signed
-                />
-                <StatRow
-                  label="% กำไร / ขาดทุน"
-                  value={signedFmt(profitPct, true)}
-                  signed
-                />
-              </>
-            )}
-
-            {pp && pp.session !== "regular" && (
-              <>
-                <SectionLabel>
-                  {pp.session === "pre"
-                    ? "ก่อนตลาดเปิด"
-                    : pp.session === "post"
-                      ? "หลังตลาดปิด"
-                      : "ตลาดปิด"}
-                </SectionLabel>
-                {pp.session !== "closed" && (
-                  <>
-                    <StatRow
-                      label="ราคา ก่อน/หลัง"
-                      value={
-                        isThai ? fmt(pp.currentPrice) : fmtUsd(pp.currentPrice)
-                      }
-                      subValue={
-                        !isThai
-                          ? toBaht(pp.currentPrice, currencyRate)
-                          : undefined
-                      }
-                    />
-                    <StatRow
-                      label="% เปลี่ยนแปลง"
-                      value={signedFmt(ppChange, true)}
-                      signed
-                    />
-                  </>
-                )}
-                <StatRow
-                  label="ราคาปิดตลาด"
-                  value={
-                    isThai
-                      ? fmt(pp.regularMarketPrice)
-                      : fmtUsd(pp.regularMarketPrice)
-                  }
-                  subValue={
-                    !isThai
-                      ? toBaht(pp.regularMarketPrice, currencyRate)
-                      : undefined
+                    !isThai ? toBaht(displayPrice, currencyRate) : undefined
                   }
                 />
                 <StatRow
                   label="ราคาปิดก่อนหน้า"
-                  value={
-                    isThai ? fmt(pp.previousClose) : fmtUsd(pp.previousClose)
-                  }
+                  value={isThai ? fmt(prevForPct) : fmtUsd(prevForPct)}
                   subValue={
-                    !isThai ? toBaht(pp.previousClose, currencyRate) : undefined
+                    !isThai ? toBaht(prevForPct, currencyRate) : undefined
                   }
                 />
+                <StatRow
+                  label="เปลี่ยนแปลง"
+                  value={signedFmt(priceChange, false, !isThai)}
+                  signed
+                />
+                <StatRow
+                  label="% เปลี่ยนแปลง"
+                  value={signedFmt(percentChange, true)}
+                  signed
+                />
+                <StatRow
+                  label="สูงสุดวันนี้"
+                  value={isThai ? fmt(maxPrice) : fmtUsd(maxPrice)}
+                  subValue={
+                    !isThai ? toBaht(maxPrice, currencyRate) : undefined
+                  }
+                />
+                <StatRow
+                  label="ต่ำสุดวันนี้"
+                  value={isThai ? fmt(minPrice) : fmtUsd(minPrice)}
+                  subValue={
+                    !isThai ? toBaht(minPrice, currencyRate) : undefined
+                  }
+                />
+
+                {asset && (
+                  <>
+                    <SectionLabel>พอร์ตฉัน</SectionLabel>
+                    <StatRow
+                      label="จำนวนหุ้น"
+                      value={`${asset.quantity} หุ้น`}
+                    />
+                    <StatRow
+                      label="ต้นทุนเฉลี่ย"
+                      value={
+                        isThai
+                          ? fmt(asset.costPerShare)
+                          : fmtUsd(asset.costPerShare)
+                      }
+                      subValue={
+                        !isThai
+                          ? toBaht(asset.costPerShare, currencyRate)
+                          : undefined
+                      }
+                    />
+                    <StatRow
+                      label="มูลค่าต้นทุน"
+                      value={isThai ? fmt(holdingValue) : fmtUsd(holdingValue)}
+                      subValue={
+                        !isThai ? toBaht(holdingValue, currencyRate) : undefined
+                      }
+                    />
+                    <StatRow
+                      label="มูลค่าปัจจุบัน"
+                      value={isThai ? fmt(currentValue) : fmtUsd(currentValue)}
+                      subValue={
+                        !isThai ? toBaht(currentValue, currencyRate) : undefined
+                      }
+                    />
+                    <StatRow
+                      label="กำไร / ขาดทุน"
+                      value={signedFmt(profitLoss, false, !isThai)}
+                      subValue={
+                        !isThai && profitLoss != null
+                          ? `${profitLoss >= 0 ? "+" : ""}${toBaht(profitLoss, currencyRate)}`
+                          : undefined
+                      }
+                      signed
+                    />
+                    <StatRow
+                      label="% กำไร / ขาดทุน"
+                      value={signedFmt(profitPct, true)}
+                      signed
+                    />
+                  </>
+                )}
+
+                {pp && pp.session !== "regular" && (
+                  <>
+                    <SectionLabel>
+                      {pp.session === "pre"
+                        ? "ก่อนตลาดเปิด"
+                        : pp.session === "post"
+                          ? "หลังตลาดปิด"
+                          : "ตลาดปิด"}
+                    </SectionLabel>
+                    {pp.session !== "closed" && (
+                      <>
+                        <StatRow
+                          label="ราคา ก่อน/หลัง"
+                          value={
+                            isThai
+                              ? fmt(pp.currentPrice)
+                              : fmtUsd(pp.currentPrice)
+                          }
+                          subValue={
+                            !isThai
+                              ? toBaht(pp.currentPrice, currencyRate)
+                              : undefined
+                          }
+                        />
+                        <StatRow
+                          label="% เปลี่ยนแปลง"
+                          value={signedFmt(ppChange, true)}
+                          signed
+                        />
+                      </>
+                    )}
+                    <StatRow
+                      label="ราคาปิดตลาด"
+                      value={
+                        isThai
+                          ? fmt(pp.regularMarketPrice)
+                          : fmtUsd(pp.regularMarketPrice)
+                      }
+                      subValue={
+                        !isThai
+                          ? toBaht(pp.regularMarketPrice, currencyRate)
+                          : undefined
+                      }
+                    />
+                    <StatRow
+                      label="ราคาปิดก่อนหน้า"
+                      value={
+                        isThai
+                          ? fmt(pp.previousClose)
+                          : fmtUsd(pp.previousClose)
+                      }
+                      subValue={
+                        !isThai
+                          ? toBaht(pp.previousClose, currencyRate)
+                          : undefined
+                      }
+                    />
+                  </>
+                )}
+              </>
+            )}
+
+            {activeTab === "analysis" && (
+              <>
+                {!levels ? (
+                  <div
+                    style={{
+                      padding: "40px 0",
+                      textAlign: "center",
+                      color: "rgba(255,255,255,0.2)",
+                      fontSize: 13,
+                      fontFamily: "monospace",
+                    }}
+                  >
+                    กำลังโหลด...
+                  </div>
+                ) : (
+                  <>
+                    <SectionLabel>วิเคราะห์เทคนิค</SectionLabel>
+
+                    {/* Level rows */}
+                    <StatRow
+                      label="จุดซื้อ 1"
+                      value={fmt(levels.entry1)}
+                      active={
+                        (displayPrice ?? 0) <= levels.entry1 &&
+                        (displayPrice ?? 0) > levels.entry2
+                      }
+                      activeColor="emerald"
+                    />
+                    <StatRow
+                      label="จุดซื้อ 2"
+                      value={fmt(levels.entry2)}
+                      active={(displayPrice ?? 0) <= levels.entry2}
+                      activeColor="emerald"
+                    />
+                    <StatRow
+                      label="จุดตัดขาดทุน"
+                      value={fmt(levels.stopLoss)}
+                      active={(displayPrice ?? 0) <= levels.stopLoss}
+                      activeColor="red"
+                    />
+                    <StatRow
+                      label="แนวต้าน"
+                      value={fmt(levels.resistance)}
+                      active={
+                        (displayPrice ?? 0) >= levels.resistance * 0.98 &&
+                        (displayPrice ?? 0) <= levels.resistance * 1.02
+                      }
+                      activeColor="orange"
+                    />
+                    <StatRow label="Trend" value={levels.trend} />
+                  </>
+                )}
               </>
             )}
           </div>
