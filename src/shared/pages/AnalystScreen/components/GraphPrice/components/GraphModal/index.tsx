@@ -1194,7 +1194,7 @@ export function StockDetailModal({
             <div className="w-10 h-10 rounded-full overflow-hidden border border-accent-yellow border-opacity-20 flex items-center justify-center shrink-0 bg-black">
               {getLogo(symbol) ? (
                 <div
-                  className="w-full h-full bg-cover bg-center"
+                  className="w-full h-full bg-cover bg-center bg-white"
                   style={{ backgroundImage: `url(${getLogo(symbol)})` }}
                 />
               ) : (
