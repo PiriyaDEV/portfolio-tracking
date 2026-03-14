@@ -66,8 +66,6 @@ type StockDetailModalProps = {
   asset?: Asset | null;
   onClose: () => void;
   currencyRate: number;
-  storeCurrentPrice?: number | null;
-  storePreviousPrice?: number | null;
 };
 
 /* ─────────────────────────────────────────────
@@ -1033,10 +1031,13 @@ export function StockDetailModal({
   onClose,
   currencyRate,
   symbol,
-  storeCurrentPrice,
-  storePreviousPrice,
 }: StockDetailModalProps) {
   const overlayRef = useRef<HTMLDivElement>(null);
+
+  const storeCurrentPrice = useMarketStore((s) => s.prices?.[symbol] ?? null);
+  const storePreviousPrice = useMarketStore(
+    (s) => s.previousPrice?.[symbol] ?? null,
+  );
 
   const [visible, setVisible] = useState(false);
   const [range, setRange] = useState<TimeRange>("1d");

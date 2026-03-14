@@ -148,7 +148,8 @@ export function GraphPrice({ assets, market }: Props) {
   // silentRefresh is intentionally NOT used here —
   // MainApp already calls it on the shared interval. Using it here too
   // would cause double-fetching every 20s.
-  const { prices, graphs, previousPrice, currencyRate, marketStatus } = useMarketStore();
+  const { prices, graphs, previousPrice, currencyRate, marketStatus } =
+    useMarketStore();
 
   const [sortBy, setSortBy] = useState<SortBy>("none");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
@@ -162,6 +163,15 @@ export function GraphPrice({ assets, market }: Props) {
   const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
 
   const isLoading = !graphs || Object.keys(graphs).length === 0;
+
+  const isMarketLoading =
+    isLoading ||
+    !market ||
+    (market.sp500.price === null &&
+      market.gold.price === null &&
+      market.btc.price === null &&
+      market.set.price === null &&
+      market.fearGreed.value === null);
   const isPageVisible = usePageVisible();
 
   // ─── Pre/post market data (separate from main refresh) ───────────────────
@@ -264,8 +274,6 @@ export function GraphPrice({ assets, market }: Props) {
           asset={assets.find((a) => a.symbol === selectedSymbol) ?? null}
           onClose={() => setSelectedSymbol(null)}
           currencyRate={currencyRate}
-          storeCurrentPrice={prices?.[selectedSymbol] ?? null}
-          storePreviousPrice={previousPrice?.[selectedSymbol] ?? null}
         />
       )}
 
@@ -278,7 +286,7 @@ export function GraphPrice({ assets, market }: Props) {
           className="mt-[5px] overflow-x-auto"
           style={{ scrollbarWidth: "none" }}
         >
-          {isLoading ? (
+          {isMarketLoading ? (
             <SkeletonMarketBar />
           ) : (
             market && (
