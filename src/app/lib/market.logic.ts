@@ -78,7 +78,7 @@ export const getAnalystLabel = (view: AnalystView) => {
 /* -------------------- Price Logic -------------------- */
 
 export const isStrongBuy = (price?: number | null, entry2?: number | null) =>
-  price != null && entry2 != null && price < entry2;
+  price != null && entry2 != null && price <= entry2;
 
 export const isNormalBuy = (
   price?: number | null,
@@ -91,7 +91,7 @@ export const isNormalBuy = (
   const nearEntry1 =
     price >= entry1 && price <= entry1;
 
-  const aboveEntry2ButBelowEntry1 = price >= entry2 && price < entry1;
+  const aboveEntry2ButBelowEntry1 = price > entry2 && price < entry1;
 
   return nearEntry1 || aboveEntry2ButBelowEntry1;
 };

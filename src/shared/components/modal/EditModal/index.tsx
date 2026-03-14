@@ -1,7 +1,7 @@
 "use client";
 
 import { Asset } from "@/app/lib/interface";
-import { getLogo } from "@/app/lib/utils";
+import { getLogo, getName } from "@/app/lib/utils";
 import StockSearchSelect from "@/shared/pages/ViewScreen/components/StockSearchSelect";
 import { useState } from "react";
 
@@ -43,6 +43,9 @@ const EditModal = ({
   const [newCardIndices, setNewCardIndices] = useState<Set<number>>(new Set());
   // Store raw string values so "0.000001" isn't eaten by || "" coercion
   const [rawValues, setRawValues] = useState<RawValues>({});
+  const [confirmDeleteIndex, setConfirmDeleteIndex] = useState<number | null>(
+    null,
+  );
 
   const updateAsset = (
     index: number,
@@ -82,13 +85,18 @@ const EditModal = ({
   };
 
   const handleRemoveAsset = (index: number) => {
-    removeAsset(index);
-    // Clean up raw values for this card
+    setConfirmDeleteIndex(index);
+  };
+
+  const confirmRemoveAsset = () => {
+    if (confirmDeleteIndex === null) return;
+    removeAsset(confirmDeleteIndex);
     setRawValues((prev) => {
       const next = { ...prev };
-      delete next[index];
+      delete next[confirmDeleteIndex];
       return next;
     });
+    setConfirmDeleteIndex(null);
   };
 
   const handleSelectAssetType = (cardIndex: number, type: AssetType) => {
@@ -220,7 +228,7 @@ const EditModal = ({
                       )}
                     </div>
                     <span className="text-white font-semibold text-sm">
-                      {asset.symbol || (
+                      {getName(asset.symbol) || (
                         <span className="text-gray-500 font-normal">
                           สินทรัพย์ใหม่
                         </span>
@@ -403,6 +411,63 @@ const EditModal = ({
           </div>
         </div>
       </div>
+
+      {/* Confirm Delete Modal */}
+      {confirmDeleteIndex !== null && (
+        <div className="fixed inset-0 flex items-center justify-center !z-[110] p-4">
+          {/* Backdrop — closes on click */}
+          <div
+            className="absolute inset-0 bg-black bg-opacity-60 backdrop-blur-sm"
+            onClick={() => setConfirmDeleteIndex(null)}
+          />
+          <div className="relative bg-black-lighter rounded-2xl w-full max-w-[320px] border border-red-500 border-opacity-30 shadow-2xl overflow-hidden">
+            {/* Red top accent bar */}
+            <div className="h-1 w-full bg-red-500 bg-opacity-60" />
+
+            <div className="px-6 py-5 space-y-4">
+              {/* Icon + title */}
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-red-500 bg-opacity-10 border border-red-500 border-opacity-30 flex items-center justify-center text-lg shrink-0">
+                  🗑️
+                </div>
+                <div>
+                  <h3 className="text-white font-bold text-base leading-tight">
+                    ลบสินทรัพย์
+                  </h3>
+                  <p className="text-gray-500 text-xs mt-0.5">
+                    ดำเนินการนี้ไม่สามารถย้อนกลับได้
+                  </p>
+                </div>
+              </div>
+
+              {/* Body */}
+              <p className="text-gray-300 text-sm leading-relaxed">
+                คุณต้องการลบ{" "}
+                <span className="text-accent-yellow font-bold tracking-wide">
+                  {editAssets[confirmDeleteIndex]?.symbol || "สินทรัพย์นี้"}
+                </span>{" "}
+                ออกจากพอร์ตหรือไม่?
+              </p>
+
+              {/* Buttons */}
+              <div className="flex gap-2 pt-1">
+                <button
+                  onClick={() => setConfirmDeleteIndex(null)}
+                  className="flex-1 py-2.5 rounded-xl bg-white bg-opacity-5 border border-white border-opacity-10 text-gray-400 hover:text-white text-sm font-medium transition-all"
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  onClick={confirmRemoveAsset}
+                  className="flex-1 py-2.5 rounded-xl bg-red-500 bg-opacity-90 hover:bg-opacity-100 text-white text-sm font-bold transition-all"
+                >
+                  ลบเลย
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

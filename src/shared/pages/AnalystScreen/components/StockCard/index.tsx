@@ -90,7 +90,7 @@ export default function StockCard({
       value: levels.entry1,
       icon: <Target size={8} />,
       color: "!text-emerald-500/80",
-      active: price < levels.entry1 && price > levels.entry2,
+      active: price <= levels.entry1 && price > levels.entry2,
       activeStyle:
         "border-emerald-400/50 bg-emerald-500/[0.08] shadow-[0_0_10px_rgba(52,211,153,0.15),inset_0_1px_0_rgba(52,211,153,0.1)]",
       activeColor: "!text-emerald-300",
@@ -101,7 +101,7 @@ export default function StockCard({
       value: levels.entry2,
       icon: <Zap size={8} />,
       color: "!text-emerald-500/80",
-      active: price < levels.entry2,
+      active: price <= levels.entry2,
       activeStyle:
         "border-emerald-400/60 bg-emerald-500/[0.12] shadow-[0_0_14px_rgba(52,211,153,0.20),inset_0_1px_0_rgba(52,211,153,0.12)]",
       activeColor: "!text-emerald-300",
