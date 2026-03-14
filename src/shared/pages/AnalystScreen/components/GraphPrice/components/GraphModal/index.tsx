@@ -312,19 +312,7 @@ function LWChart({ rawData, prevPrice, range, isLoading }: LWChartProps) {
         horzLines: { color: "rgba(255,255,255,0.04)" },
       },
       crosshair: {
-        mode: CrosshairMode.Magnet,
-        vertLine: {
-          color: "rgba(255,255,255,0.22)",
-          width: 1 as const,
-          style: LineStyle.Dashed,
-          labelBackgroundColor: "#111",
-        },
-        horzLine: {
-          color: "rgba(255,255,255,0.18)",
-          width: 1 as const,
-          style: LineStyle.Dashed,
-          labelBackgroundColor: "#111",
-        },
+        mode: CrosshairMode.Hidden,
       },
       timeScale: {
         borderVisible: false,
@@ -339,7 +327,15 @@ function LWChart({ rawData, prevPrice, range, isLoading }: LWChartProps) {
         pressedMouseMove: true,
         horzTouchDrag: true,
       },
-      handleScale: { mouseWheel: true, pinch: true },
+      handleScale: {
+        mouseWheel: false,
+        pinch: true,
+        axisPressedMouseMove: false,
+      },
+      kineticScroll: {
+        mouse: false,
+        touch: true,
+      },
     });
 
     const mainChart = createChart(mainContainerRef.current, {
