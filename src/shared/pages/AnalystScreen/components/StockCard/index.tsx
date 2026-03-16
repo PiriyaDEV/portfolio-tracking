@@ -124,7 +124,7 @@ export default function StockCard({
       icon: <TrendingUp size={8} />,
       color: "!text-orange-400/80",
       active:
-        price >= levels.resistance * 0.98 && price <= levels.resistance * 1.02,
+        isNearResistance(price, levels.resistance),
       activeStyle:
         "border-orange-400/50 bg-orange-500/[0.08] shadow-[0_0_10px_rgba(251,146,60,0.15),inset_0_1px_0_rgba(251,146,60,0.10)]",
       activeColor: "!text-orange-300",

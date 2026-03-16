@@ -45,55 +45,65 @@ export async function getAdvancedLevels(
   if (cached && Date.now() - cached.ts < CACHE_TTL_MS) return cached.value;
 
   try {
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=3mo`;
-    const response = await fetch(url, {
-      headers: {
-        "User-Agent": "Mozilla/5.0",
-        Accept: "application/json",
-      },
-      cache: "no-store",
-    });
+    const baseHeaders = {
+      "User-Agent": "Mozilla/5.0",
+      Accept: "application/json",
+    };
 
-    if (!response.ok) return INITIAL_LEVELS(symbol);
+    /* ================= FETCH ================= */
 
-    const data = await response.json();
-    const result = data?.chart?.result?.[0];
-    const quotes = result?.indicators?.quote?.[0];
-    const shortName = result?.meta?.shortName || result?.meta?.symbol || symbol;
+    const chartUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=3mo`;
 
-    if (!quotes) return INITIAL_LEVELS(symbol);
+    const recentUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d`;
 
-    const closes = (quotes.close ?? []).filter(
-      (v: number) => v != null,
-    ) as number[];
+    const [chartRes, recentRes] = await Promise.all([
+      fetch(chartUrl, { headers: baseHeaders, cache: "no-store" }),
+      fetch(recentUrl, { headers: baseHeaders, cache: "no-store" }),
+    ]);
+
+    if (!chartRes.ok || !recentRes.ok) return INITIAL_LEVELS(symbol);
+
+    const chartData = await chartRes.json();
+    const recentData = await recentRes.json();
+
+    /* ================= PARSE 3mo ================= */
+
+    const chartResult = chartData?.chart?.result?.[0];
+    const chartQuote = chartResult?.indicators?.quote?.[0];
+
+    const highs = (chartQuote?.high ?? []).filter((v: number) => v != null);
+    const lows = (chartQuote?.low ?? []).filter((v: number) => v != null);
+    const closes = (chartQuote?.close ?? []).filter((v: number) => v != null);
+
+    if (closes.length < 10) return INITIAL_LEVELS(symbol);
+
     const stableCloses = closes.slice(0, -1);
-    const highs = (quotes.high ?? []).filter(
+
+    /* ================= PARSE 2d ================= */
+
+    const recentResult = recentData?.chart?.result?.[0];
+    const recentQuote = recentResult?.indicators?.quote?.[0];
+    const recentMeta = recentResult?.meta;
+
+    const recentCloses = (recentQuote?.close ?? []).filter(
       (v: number) => v != null,
-    ) as number[];
-    const lows = (quotes.low ?? []).filter(
-      (v: number) => v != null,
-    ) as number[];
+    );
 
-    if (closes.length < 10 || highs.length < 10 || lows.length < 10) {
-      return INITIAL_LEVELS(symbol);
-    }
+    const shortName = recentMeta?.shortName || recentMeta?.symbol || symbol;
 
-    const meta = result.meta;
-    const currentPrice = meta?.regularMarketPrice ?? closes[closes.length - 1];
+    const currentPrice = recentMeta?.regularMarketPrice ?? recentCloses.at(-1);
 
-    const lastClose = closes[closes.length - 1];
-    const prevClose = closes[closes.length - 2];
-    const isIncomplete = lastClose === prevClose;
-
-    const previousClose = isIncomplete
-      ? (closes[closes.length - 3] ?? closes[closes.length - 2])
-      : closes[closes.length - 2];
+    const previousClose =
+      recentMeta?.chartPreviousClose ?? recentCloses.at(-2) ?? 0;
 
     /* ================= EMA ================= */
+
     function calcEMA(data: number[], period: number): number {
       const p = Math.min(period, data.length);
       const slice = data.slice(-p);
+
       const k = 2 / (p + 1);
+
       return slice.reduce((prev, curr) => curr * k + prev * (1 - k), slice[0]);
     }
 
@@ -101,7 +111,9 @@ export async function getAdvancedLevels(
     const ema50 = calcEMA(stableCloses, 50);
 
     /* ================= ATR ================= */
+
     const len = Math.min(highs.length, lows.length, closes.length);
+
     let totalTR = 0;
 
     for (let i = 1; i < len; i++) {
@@ -115,16 +127,21 @@ export async function getAdvancedLevels(
     const atr = totalTR / Math.max(1, len - 1);
 
     /* ================= STRUCTURE ================= */
+
     const lookback = Math.min(10, lows.length);
+
     const swingLow = Math.min(...lows.slice(-lookback));
     const swingHigh = Math.max(...highs.slice(-lookback));
 
     /* ================= TREND ================= */
+
     let trend: "ขาขึ้น" | "ขาลง" | "ทรงตัว" = "ทรงตัว";
+
     if (ema20 > ema50 && currentPrice > ema20) trend = "ขาขึ้น";
     else if (ema20 < ema50 && currentPrice < ema20) trend = "ขาลง";
 
-    /* ================= ENTRY LEVELS ================= */
+    /* ================= ENTRY ================= */
+
     let entry1 = ema20 - 0.3 * atr;
     let entry2 = Math.min(ema50 - 1.0 * atr, swingLow + 0.2 * atr);
 
@@ -133,6 +150,7 @@ export async function getAdvancedLevels(
     if (entry2 >= entry1) entry2 = entry1 - minGap;
 
     entry1 = Math.min(entry1, swingHigh - 0.3 * atr);
+
     entry2 = Math.max(entry2, swingLow);
 
     if (entry2 >= entry1) entry2 = entry1 - minGap;
@@ -154,9 +172,11 @@ export async function getAdvancedLevels(
     };
 
     cache.set(symbol, { value, ts: Date.now() });
+
     return value;
   } catch (error) {
     console.error(`[getAdvancedLevels] Failed for ${symbol}`, error);
+
     return INITIAL_LEVELS(symbol);
   }
 }

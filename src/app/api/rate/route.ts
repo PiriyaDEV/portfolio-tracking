@@ -6,7 +6,7 @@ import { NextResponse } from "next/server";
  */
 async function fetchUSDTHBRate(): Promise<number> {
   const url =
-    "https://query1.finance.yahoo.com/v8/finance/chart/USDTHB=X?range=5d&interval=1d";
+    "https://query1.finance.yahoo.com/v8/finance/chart/USDTHB=X";
 
   const res = await fetch(url, {
     headers: { "User-Agent": "Mozilla/5.0" },

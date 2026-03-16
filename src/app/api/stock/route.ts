@@ -30,7 +30,7 @@ type DividendAssetResult = {
 
 async function fetchUSDTHBRate(): Promise<number> {
   const res = await fetch(
-    "https://query1.finance.yahoo.com/v8/finance/chart/USDTHB=X?range=5d&interval=1d",
+    "https://query1.finance.yahoo.com/v8/finance/chart/USDTHB=X",
     { headers: { "User-Agent": "Mozilla/5.0" }, cache: "no-store" },
   );
 
