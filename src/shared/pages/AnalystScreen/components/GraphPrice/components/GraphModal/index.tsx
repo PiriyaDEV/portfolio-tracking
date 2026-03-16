@@ -193,20 +193,49 @@ function buildCandles(rawData: ChartHistoryPoint[]) {
   const candles = Array.from(candleMap.values()).sort(sort);
   const volBars = Array.from(volMap.values()).sort(sort);
 
-  // เติม bridge เฉพาะวันที่มี gap
+  // ── เติม bridge candle เต็มแท่งในวันที่มี gap ──────────────────────
+  const bridgeCandles: typeof candles = [];
+  const bridgeVolBars: typeof volBars = [];
+
   for (let i = 1; i < candles.length; i++) {
     const prev = candles[i - 1];
     const curr = candles[i];
+
     const gapUp = curr.low > prev.high;
     const gapDown = curr.high < prev.low;
 
     if (gapUp || gapDown) {
-      prev.high = gapUp ? curr.low : prev.high;
-      prev.low = gapDown ? curr.high : prev.low;
+      const bridgeOpen = prev.close;
+      const bridgeClose = curr.open;
+      const prevTime = prev.time as unknown as number;
+      const currTime = curr.time as unknown as number;
+      const bridgeTime = Math.round(
+        (prevTime + currTime) / 2,
+      ) as unknown as Time;
+
+      bridgeCandles.push({
+        time: bridgeTime,
+        open: bridgeOpen,
+        close: bridgeClose,
+        high: Math.max(bridgeOpen, bridgeClose),
+        low: Math.min(bridgeOpen, bridgeClose),
+      });
+      bridgeVolBars.push({
+        time: bridgeTime,
+        value: 0,
+        color:
+          bridgeClose >= bridgeOpen
+            ? "rgba(74,222,128,0.28)"
+            : "rgba(248,113,113,0.22)",
+      });
     }
   }
 
-  return { candles, volBars };
+  // รวมแล้ว sort ใหม่
+  const allCandles = [...candles, ...bridgeCandles].sort(sort);
+  const allVolBars = [...volBars, ...bridgeVolBars].sort(sort);
+
+  return { candles: allCandles, volBars: allVolBars };
 }
 
 function alignPlot(

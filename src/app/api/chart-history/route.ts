@@ -13,7 +13,7 @@ export type TimeRange =
   | "1mo";
 
 const RANGE_CONFIG: Record<TimeRange, { interval: string; range: string }> = {
-  "1m": { interval: "1m", range: "1d" },
+  "1m": { interval: "1m", range: "2d" },
   "5m": { interval: "5m", range: "5d" },
   "15m": { interval: "15m", range: "1mo" },
   "1h": { interval: "1h", range: "3mo" },
