@@ -253,6 +253,24 @@ export default function MainApp() {
     fetchSymbols(symbols);
   }, [searchedSymbol, wishlist]);
 
+  useEffect(() => {
+    window.scrollTo({ top: 0 });
+
+    // หา element ทั้งหมด
+    const elements = document.querySelectorAll("*");
+
+    elements.forEach((el) => {
+      const element = el as HTMLElement;
+
+      // เช็คว่า element นี้ scroll ได้ไหม
+      if (element.scrollHeight > element.clientHeight) {
+        element.scrollTo({
+          top: 0,
+        });
+      }
+    });
+  }, [currentPage]);
+
   // ─── Edit modal ────────────────────────────────────────────────────────────
   const openEditModal = () => {
     setEditAssets(JSON.parse(JSON.stringify(assets)));
