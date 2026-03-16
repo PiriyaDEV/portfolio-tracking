@@ -1,7 +1,9 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import CommonLoading from "../../common/CommonLoading";
+import { validateNewPassword } from "@/app/lib/password.utils";
+import { PasswordStrengthHint } from "../../common/PasswordHint";
 
 type Props = {
   isLoggedIn: boolean;
@@ -25,9 +27,39 @@ function RegisterModal({ onClose }: { onClose: () => void }) {
   const [inviteError, setInviteError] = useState("");
   const [newUsername, setNewUsername] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState("");
   const [createSuccess, setCreateSuccess] = useState(false);
+
+  // ── Username uniqueness check ──
+  const [usernameStatus, setUsernameStatus] = useState<
+    "idle" | "checking" | "available" | "taken" | "error"
+  >("idle");
+  const usernameCheckTimeout = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+
+  const handleUsernameChange = (value: string) => {
+    const trimmed = value.slice(0, 32);
+    setNewUsername(trimmed);
+    setUsernameStatus("idle");
+    if (usernameCheckTimeout.current)
+      clearTimeout(usernameCheckTimeout.current);
+    if (!trimmed.trim()) return;
+    usernameCheckTimeout.current = setTimeout(async () => {
+      setUsernameStatus("checking");
+      try {
+        const res = await fetch(
+          `/api/profile/check-username?username=${encodeURIComponent(trimmed.trim())}`,
+        );
+        const data = await res.json();
+        setUsernameStatus(data.available ? "available" : "taken");
+      } catch {
+        setUsernameStatus("error");
+      }
+    }, 500);
+  };
 
   const handleInviteSubmit = () => {
     if (inviteCode.trim().toUpperCase() === INVITE_CODE) {
@@ -40,24 +72,32 @@ function RegisterModal({ onClose }: { onClose: () => void }) {
   };
 
   const handleCreateUser = async () => {
-    if (!newUsername || !newPassword) return;
+    if (!newUsername || !newPassword || !confirmPassword) return;
+    const pwError = validateNewPassword(newPassword, confirmPassword);
+    if (pwError) {
+      setCreateError(pwError);
+      return;
+    }
+    if (usernameStatus === "checking") {
+      setCreateError("กำลังตรวจสอบชื่อผู้ใช้ กรุณารอสักครู่");
+      return;
+    }
+    if (usernameStatus === "taken") {
+      setCreateError("ชื่อผู้ใช้นี้ถูกใช้งานแล้ว");
+      return;
+    }
+
     setIsCreating(true);
     setCreateError("");
     try {
       const res = await fetch("/api/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          username: newUsername,
-          password: newPassword,
-        }),
+        body: JSON.stringify({ username: newUsername, password: newPassword }),
       });
       const data = await res.json();
-      if (!res.ok) {
-        setCreateError(data.error || "เกิดข้อผิดพลาด");
-      } else {
-        setCreateSuccess(true);
-      }
+      if (!res.ok) setCreateError(data.error || "เกิดข้อผิดพลาด");
+      else setCreateSuccess(true);
     } catch {
       setCreateError("ไม่สามารถเชื่อมต่อได้");
     } finally {
@@ -77,6 +117,74 @@ function RegisterModal({ onClose }: { onClose: () => void }) {
     boxSizing: "border-box",
     fontFamily: "inherit",
   };
+
+  const usernameBorderColor =
+    usernameStatus === "taken"
+      ? "rgba(255,59,48,0.6)"
+      : usernameStatus === "available"
+        ? "rgba(52,199,89,0.6)"
+        : "rgba(255,255,255,0.12)";
+
+  const confirmPasswordBorderColor =
+    confirmPassword === ""
+      ? "rgba(255,255,255,0.12)"
+      : confirmPassword === newPassword
+        ? "rgba(52,199,89,0.6)"
+        : "rgba(255,59,48,0.6)";
+
+  const usernameStatusLabel = () => {
+    if (!newUsername.trim() || usernameStatus === "idle") return null;
+    if (usernameStatus === "checking")
+      return (
+        <span style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>
+          กำลังตรวจสอบ...
+        </span>
+      );
+    if (usernameStatus === "available")
+      return (
+        <span className="!text-green-600" style={{ fontSize: 11 }}>
+          ✓ ใช้ได้
+        </span>
+      );
+    if (usernameStatus === "taken")
+      return (
+        <span className="!text-red-600" style={{ fontSize: 11 }}>
+          ✕ ถูกใช้งานแล้ว
+        </span>
+      );
+    if (usernameStatus === "error")
+      return (
+        <span className="!text-yellow-600" style={{ fontSize: 11 }}>
+          ⚠ ตรวจสอบไม่ได้
+        </span>
+      );
+    return null;
+  };
+
+  const confirmPasswordStatusLabel = () => {
+    if (!confirmPassword) return null;
+    if (confirmPassword === newPassword)
+      return (
+        <span className="!text-green-600" style={{ fontSize: 11 }}>
+          ✓ รหัสผ่านตรงกัน
+        </span>
+      );
+    return (
+      <span className="!text-red-600" style={{ fontSize: 11 }}>
+        ✕ รหัสผ่านไม่ตรงกัน
+      </span>
+    );
+  };
+
+  // ── Only require: username filled, password ≥4 chars, passwords match, username not taken ──
+  const canCreate =
+    !isCreating &&
+    !!newUsername &&
+    newPassword.length >= 4 &&
+    !!confirmPassword &&
+    newPassword === confirmPassword &&
+    usernameStatus !== "taken" &&
+    usernameStatus !== "checking";
 
   return (
     <div
@@ -307,29 +415,90 @@ function RegisterModal({ onClose }: { onClose: () => void }) {
               กรอกชื่อผู้ใช้และรหัสผ่านเพื่อสร้างบัญชีใหม่
             </p>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <input
-                type="text"
-                value={newUsername}
-                onChange={(e) => setNewUsername(e.target.value.slice(0, 32))}
-                placeholder="ชื่อผู้ใช้ (username)"
-                autoFocus
-                style={inputStyle}
-              />
-              <input
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                onKeyDown={(e) =>
-                  e.key === "Enter" &&
-                  !isCreating &&
-                  newUsername &&
-                  newPassword &&
-                  handleCreateUser()
-                }
-                placeholder="รหัสผ่าน"
-                style={inputStyle}
-              />
+              {/* Username */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <span
+                    style={{ color: "rgba(255,255,255,0.35)", fontSize: 11 }}
+                  >
+                    ชื่อผู้ใช้
+                  </span>
+                  {usernameStatusLabel()}
+                </div>
+                <input
+                  type="text"
+                  value={newUsername}
+                  onChange={(e) => handleUsernameChange(e.target.value)}
+                  placeholder="ชื่อผู้ใช้ (username)"
+                  autoFocus
+                  style={{
+                    ...inputStyle,
+                    border: `1px solid ${usernameBorderColor}`,
+                    transition: "border-color 0.2s",
+                  }}
+                />
+              </div>
+
+              {/* Password + informational strength hint */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <span style={{ color: "rgba(255,255,255,0.35)", fontSize: 11 }}>
+                  รหัสผ่าน
+                </span>
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => {
+                    setNewPassword(e.target.value);
+                    setCreateError("");
+                  }}
+                  placeholder="อย่างน้อย 4 ตัวอักษร"
+                  style={inputStyle}
+                />
+                <PasswordStrengthHint password={newPassword} />
+              </div>
+
+              {/* Confirm password */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <span
+                    style={{ color: "rgba(255,255,255,0.35)", fontSize: 11 }}
+                  >
+                    ยืนยันรหัสผ่าน
+                  </span>
+                  {confirmPasswordStatusLabel()}
+                </div>
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => {
+                    setConfirmPassword(e.target.value);
+                    setCreateError("");
+                  }}
+                  onKeyDown={(e) =>
+                    e.key === "Enter" && canCreate && handleCreateUser()
+                  }
+                  placeholder="ยืนยันรหัสผ่านอีกครั้ง"
+                  style={{
+                    ...inputStyle,
+                    border: `1px solid ${confirmPasswordBorderColor}`,
+                    transition: "border-color 0.2s",
+                  }}
+                />
+              </div>
             </div>
+
             {createError && (
               <p style={{ color: "rgba(255,59,48,0.9)", fontSize: 12 }}>
                 * {createError}
@@ -337,30 +506,27 @@ function RegisterModal({ onClose }: { onClose: () => void }) {
             )}
             <button
               onClick={handleCreateUser}
-              disabled={isCreating || !newUsername || !newPassword}
+              disabled={!canCreate}
               style={{
-                background:
-                  !isCreating && newUsername && newPassword
-                    ? "rgba(255,255,255,0.92)"
-                    : "rgba(255,255,255,0.1)",
-                color:
-                  !isCreating && newUsername && newPassword
-                    ? "#111"
-                    : "rgba(255,255,255,0.3)",
+                background: canCreate
+                  ? "rgba(255,255,255,0.92)"
+                  : "rgba(255,255,255,0.1)",
+                color: canCreate ? "#111" : "rgba(255,255,255,0.3)",
                 border: "none",
                 borderRadius: 12,
                 padding: "13px",
                 fontWeight: 600,
                 fontSize: 15,
-                cursor:
-                  !isCreating && newUsername && newPassword
-                    ? "pointer"
-                    : "not-allowed",
+                cursor: canCreate ? "pointer" : "not-allowed",
                 transition: "all 0.2s",
                 fontFamily: "inherit",
               }}
             >
-              {isCreating ? "กำลังสร้าง..." : "สร้างบัญชี"}
+              {isCreating
+                ? "กำลังสร้าง..."
+                : usernameStatus === "checking"
+                  ? "กำลังตรวจสอบ..."
+                  : "สร้างบัญชี"}
             </button>
           </>
         )}
@@ -434,7 +600,6 @@ export default function LoginModal({
             "'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif",
         }}
       >
-        {/* Card */}
         <div
           style={{
             width: "100%",
@@ -446,7 +611,6 @@ export default function LoginModal({
             animation: "fadeDown 0.5s ease",
           }}
         >
-          {/* App icon + title */}
           <div
             style={{
               display: "flex",
@@ -494,7 +658,6 @@ export default function LoginModal({
             </p>
           </div>
 
-          {/* Inputs */}
           <div
             style={{
               width: "100%",
@@ -519,7 +682,6 @@ export default function LoginModal({
                 e.currentTarget.style.borderColor = "rgba(255,255,255,0.13)";
               }}
             />
-
             <div style={{ position: "relative", width: "100%" }}>
               <input
                 type={showPassword ? "text" : "password"}
@@ -558,8 +720,6 @@ export default function LoginModal({
                 {showPassword ? "🙈" : "👁"}
               </button>
             </div>
-
-            {/* Error */}
             <div style={{ height: 18, marginTop: -4 }}>
               {loginError && (
                 <p
@@ -576,7 +736,6 @@ export default function LoginModal({
             </div>
           </div>
 
-          {/* Submit + register */}
           <div
             style={{
               width: "100%",
@@ -608,7 +767,6 @@ export default function LoginModal({
             >
               {isLoading ? "กำลังโหลด..." : "เข้าสู่ระบบ"}
             </button>
-
             <button
               onClick={() => setShowRegister(true)}
               style={{
@@ -639,17 +797,8 @@ export default function LoginModal({
       {showRegister && <RegisterModal onClose={() => setShowRegister(false)} />}
 
       <style>{`
-        @keyframes fadeDown {
-          from { opacity: 0; transform: translateY(-12px) }
-          to   { opacity: 1; transform: translateY(0) }
-        }
-        @keyframes shake {
-          0%, 100% { transform: translateX(0) }
-          20%       { transform: translateX(-8px) }
-          40%       { transform: translateX(8px) }
-          60%       { transform: translateX(-6px) }
-          80%       { transform: translateX(6px) }
-        }
+        @keyframes fadeDown { from { opacity: 0; transform: translateY(-12px) } to { opacity: 1; transform: translateY(0) } }
+        @keyframes shake { 0%, 100% { transform: translateX(0) } 20% { transform: translateX(-8px) } 40% { transform: translateX(8px) } 60% { transform: translateX(-6px) } 80% { transform: translateX(6px) } }
       `}</style>
     </>
   );

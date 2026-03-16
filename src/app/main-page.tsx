@@ -326,17 +326,20 @@ export default function MainApp() {
   // ─── Save Profile ──────────────────────────────────────────────────────────
   const handleSaveProfile = async ({
     displayName: newDisplayName,
+    newUsername,
     oldPassword,
     newPassword,
     imageUrl,
   }: {
     displayName: string;
+    newUsername: string;
     oldPassword: string;
     newPassword: string;
     imageUrl: string | null;
   }) => {
     const payload: any = {
       displayName: newDisplayName,
+      newUsername,
       oldPassword,
       image: imageUrl,
     };

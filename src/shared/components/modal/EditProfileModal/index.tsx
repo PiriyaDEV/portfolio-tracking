@@ -1,7 +1,20 @@
 import { useRef, useState, useCallback } from "react";
 import { FaTimes, FaSignOutAlt } from "react-icons/fa";
-import { FaCamera, FaCheck, FaUser, FaCrop, FaLock } from "react-icons/fa6";
+import {
+  FaCamera,
+  FaCheck,
+  FaUser,
+  FaCrop,
+  FaLock,
+  FaChevronDown,
+  FaChevronUp,
+} from "react-icons/fa6";
 import Cropper from "react-easy-crop";
+import {
+  getPasswordStrength,
+  validateNewPassword,
+} from "@/app/lib/password.utils";
+import { PasswordStrengthHint } from "../../common/PasswordHint";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 interface Area {
@@ -153,21 +166,22 @@ function ImageCropModal({
 
 // ─── Edit Profile Modal ─────────────────────────────────────────────────────────
 export function EditProfileModal({
-  userId, // column A internal key — used for the API call
-  username, // column K — login username, shown read-only
-  displayName, // column D — editable display name
+  userId,
+  username,
+  displayName,
   profileImage,
   onClose,
   onSave,
   onLogout,
 }: {
   userId: string;
-  username: string; // column K — read-only
-  displayName: string; // column D — editable
+  username: string;
+  displayName: string;
   profileImage: string | null;
   onClose: () => void;
   onSave: (data: {
     displayName: string;
+    newUsername: string;
     oldPassword: string;
     newPassword: string;
     imageUrl: string | null;
@@ -175,16 +189,56 @@ export function EditProfileModal({
   onLogout: () => void;
 }) {
   const [newDisplayName, setNewDisplayName] = useState(displayName);
+
+  // ── Username ──
+  const [newUsername, setNewUsername] = useState(username);
+  const [usernameStatus, setUsernameStatus] = useState<
+    "idle" | "checking" | "available" | "taken" | "error"
+  >("idle");
+  const usernameCheckTimeout = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+
+  // ── Password section ──
+  const [showPasswordSection, setShowPasswordSection] = useState(false);
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+
+  // ── Image ──
   const [imagePreview, setImagePreview] = useState<string | null>(profileImage);
   const [rawImageSrc, setRawImageSrc] = useState<string | null>(null);
+
+  // ── UI state ──
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // ── Username change with debounced uniqueness check ──
+  const handleUsernameChange = (value: string) => {
+    setNewUsername(value);
+    setUsernameStatus("idle");
+
+    if (usernameCheckTimeout.current)
+      clearTimeout(usernameCheckTimeout.current);
+    if (value.trim() === username || !value.trim()) return;
+
+    usernameCheckTimeout.current = setTimeout(async () => {
+      setUsernameStatus("checking");
+      try {
+        const res = await fetch(
+          `/api/profile/check-username?username=${encodeURIComponent(value.trim())}`,
+        );
+        const data = await res.json();
+        setUsernameStatus(data.available ? "available" : "taken");
+      } catch {
+        setUsernameStatus("error");
+      }
+    }, 500);
+  };
+
+  // ── Image handlers ──
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -203,6 +257,17 @@ export function EditProfileModal({
     setRawImageSrc(null);
   };
 
+  // ── Password section toggle — reset fields when closing ──
+  const togglePasswordSection = () => {
+    if (showPasswordSection) {
+      setNewPassword("");
+      setConfirmPassword("");
+    }
+    setShowPasswordSection((v) => !v);
+    setError("");
+  };
+
+  // ── Save handler ──
   const handleSave = async () => {
     setError("");
 
@@ -210,25 +275,38 @@ export function EditProfileModal({
       setError("กรุณากรอกชื่อที่แสดง");
       return;
     }
+    if (!newUsername.trim()) {
+      setError("กรุณากรอกชื่อผู้ใช้");
+      return;
+    }
+    if (usernameStatus === "checking") {
+      setError("กำลังตรวจสอบชื่อผู้ใช้ กรุณารอสักครู่");
+      return;
+    }
+    if (usernameStatus === "taken") {
+      setError("ชื่อผู้ใช้นี้ถูกใช้งานแล้ว");
+      return;
+    }
     if (!oldPassword) {
-      setError("กรุณากรอกรหัสผ่านเดิมเพื่อยืนยัน");
+      setError("กรุณากรอกรหัสผ่านปัจจุบันเพื่อยืนยัน");
       return;
     }
-    if (newPassword && newPassword !== confirmPassword) {
-      setError("รหัสผ่านใหม่ไม่ตรงกัน");
-      return;
-    }
-    if (newPassword && newPassword.length < 4) {
-      setError("รหัสผ่านใหม่ต้องมีอย่างน้อย 4 ตัวอักษร");
-      return;
+
+    if (showPasswordSection && newPassword) {
+      const pwError = validateNewPassword(newPassword, confirmPassword);
+      if (pwError) {
+        setError(pwError);
+        return;
+      }
     }
 
     setIsSaving(true);
     try {
       await onSave({
         displayName: newDisplayName.trim(),
+        newUsername: newUsername.trim(),
         oldPassword,
-        newPassword,
+        newPassword: showPasswordSection ? newPassword : "",
         imageUrl: imagePreview,
       });
       onClose();
@@ -237,6 +315,40 @@ export function EditProfileModal({
     } finally {
       setIsSaving(false);
     }
+  };
+
+  // ── Derived states ──
+  const confirmMatch =
+    confirmPassword !== "" && confirmPassword === newPassword;
+  const confirmMismatch =
+    confirmPassword !== "" && confirmPassword !== newPassword;
+
+  const canSave =
+    !isSaving &&
+    usernameStatus !== "checking" &&
+    usernameStatus !== "taken" &&
+    !(showPasswordSection && newPassword && confirmMismatch);
+
+  // ── Username indicator ──
+  const usernameIndicator = () => {
+    if (newUsername.trim() === username) return null;
+    if (usernameStatus === "checking")
+      return <span className="text-gray-400 text-[11px]">กำลังตรวจสอบ...</span>;
+    if (usernameStatus === "available")
+      return (
+        <span className="text-green-400 text-[11px] flex items-center gap-1">
+          <FaCheck className="text-[10px]" /> ใช้ได้
+        </span>
+      );
+    if (usernameStatus === "taken")
+      return (
+        <span className="text-red-400 text-[11px] flex items-center gap-1">
+          <FaTimes className="text-[10px]" /> ถูกใช้งานแล้ว
+        </span>
+      );
+    if (usernameStatus === "error")
+      return <span className="text-yellow-400 text-[11px]">ตรวจสอบไม่ได้</span>;
+    return null;
   };
 
   return (
@@ -308,25 +420,34 @@ export function EditProfileModal({
               </div>
             </div>
 
-            {/* Read-only username (column K) */}
+            {/* Username */}
             <div className="space-y-1.5">
-              <label className="text-[11px] text-gray-500 flex items-center gap-1.5">
-                <FaUser className="text-gray-600" />
-                ชื่อผู้ใช้
-                <span className="text-gray-600 text-[10px]">
-                  (เปลี่ยนไม่ได้)
-                </span>
-              </label>
-              <div className="w-full bg-black/40 border border-white/5 rounded-xl px-3 py-2.5 text-gray-500 text-[13px] select-none">
-                {username}
+              <div className="flex items-center justify-between">
+                <label className="text-[11px] text-gray-500 flex items-center gap-1.5">
+                  <FaUser className="text-gray-600" /> ชื่อผู้ใช้
+                </label>
+                {usernameIndicator()}
               </div>
+              <input
+                type="text"
+                value={newUsername}
+                onChange={(e) => handleUsernameChange(e.target.value)}
+                className={`w-full bg-black border rounded-xl px-3 py-2.5 text-white text-[13px] outline-none transition-colors placeholder-gray-600
+                  ${
+                    usernameStatus === "taken"
+                      ? "border-red-500/50 focus:border-red-500/70"
+                      : usernameStatus === "available"
+                        ? "border-green-500/50 focus:border-green-500/70"
+                        : "border-white/10 focus:border-accent-yellow/50"
+                  }`}
+                placeholder="กรอกชื่อผู้ใช้"
+              />
             </div>
 
-            {/* Editable display name (column D) */}
+            {/* Display name */}
             <div className="space-y-1.5">
               <label className="text-[11px] text-gray-500 flex items-center gap-1.5">
-                <FaUser className="text-accent-yellow/60" />
-                ชื่อที่แสดง
+                <FaUser className="text-accent-yellow/60" /> ชื่อที่แสดง
               </label>
               <input
                 type="text"
@@ -337,76 +458,107 @@ export function EditProfileModal({
               />
             </div>
 
-            {/* Divider */}
-            <div className="border-t border-white/5 pt-1">
-              <p className="text-[11px] text-gray-600 mb-3 flex items-center gap-1.5">
+            {/* Current password — always visible */}
+            <div className="space-y-1.5">
+              <label className="text-[11px] text-gray-500 flex items-center gap-1.5">
                 <FaLock className="text-gray-600" />
-                เปลี่ยนรหัสผ่าน
-              </p>
+                รหัสผ่านปัจจุบัน{" "}
+                <span className="text-gray-600">(ต้องกรอกเพื่อบันทึก)</span>
+              </label>
+              <input
+                type="password"
+                value={oldPassword}
+                onChange={(e) => setOldPassword(e.target.value)}
+                className="w-full bg-black border border-white/10 rounded-xl px-3 py-2.5 text-white text-[13px] outline-none focus:border-accent-yellow/50 transition-colors placeholder-gray-600"
+                placeholder="กรอกรหัสผ่านปัจจุบัน"
+              />
+            </div>
 
-              {/* Old password — always required to save */}
-              <div className="space-y-3">
-                <div className="space-y-1.5">
-                  <label className="text-[11px] text-gray-500">
-                    รหัสผ่านเดิม *
-                  </label>
-                  <input
-                    type="password"
-                    value={oldPassword}
-                    onChange={(e) => setOldPassword(e.target.value)}
-                    className="w-full bg-black border border-white/10 rounded-xl px-3 py-2.5 text-white text-[13px] outline-none focus:border-accent-yellow/50 transition-colors placeholder-gray-600"
-                    placeholder="กรอกรหัสผ่านเดิมเพื่อยืนยัน"
-                  />
-                </div>
+            {/* Change password — collapsible */}
+            <div className="rounded-xl border border-white/8 overflow-hidden">
+              <button
+                type="button"
+                onClick={togglePasswordSection}
+                className="w-full flex items-center justify-between px-4 py-3 text-[12px] text-gray-500 hover:text-gray-300 hover:bg-white/3 transition-colors group"
+              >
+                <span className="flex items-center gap-1.5 font-medium">
+                  <FaLock className="text-gray-600 group-hover:text-gray-400 transition-colors" />
+                  เปลี่ยนรหัสผ่าน
+                </span>
+                {showPasswordSection ? (
+                  <FaChevronUp className="text-[10px]" />
+                ) : (
+                  <FaChevronDown className="text-[10px]" />
+                )}
+              </button>
 
-                <div className="space-y-1.5">
-                  <label className="text-[11px] text-gray-500">
-                    รหัสผ่านใหม่{" "}
-                    <span className="text-gray-600">
-                      (เว้นว่างถ้าไม่ต้องการเปลี่ยน)
-                    </span>
-                  </label>
-                  <input
-                    type="password"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    className="w-full bg-black border border-white/10 rounded-xl px-3 py-2.5 text-white text-[13px] outline-none focus:border-accent-yellow/50 transition-colors placeholder-gray-600"
-                    placeholder="รหัสผ่านใหม่"
-                  />
-                </div>
-
-                {newPassword.length > 0 && (
+              {showPasswordSection && (
+                <div className="px-4 pb-4 pt-1 space-y-3 border-t border-white/8 bg-white/[0.02]">
+                  {/* New password + strength */}
                   <div className="space-y-1.5">
                     <label className="text-[11px] text-gray-500">
-                      ยืนยันรหัสผ่านใหม่
+                      รหัสผ่านใหม่
                     </label>
-                    <div className="relative">
-                      <input
-                        type="password"
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        className="w-full bg-black border border-white/10 rounded-xl px-3 py-2.5 text-white text-[13px] outline-none focus:border-accent-yellow/50 transition-colors placeholder-gray-600 pr-9"
-                        placeholder="กรอกรหัสผ่านอีกครั้ง"
-                      />
+                    <input
+                      type="password"
+                      value={newPassword}
+                      onChange={(e) => {
+                        setNewPassword(e.target.value);
+                        setError("");
+                      }}
+                      className="w-full bg-black border border-white/10 rounded-xl px-3 py-2.5 text-white text-[13px] outline-none focus:border-accent-yellow/50 transition-colors placeholder-gray-600"
+                      placeholder="รหัสผ่านใหม่"
+                    />
+                    {/* Reuse shared strength hint — same rules, same look */}
+                    <PasswordStrengthHint password={newPassword} />
+                  </div>
+
+                  {/* Confirm new password */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[11px] text-gray-500">
+                        ยืนยันรหัสผ่านใหม่
+                      </label>
                       {confirmPassword && (
                         <span
-                          className={`absolute right-3 top-1/2 -translate-y-1/2 text-[12px] ${
-                            confirmPassword === newPassword
-                              ? "text-green-400"
-                              : "text-red-400"
-                          }`}
+                          className={`text-[11px] flex items-center gap-1 ${confirmMatch ? "text-green-400" : "text-red-400"}`}
                         >
-                          {confirmPassword === newPassword ? (
-                            <FaCheck />
+                          {confirmMatch ? (
+                            <>
+                              <FaCheck className="text-[10px]" /> ตรงกัน
+                            </>
                           ) : (
-                            <FaTimes />
+                            <>
+                              <FaTimes className="text-[10px]" /> ไม่ตรงกัน
+                            </>
                           )}
                         </span>
                       )}
                     </div>
+                    <input
+                      type="password"
+                      value={confirmPassword}
+                      onChange={(e) => {
+                        setConfirmPassword(e.target.value);
+                        setError("");
+                      }}
+                      className={`w-full bg-black border rounded-xl px-3 py-2.5 text-white text-[13px] outline-none transition-colors placeholder-gray-600
+                        ${
+                          confirmMatch
+                            ? "border-green-500/50 focus:border-green-500/70"
+                            : confirmMismatch
+                              ? "border-red-500/50 focus:border-red-500/70"
+                              : "border-white/10 focus:border-accent-yellow/50"
+                        }`}
+                      placeholder="กรอกรหัสผ่านใหม่อีกครั้ง"
+                    />
                   </div>
-                )}
-              </div>
+
+                  <p className="text-[11px] text-gray-600">
+                    เว้นว่างทั้งสองช่องหากไม่ต้องการเปลี่ยนรหัสผ่าน
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Error */}
@@ -428,7 +580,7 @@ export function EditProfileModal({
               </button>
               <button
                 onClick={handleSave}
-                disabled={isSaving}
+                disabled={!canSave}
                 className="flex-1 py-2.5 rounded-xl bg-accent-yellow text-black font-semibold text-[13px] hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSaving ? "กำลังบันทึก..." : "บันทึก"}
@@ -440,8 +592,7 @@ export function EditProfileModal({
                 onClick={() => setShowLogoutConfirm(true)}
                 className="w-full py-2.5 rounded-xl border border-red-500/20 text-red-400/70 text-[13px] hover:border-red-500/40 hover:text-red-400 hover:bg-red-500/5 transition-all flex items-center justify-center gap-2"
               >
-                <FaSignOutAlt />
-                ออกจากระบบ
+                <FaSignOutAlt /> ออกจากระบบ
               </button>
             ) : (
               <div className="rounded-xl border border-red-500/30 bg-red-500/5 px-3 py-2.5 space-y-2">

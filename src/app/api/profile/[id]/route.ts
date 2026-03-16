@@ -1,7 +1,7 @@
 // app/api/profile/[id]/route.ts
 // [id] = column A internal key
-// POST { displayName, oldPassword, newPassword?, image }
-// Updates: D=displayName, E=image, L=newPassword(encrypted)
+// POST { displayName, newUsername, oldPassword, newPassword?, image }
+// Updates: D=displayName, E=image, K=username, L=newPassword(encrypted)
 // Verifies oldPassword against column L before updating
 
 import { google } from "googleapis";
@@ -43,7 +43,9 @@ export async function POST(req: Request, context: any) {
       });
     }
 
-    const { displayName, oldPassword, newPassword, image } = await req.json();
+    // ── Added newUsername to destructure ──
+    const { displayName, newUsername, oldPassword, newPassword, image } =
+      await req.json();
 
     if (!displayName || !oldPassword) {
       return new Response(
@@ -115,6 +117,16 @@ export async function POST(req: Request, context: any) {
       requestBody: { values: [[image ?? ""]] },
     });
 
+    // ── Update column K (username, index 10) if newUsername provided ──
+    if (newUsername && newUsername.trim() !== "") {
+      await sheets.spreadsheets.values.update({
+        spreadsheetId,
+        range: `Sheet1!K${actualRow}`,
+        valueInputOption: "RAW",
+        requestBody: { values: [[newUsername.trim()]] },
+      });
+    }
+
     // Update column L (password) only if newPassword is provided
     if (newPassword && newPassword.trim() !== "") {
       await sheets.spreadsheets.values.update({
@@ -128,7 +140,12 @@ export async function POST(req: Request, context: any) {
     return new Response(
       JSON.stringify({
         message: "Profile updated successfully",
-        user: { id, displayName: displayName.trim(), image: image ?? "" },
+        user: {
+          id,
+          displayName: displayName.trim(),
+          username: newUsername?.trim() ?? userRow[10], // col K index 10
+          image: image ?? "",
+        },
       }),
       { status: 200, headers: { "Content-Type": "application/json" } },
     );
