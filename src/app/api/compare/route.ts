@@ -1,5 +1,11 @@
 import { isThaiStock } from "@/app/lib/utils";
 import { NextRequest, NextResponse } from "next/server";
+import {
+  fetchYahooChart,
+  fetchUSDTHBRate,
+  fetchPreviousClose,
+  ChartPoint,
+} from "@/app/lib/yahoo.helpers";
 
 /* =======================
    Types
@@ -13,73 +19,12 @@ interface Asset {
 
 type Range = "1d" | "5d" | "1m" | "6m" | "1y";
 
-type ChartPoint = { time: number; close: number | null };
-
 /* =======================
    Currency helpers
 ======================= */
 
-async function fetchUSDTHBRate(): Promise<number> {
-  const data = await fetchYahooChart("USDTHB=X", "2d", "1d");
-  return data[data.length - 1].close!;
-}
-
 function toUSD(price: number, symbol: string, usdThbRate: number): number {
   return isThaiStock(symbol) ? price / usdThbRate : price;
-}
-
-/* =======================
-   Yahoo helpers
-======================= */
-
-const SYMBOL_MAP: Record<string, string> = {
-  "TISCO-PVD": "THB=X",
-  "BTC-USD": "BTC-USD",
-  "GOLD-USD": "GC=F",
-};
-
-function normalizeYahooSymbol(raw: string): string {
-  const s = raw.trim().toUpperCase();
-  return SYMBOL_MAP[s] ?? s;
-}
-
-async function fetchYahooChart(
-  rawSymbol: string,
-  range: string,
-  interval: string,
-): Promise<ChartPoint[]> {
-  const symbol = normalizeYahooSymbol(rawSymbol);
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=${interval}`;
-
-  const res = await fetch(url, {
-    headers: { "User-Agent": "Mozilla/5.0" },
-    cache: "no-store",
-  });
-
-  if (!res.ok) throw new Error(`Yahoo fetch failed: ${symbol}`);
-
-  const json = await res.json();
-  const result = json?.chart?.result?.[0];
-  const timestamps: number[] | undefined = result?.timestamp;
-  const closes: (number | null)[] | undefined =
-    result?.indicators?.quote?.[0]?.close;
-
-  if (!timestamps || !closes) throw new Error(`Invalid Yahoo data: ${symbol}`);
-
-  return timestamps
-    .map((t, i) => ({ time: t, close: closes[i] }))
-    .filter((p) => p.close != null);
-}
-
-async function fetchPreviousClose(symbol: string): Promise<number> {
-  const data = await fetchYahooChart(symbol, "5d", "1d"); // ← เปลี่ยน 2d → 5d
-  
-  // เช็ค incomplete candle เหมือนกัน
-  const last = data[data.length - 1]?.close;
-  const prev = data[data.length - 2]?.close;
-  const isIncomplete = last != null && prev != null && last === prev;
-  
-  return (isIncomplete ? data[data.length - 3] : data[data.length - 2])?.close ?? data[0].close!;
 }
 
 /* =======================
@@ -122,8 +67,6 @@ function buildDataPoints(
   assets: Asset[],
   usdThbRate: number,
   startIndex = 0,
-  basePortfolio?: number,
-  baseSP500?: number,
 ) {
   const length = Math.min(spChart.length, ...assetCharts.map((c) => c.length));
   const data = [];
@@ -137,6 +80,19 @@ function buildDataPoints(
   }
 
   return data;
+}
+
+/* =======================
+   fetchChart wrapper (returns flat array)
+======================= */
+
+async function fetchChart(
+  symbol: string,
+  range: string,
+  interval: string,
+): Promise<ChartPoint[]> {
+  const { data } = await fetchYahooChart(symbol, range, interval);
+  return data.filter((p) => p.close != null);
 }
 
 /* =======================
@@ -165,8 +121,8 @@ export async function POST(req: NextRequest) {
             ...assets.map((a) => fetchPreviousClose(a.symbol)),
           ]),
           Promise.all([
-            fetchYahooChart("^GSPC", "1d", "5m"),
-            ...assets.map((a) => fetchYahooChart(a.symbol, "1d", "5m")),
+            fetchChart("^GSPC", "1d", "5m"),
+            ...assets.map((a) => fetchChart(a.symbol, "1d", "5m")),
           ]),
         ]);
 
@@ -212,8 +168,8 @@ export async function POST(req: NextRequest) {
     const cfg = RANGE_CONFIG[range];
 
     const [spChart, ...assetCharts] = await Promise.all([
-      fetchYahooChart("^GSPC", cfg.range, cfg.interval),
-      ...assets.map((a) => fetchYahooChart(a.symbol, cfg.range, cfg.interval)),
+      fetchChart("^GSPC", cfg.range, cfg.interval),
+      ...assets.map((a) => fetchChart(a.symbol, cfg.range, cfg.interval)),
     ]);
 
     const basePortfolio = assetCharts.reduce((sum, chart, i) => {

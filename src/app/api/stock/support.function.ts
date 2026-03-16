@@ -1,3 +1,5 @@
+import { fetchYahooChart } from "@/app/lib/yahoo.helpers";
+
 export interface AdvancedLevels {
   symbol: string;
   shortName?: string;
@@ -27,11 +29,6 @@ const INITIAL_LEVELS = (symbol: string): AdvancedLevels => ({
   recommendation: "",
 });
 
-const SYMBOL_MAP: Record<string, string> = {
-  "GOLD-USD": "GC=F",
-  "TISCO-PVD": "THB=X",
-};
-
 // Cache: 3-month chart data doesn't change minute-to-minute
 const cache = new Map<string, { value: AdvancedLevels; ts: number }>();
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
@@ -39,71 +36,45 @@ const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 export async function getAdvancedLevels(
   symbol: string = "TSLA",
 ): Promise<AdvancedLevels> {
-  symbol = SYMBOL_MAP[symbol] ?? symbol;
-
   const cached = cache.get(symbol);
   if (cached && Date.now() - cached.ts < CACHE_TTL_MS) return cached.value;
 
   try {
-    const baseHeaders = {
-      "User-Agent": "Mozilla/5.0",
-      Accept: "application/json",
-    };
-
     /* ================= FETCH ================= */
 
-    const chartUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=3mo`;
-
-    const recentUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d`;
-
-    const [chartRes, recentRes] = await Promise.all([
-      fetch(chartUrl, { headers: baseHeaders, cache: "no-store" }),
-      fetch(recentUrl, { headers: baseHeaders, cache: "no-store" }),
+    const [chart3mo, chartRecent] = await Promise.all([
+      fetchYahooChart(symbol, "3mo", "1d"),
+      fetchYahooChart(symbol, "1d", "1d"),
     ]);
-
-    if (!chartRes.ok || !recentRes.ok) return INITIAL_LEVELS(symbol);
-
-    const chartData = await chartRes.json();
-    const recentData = await recentRes.json();
 
     /* ================= PARSE 3mo ================= */
 
-    const chartResult = chartData?.chart?.result?.[0];
-    const chartQuote = chartResult?.indicators?.quote?.[0];
-
-    const highs = (chartQuote?.high ?? []).filter((v: number) => v != null);
-    const lows = (chartQuote?.low ?? []).filter((v: number) => v != null);
-    const closes = (chartQuote?.close ?? []).filter((v: number) => v != null);
+    const { highs, lows, data: chart3moData } = chart3mo;
+    const closes = chart3moData
+      .map((p) => p.close)
+      .filter((v): v is number => v != null);
 
     if (closes.length < 10) return INITIAL_LEVELS(symbol);
 
     const stableCloses = closes.slice(0, -1);
 
-    /* ================= PARSE 2d ================= */
+    /* ================= PARSE recent ================= */
 
-    const recentResult = recentData?.chart?.result?.[0];
-    const recentQuote = recentResult?.indicators?.quote?.[0];
-    const recentMeta = recentResult?.meta;
+    const { meta, data: recentData } = chartRecent;
+    const recentCloses = recentData
+      .map((p) => p.close)
+      .filter((v): v is number => v != null);
 
-    const recentCloses = (recentQuote?.close ?? []).filter(
-      (v: number) => v != null,
-    );
-
-    const shortName = recentMeta?.shortName || recentMeta?.symbol || symbol;
-
-    const currentPrice = recentMeta?.regularMarketPrice ?? recentCloses.at(-1);
-
-    const previousClose =
-      recentMeta?.chartPreviousClose ?? recentCloses.at(-2) ?? 0;
+    const shortName = meta?.shortName || meta?.symbol || symbol;
+    const currentPrice = meta?.regularMarketPrice ?? recentCloses.at(-1);
+    const previousClose = meta?.chartPreviousClose ?? recentCloses.at(-2) ?? 0;
 
     /* ================= EMA ================= */
 
     function calcEMA(data: number[], period: number): number {
       const p = Math.min(period, data.length);
       const slice = data.slice(-p);
-
       const k = 2 / (p + 1);
-
       return slice.reduce((prev, curr) => curr * k + prev * (1 - k), slice[0]);
     }
 
@@ -113,7 +84,6 @@ export async function getAdvancedLevels(
     /* ================= ATR ================= */
 
     const len = Math.min(highs.length, lows.length, closes.length);
-
     let totalTR = 0;
 
     for (let i = 1; i < len; i++) {
@@ -129,14 +99,12 @@ export async function getAdvancedLevels(
     /* ================= STRUCTURE ================= */
 
     const lookback = Math.min(10, lows.length);
-
     const swingLow = Math.min(...lows.slice(-lookback));
     const swingHigh = Math.max(...highs.slice(-lookback));
 
     /* ================= TREND ================= */
 
     let trend: "ขาขึ้น" | "ขาลง" | "ทรงตัว" = "ทรงตัว";
-
     if (ema20 > ema50 && currentPrice > ema20) trend = "ขาขึ้น";
     else if (ema20 < ema50 && currentPrice < ema20) trend = "ขาลง";
 
@@ -146,13 +114,9 @@ export async function getAdvancedLevels(
     let entry2 = Math.min(ema50 - 1.0 * atr, swingLow + 0.2 * atr);
 
     const minGap = 0.8 * atr;
-
     if (entry2 >= entry1) entry2 = entry1 - minGap;
-
     entry1 = Math.min(entry1, swingHigh - 0.3 * atr);
-
     entry2 = Math.max(entry2, swingLow);
-
     if (entry2 >= entry1) entry2 = entry1 - minGap;
 
     const stopLoss = entry2 * 0.95;
@@ -172,11 +136,9 @@ export async function getAdvancedLevels(
     };
 
     cache.set(symbol, { value, ts: Date.now() });
-
     return value;
   } catch (error) {
     console.error(`[getAdvancedLevels] Failed for ${symbol}`, error);
-
     return INITIAL_LEVELS(symbol);
   }
 }

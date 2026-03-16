@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdvancedLevels } from "./support.function";
 import { getRecommendation } from "./recommendation.function";
 import { isThaiStock } from "@/app/lib/utils";
+import {
+  fetchYahooChart,
+  fetchUSDTHBRate,
+  isInUSTradingHoursTH,
+} from "@/app/lib/yahoo.helpers";
 
 const API_KEY = process.env.FINNHUB_API_KEY || "";
 
@@ -24,110 +29,6 @@ type DividendAssetResult = {
   dividendYieldPercent: number | null;
 };
 
-/* =======================
-   FX Rate
-======================= */
-
-async function fetchUSDTHBRate(): Promise<number> {
-  const res = await fetch(
-    "https://query1.finance.yahoo.com/v8/finance/chart/USDTHB=X",
-    { headers: { "User-Agent": "Mozilla/5.0" }, cache: "no-store" },
-  );
-
-  if (!res.ok) throw new Error("FX fetch failed");
-
-  const json = await res.json();
-  const closes = json?.chart?.result?.[0]?.indicators?.quote?.[0]?.close;
-  const latest = [...closes].reverse().find((c: number) => c != null);
-
-  if (!latest) throw new Error("No FX rate found");
-  return latest;
-}
-
-/* =======================
-   Yahoo Chart Helpers
-======================= */
-
-function normalizeYahooSymbol(raw: string): string {
-  const symbol = raw.trim().toUpperCase();
-  switch (symbol) {
-    case "TISCO-PVD":
-      return "THB=X";
-    case "BTC-USD":
-      return "BTC-USD";
-    case "GOLD-USD":
-      return "GC=F";
-    default:
-      return symbol;
-  }
-}
-
-type YahooChartResult = {
-  meta: any;
-  data: { time: number; close: number }[];
-};
-
-async function fetchYahooChart(
-  rawSymbol: string,
-  range: string,
-  interval: string,
-): Promise<YahooChartResult> {
-  const symbol = normalizeYahooSymbol(rawSymbol);
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=${interval}`;
-
-  const res = await fetch(url, {
-    headers: { "User-Agent": "Mozilla/5.0" },
-    cache: "no-store",
-  });
-
-  if (!res.ok) throw new Error(`Yahoo fetch failed: ${symbol}`);
-
-  const json = await res.json();
-  const result = json?.chart?.result?.[0];
-  const timestamps: number[] | undefined = result?.timestamp;
-  const closes: (number | null)[] | undefined =
-    result?.indicators?.quote?.[0]?.close;
-
-  if (!timestamps || !closes) throw new Error(`Invalid Yahoo data: ${symbol}`);
-
-  const data = timestamps
-    .map((t, i) => ({ time: t, close: closes[i] }))
-    .filter((p) => p.close != null) as { time: number; close: number }[];
-
-  return { meta: result?.meta, data };
-}
-
-/* =======================
-   Fetch 1D Graph
-======================= */
-
-export function isNYSEDaylightSaving(): boolean {
-  const now = new Date();
-  const year = now.getUTCFullYear();
-
-  const march = new Date(Date.UTC(year, 2, 1));
-  const dstStart = new Date(
-    Date.UTC(year, 2, 1 + ((14 - march.getUTCDay()) % 7)),
-  );
-
-  const nov = new Date(Date.UTC(year, 10, 1));
-  const dstEnd = new Date(Date.UTC(year, 10, 1 + ((7 - nov.getUTCDay()) % 7)));
-
-  return now >= dstStart && now < dstEnd;
-}
-
-function isInUSTradingHoursTH(timestampSec: number): boolean {
-  const date = new Date(timestampSec * 1000);
-
-  const openUTCHour = isNYSEDaylightSaving() ? 13 : 14;
-  const openUTCMinutes = openUTCHour * 60 + 30;
-  const closeUTCMinutes = openUTCMinutes + (6 * 60 + 30);
-
-  const utcMinutes = date.getUTCHours() * 60 + date.getUTCMinutes();
-
-  return utcMinutes >= openUTCMinutes && utcMinutes <= closeUTCMinutes;
-}
-
 type GraphResult = {
   symbol: string;
   shortName: string | null;
@@ -135,17 +36,25 @@ type GraphResult = {
   data: { time: number; price: number }[];
 } | null;
 
+/* =======================
+   Fetch 1D Graph
+======================= */
+
 async function fetch1DGraphForStock(symbol: string): Promise<GraphResult> {
   try {
-    const { meta, data: chart } = await fetchYahooChart(symbol, "1d", "5m");
+    const { meta, data } = await fetchYahooChart(symbol, "1d", "5m");
     const shortName = meta?.shortName || meta?.symbol || symbol;
-    const filtered = chart.filter((p) => isInUSTradingHoursTH(p.time));
 
-    if (filtered.length === 0)
+    const inHours = data.filter(
+      (p): p is { time: number; close: number } =>
+        p.close != null && isInUSTradingHoursTH(p.time),
+    );
+
+    if (inHours.length === 0)
       return { symbol, shortName, base: null, data: [] };
 
-    const data = filtered.map((p) => ({ time: p.time, price: p.close }));
-    return { symbol, shortName, base: data[0].price, data };
+    const points = inHours.map((p) => ({ time: p.time, price: p.close }));
+    return { symbol, shortName, base: points[0].price, data: points };
   } catch (error) {
     console.error(`Failed to fetch 1D graph for ${symbol}:`, error);
     return null;
@@ -229,7 +138,6 @@ async function processAsset(
 ) {
   const { symbol } = asset;
 
-  // Fetch everything in parallel — graph is included here so shortName is reused below
   const [levels, recommendation, dividendPerShare, graph] = await Promise.all([
     getAdvancedLevels(symbol),
     getRecommendation(symbol, API_KEY),
@@ -257,7 +165,7 @@ async function processAsset(
     previousClose: levels.previousClose ?? null,
     advancedLevel: { shortName, ...levels, recommendation },
     dividend,
-    graph, // carry the already-fetched graph result forward
+    graph,
   };
 }
 
@@ -312,7 +220,7 @@ export async function POST(req: NextRequest) {
       advancedLevels[r.symbol] = r.advancedLevel;
       dividendSummary.perAsset[r.symbol] = r.dividend;
       dividendSummary.totalAnnualDividend += r.dividend.annualDividendBase || 0;
-      graphs[r.symbol] = r.graph; // reuse — no second fetch needed
+      graphs[r.symbol] = r.graph;
       validAssets.push(r.asset);
     }
 
