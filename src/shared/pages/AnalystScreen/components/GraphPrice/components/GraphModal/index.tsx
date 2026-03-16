@@ -70,12 +70,11 @@ type ChartHistoryResponse = {
   shortName: string;
   currency: string;
   data: ChartHistoryPoint[];
-  // ── dividend ──────────────────────────────────────────────────────────
-  dividendRate: number | null; // trailing 12-month total (per share)
-  dividendYield: number | null; // e.g. 0.032 = 3.2%
-  lastDividendAmount: number | null; // most recent single payment
-  lastDividendDate: number | null; // ms
-  dividendEvents: DividendEvent[]; // all payments in the fetched range
+  dividendRate: number | null;
+  dividendYield: number | null;
+  lastDividendAmount: number | null;
+  lastDividendDate: number | null;
+  dividendEvents: DividendEvent[];
 };
 
 type GraphModalProps = {
@@ -194,24 +193,16 @@ function buildCandles(rawData: ChartHistoryPoint[]) {
   const candles = Array.from(candleMap.values()).sort(sort);
   const volBars = Array.from(volMap.values()).sort(sort);
 
-  // return {
-  //   candles: Array.from(candleMap.values()).sort(sort),
-  //   volBars: Array.from(volMap.values()).sort(sort),
-  // };
-
-  // ── เติม bridge เฉพาะวันที่มี gap ──────────────────────────────────
+  // เติม bridge เฉพาะวันที่มี gap
   for (let i = 1; i < candles.length; i++) {
     const prev = candles[i - 1];
     const curr = candles[i];
-    // gap คือ low ของแท่งปัจจุบัน > high ของแท่งก่อนหน้า  (ขาดขึ้น)
-    // หรือ   high ของแท่งปัจจุบัน < low ของแท่งก่อนหน้า   (ขาดลง)
-    const gapUp   = curr.low  > prev.high;
+    const gapUp = curr.low > prev.high;
     const gapDown = curr.high < prev.low;
 
     if (gapUp || gapDown) {
-      // ดึง wick ของแท่งก่อนหน้าให้แตะขอบของแท่งปัจจุบัน
-      prev.high = gapUp   ? curr.low  : prev.high;
-      prev.low  = gapDown ? curr.high : prev.low;
+      prev.high = gapUp ? curr.low : prev.high;
+      prev.low = gapDown ? curr.high : prev.low;
     }
   }
 
@@ -239,18 +230,9 @@ interface LWChartProps {
   prevPrice: number | null;
   range: TimeRange;
   isLoading: boolean;
-  onUpdateTickRef?: React.MutableRefObject<
-    ((point: ChartHistoryPoint) => void) | null
-  >;
 }
 
-function LWChart({
-  rawData,
-  prevPrice,
-  range,
-  isLoading,
-  onUpdateTickRef,
-}: LWChartProps) {
+function LWChart({ rawData, prevPrice, range, isLoading }: LWChartProps) {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const mainContainerRef = useRef<HTMLDivElement>(null);
   const rsiContainerRef = useRef<HTMLDivElement>(null);
@@ -372,7 +354,6 @@ function LWChart({
         timeVisible: intraday,
         secondsVisible: false,
         ignoreWhitespaceIndices: true,
-        // barSpacing: 8
       },
       handleScroll: {
         mouseWheel: true,
@@ -621,120 +602,6 @@ function LWChart({
       rsiChartRef.current?.timeScale().setVisibleLogicalRange(r);
     }, 100);
   }, [isReady, rawData, range, prevPrice]);
-
-  /* ── 4. Realtime tick handler (1m) ───────────────────────────────────── */
-  useEffect(() => {
-    if (!onUpdateTickRef) return;
-
-    const handleTick = (point: ChartHistoryPoint) => {
-      if (
-        !candleRef.current ||
-        !volRef.current ||
-        !rsiRef.current ||
-        !rsiObRef.current ||
-        !rsiOsRef.current
-      )
-        return;
-
-      const snapshot = candlesSnapshotRef.current;
-      if (!snapshot.length) return;
-
-      const newTime = toChartTime(point.time);
-      const lastCandle = snapshot[snapshot.length - 1];
-      const lastTime = lastCandle.time as unknown as number;
-      const newTimeNum = newTime as unknown as number;
-
-      const up = point.price >= point.open;
-      const updatedCandle = {
-        time: newTime,
-        open: point.open ?? lastCandle.open,
-        high: point.high ?? point.price,
-        low: point.low ?? point.price,
-        close: point.price,
-      };
-      const updatedVol = {
-        time: newTime,
-        value: point.volume ?? 0,
-        color: up ? "rgba(74,222,128,0.28)" : "rgba(248,113,113,0.22)",
-      };
-
-      if (newTimeNum === lastTime) {
-        snapshot[snapshot.length - 1] = updatedCandle;
-      } else if (newTimeNum > lastTime) {
-        snapshot.push(updatedCandle);
-        totalBarsRef.current = snapshot.length;
-      } else {
-        return;
-      }
-
-      candleRef.current.update(updatedCandle);
-      volRef.current.update(updatedVol);
-
-      const indBars = snapshot.map((c, i) => ({
-        time: i,
-        open: c.open,
-        high: c.high,
-        low: c.low,
-        close: c.close,
-        volume: 0,
-      }));
-
-      const newEmaValues: (number | null)[] = [null, null, null, null];
-      EMA_CONFIGS.forEach((cfg, idx) => {
-        const series = emaRefs.current[idx];
-        if (!series || indBars.length < cfg.length) return;
-        try {
-          const plots =
-            EMA.calculate(indBars, { length: cfg.length, src: "close" })?.plots
-              ?.plot0 ?? [];
-          const last = plots[plots.length - 1];
-          if (last != null && !isNaN(last.value as number)) {
-            const emaPoint = {
-              time: snapshot[snapshot.length - 1].time,
-              value: last.value as number,
-            };
-            series.update(emaPoint);
-            newEmaValues[idx] = last.value as number;
-          }
-        } catch (e) {
-          console.warn(`EMA tick ${cfg.length}`, e);
-        }
-      });
-      setEmaValues(newEmaValues);
-
-      if (indBars.length >= 14) {
-        try {
-          const plots =
-            RSI.calculate(indBars, { length: 14, src: "close" })?.plots
-              ?.plot0 ?? [];
-          const last = plots[plots.length - 1];
-          if (last != null && !isNaN(last.value as number)) {
-            const rsiPoint = {
-              time: snapshot[snapshot.length - 1].time,
-              value: last.value as number,
-            };
-            rsiRef.current.update(rsiPoint);
-            rsiObRef.current.update({
-              time: snapshot[snapshot.length - 1].time as Time,
-              value: 70,
-            });
-            rsiOsRef.current.update({
-              time: snapshot[snapshot.length - 1].time as Time,
-              value: 30,
-            });
-            setRsiValue(last.value as number);
-          }
-        } catch (e) {
-          console.warn("RSI tick", e);
-        }
-      }
-    };
-
-    onUpdateTickRef.current = handleTick;
-    return () => {
-      if (onUpdateTickRef) onUpdateTickRef.current = null;
-    };
-  }, [onUpdateTickRef, isReady]);
 
   /* ── Render ──────────────────────────────────────────────────────────── */
   const totalH = MAIN_H + RSI_H + 28;
@@ -1109,10 +976,6 @@ export function GraphModal({
   const isMarketOpen = useMarketStore((s) => s.marketStatus?.isOpen ?? true);
   const isPageVisible = usePageVisible();
 
-  const chartTickRef = useRef<((point: ChartHistoryPoint) => void) | null>(
-    null,
-  );
-
   /* ── Modal open/close ─────────────────────────────────────────────────── */
   useEffect(() => {
     requestAnimationFrame(() => setVisible(true));
@@ -1183,30 +1046,15 @@ export function GraphModal({
     fetchChartHistory(range);
   }, [range, fetchChartHistory]);
 
-  /* ── 1m realtime tick ─────────────────────────────────────────────────── */
+  /* ── 1m realtime refresh ──────────────────────────────────────────────── */
   useEffect(() => {
     if (range !== "1m" || !isPageVisible || !isMarketOpen) return;
-
-    const fetchLatestTick = async () => {
-      try {
-        const res = await fetch(
-          `/api/chart-history?symbol=${encodeURIComponent(symbol)}&range=1m`,
-          { cache: "no-store" },
-        );
-        if (!res.ok) return;
-        const json: ChartHistoryResponse = await res.json();
-        const latest = json.data[json.data.length - 1];
-        if (latest && chartTickRef.current) {
-          chartTickRef.current(latest);
-        }
-      } catch (e) {
-        console.warn("1m tick fetch", e);
-      }
-    };
-
-    const id = setInterval(fetchLatestTick, AUTO_REFRESH_10SECS_INTERVAL_MS);
+    const id = setInterval(
+      () => fetchChartHistory("1m"),
+      AUTO_REFRESH_10SECS_INTERVAL_MS,
+    );
     return () => clearInterval(id);
-  }, [range, symbol, isPageVisible, isMarketOpen]);
+  }, [range, fetchChartHistory, isPageVisible, isMarketOpen]);
 
   /* ── Non-1m intraday polling ──────────────────────────────────────────── */
   useEffect(() => {
@@ -1266,14 +1114,11 @@ export function GraphModal({
     ? Math.max(...rawChartData.map((d) => d.price))
     : null;
 
-  // ── Dividend derived values ──────────────────────────────────────────────
-  // dividendRate = trailing 12-month total per share (sum from &events=div)
   const dividendRate = chartHistory?.dividendRate ?? null;
   const dividendYield = chartHistory?.dividendYield ?? null;
   const lastDividendAmount = chartHistory?.lastDividendAmount ?? null;
   const lastDividendDate = chartHistory?.lastDividendDate ?? null;
 
-  // Expected annual income from the user's holding
   const annualDividendFromPortfolio =
     dividendRate != null && asset?.quantity != null
       ? dividendRate * asset.quantity
@@ -1413,7 +1258,6 @@ export function GraphModal({
                   prevPrice={chartPrevPrice}
                   range={range}
                   isLoading={isLoadingChart}
-                  onUpdateTickRef={range === "1m" ? chartTickRef : undefined}
                 />
               )}
             </div>
@@ -1514,7 +1358,6 @@ export function GraphModal({
                 <SectionLabel>ปันผล</SectionLabel>
 
                 {dividendRate == null ? (
-                  // หุ้นไม่จ่ายปันผล — โชว์ทุกช่องเป็น —
                   <>
                     <StatRow label="สถานะ" value="ไม่มีปันผล" />
                     <StatRow label="ปันผลต่อหุ้น / ปี" value="—" />
@@ -1526,7 +1369,6 @@ export function GraphModal({
                   </>
                 ) : (
                   <>
-                    {/* ปันผลต่อหุ้น (trailing 12 months) */}
                     <StatRow
                       label="ปันผลต่อหุ้น / ปี"
                       value={
@@ -1538,8 +1380,6 @@ export function GraphModal({
                         !isThai ? toBaht(dividendRate, currencyRate) : undefined
                       }
                     />
-
-                    {/* Dividend Yield */}
                     <StatRow
                       label="Dividend Yield"
                       value={
@@ -1548,8 +1388,6 @@ export function GraphModal({
                           : "—"
                       }
                     />
-
-                    {/* จ่ายล่าสุด */}
                     <StatRow
                       label="จ่ายล่าสุด"
                       value={
@@ -1565,8 +1403,6 @@ export function GraphModal({
                           : undefined
                       }
                     />
-
-                    {/* รับปันผล/ปี จากพอร์ต */}
                     {asset && (
                       <StatRow
                         label="รับปันผล / ปี (พอร์ต)"

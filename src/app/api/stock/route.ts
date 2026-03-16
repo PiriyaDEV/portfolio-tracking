@@ -42,7 +42,7 @@ type GraphResult = {
 
 async function fetch1DGraphForStock(symbol: string): Promise<GraphResult> {
   try {
-    const { meta, data } = await fetchYahooChart(symbol, "1d", "5m");
+    const { meta, data } = await fetchYahooChart(symbol, "1d", "1m");
     const shortName = meta?.shortName || meta?.symbol || symbol;
 
     const inHours = data.filter(

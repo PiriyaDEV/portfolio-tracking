@@ -121,8 +121,8 @@ export async function POST(req: NextRequest) {
             ...assets.map((a) => fetchPreviousClose(a.symbol)),
           ]),
           Promise.all([
-            fetchChart("^GSPC", "1d", "5m"),
-            ...assets.map((a) => fetchChart(a.symbol, "1d", "5m")),
+            fetchChart("^GSPC", "1d", "1m"),
+            ...assets.map((a) => fetchChart(a.symbol, "1d", "1m")),
           ]),
         ]);
 

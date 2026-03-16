@@ -163,6 +163,7 @@ export const useMarketStore = create<MarketState>((set, get) => ({
         fetchFinancialData(assets),
         fetchFxRate(),
         fetchMarket(),
+        get().fetchMarketStatus(),
       ]);
       set({ formattedDate: buildFormattedDate() });
     } catch (err) {
