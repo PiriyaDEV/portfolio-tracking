@@ -9,7 +9,7 @@
 ======================= */
 
 const SYMBOL_MAP: Record<string, string> = {
-  "GOLD-USD": "GC=F",
+  "GC=F": "GC=F",
   "TISCO-PVD": "THB=X",
   "BTC-USD": "BTC-USD",
 };
