@@ -22,6 +22,23 @@ const thaiMonths = [
   "ธ.ค",
 ];
 
+async function retry<T>(
+  fn: () => Promise<T>,
+  retries = 2,
+  delay = 800,
+): Promise<T> {
+  try {
+    return await fn();
+  } catch (err) {
+    if (retries <= 0) throw err;
+
+    console.warn("Retrying API...", retries);
+
+    await new Promise((r) => setTimeout(r, delay));
+    return retry(fn, retries - 1, delay);
+  }
+}
+
 function buildFormattedDate(): string {
   const now = new Date();
   const day = now.getDate();
@@ -160,10 +177,10 @@ export const useMarketStore = create<MarketState>((set, get) => ({
 
     try {
       await Promise.all([
-        fetchFinancialData(assets),
-        fetchFxRate(),
-        fetchMarket(),
-        get().fetchMarketStatus(),
+        retry(() => fetchFinancialData(assets)),
+        retry(() => fetchFxRate()),
+        retry(() => fetchMarket()),
+        retry(() => get().fetchMarketStatus()),
       ]);
       set({ formattedDate: buildFormattedDate() });
     } catch (err) {
@@ -183,6 +200,7 @@ export const useMarketStore = create<MarketState>((set, get) => ({
         fetchFinancialData(assets),
         fetchFxRate(),
         fetchMarket(),
+        get().fetchMarketStatus(),
       ]);
       set({ formattedDate: buildFormattedDate() });
     } catch (err) {

@@ -704,7 +704,9 @@ export default function MainApp() {
               const isLoadingThis =
                 !(asset.symbol in prices) ||
                 prices[asset.symbol] == null ||
-                (!isCash(asset.symbol) && prices[asset.symbol] === 0);
+                (!isCash(asset.symbol) &&
+                  (prices[asset.symbol] === 0 ||
+                    prices[asset.symbol] === undefined));
 
               return (
                 <div key={asset.symbol} className="w-full">
