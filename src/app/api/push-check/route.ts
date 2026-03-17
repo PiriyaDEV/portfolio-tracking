@@ -25,29 +25,10 @@ function getTodayKey() {
   return new Date().toISOString().split("T")[0];
 }
 
-export async function isMarketOpen(): Promise<boolean> {
-  try {
-    const url = `https://finnhub.io/api/v1/stock/market-status?exchange=US&token=${process.env.FINNHUB_API_KEY}`;
-    const res = await fetch(url);
-    if (!res.ok) return false;
-    const data = await res.json();
-    return data?.isOpen === true;
-  } catch (err) {
-    console.error("Failed to fetch market status:", err);
-    return false;
-  }
-}
-
 export async function GET(req: Request) {
   const authHeader = req.headers.get("x-cron-secret");
   if (process.env.CRON_SECRET && authHeader !== process.env.CRON_SECRET) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  // 1. Skip if market is closed
-  const marketOpen = await isMarketOpen();
-  if (!marketOpen) {
-    return Response.json({ message: "Market is closed, skipping check" });
   }
 
   try {
@@ -76,18 +57,56 @@ export async function GET(req: Request) {
       const subscriptionRaw = row[8]; // Column I — push subscription
       const notifiedLogRaw = row[9]; // Column J — notified log
 
-      if (!notifRaw || !subscriptionRaw) continue;
+      // Guard: skip rows with missing or whitespace-only values
+      if (!notifRaw?.trim() || !subscriptionRaw?.trim()) continue;
 
-      const notifSettings = JSON.parse(notifRaw);
-      if (!notifSettings.globalEnabled) continue;
+      // FIX 1: Wrap notifSettings parse in try/catch
+      let notifSettings: any;
+      try {
+        notifSettings = JSON.parse(notifRaw);
+      } catch {
+        console.warn(
+          `[push-check] Invalid notifRaw JSON for row ${rowIdx + 2}, skipping`,
+        );
+        continue;
+      }
 
-      const subscription = JSON.parse(subscriptionRaw);
+      if (!notifSettings?.globalEnabled) continue;
+
+      // FIX 2: Guard notifications is a non-empty array
+      if (
+        !Array.isArray(notifSettings.notifications) ||
+        notifSettings.notifications.length === 0
+      ) {
+        console.warn(
+          `[push-check] No notifications array for row ${rowIdx + 2}, skipping`,
+        );
+        continue;
+      }
+
+      // FIX 3: Wrap subscription parse in try/catch
+      let subscription: any;
+      try {
+        subscription = JSON.parse(subscriptionRaw);
+      } catch {
+        console.warn(
+          `[push-check] Invalid subscriptionRaw JSON for row ${rowIdx + 2}, skipping`,
+        );
+        continue;
+      }
 
       // Structure: Record<todayKey, Record<"SYMBOL_type", reachedLevel (1|2|3)>>
       let notifiedLevels: Record<string, Record<string, number>> = {};
       try {
-        notifiedLevels = notifiedLogRaw ? JSON.parse(notifiedLogRaw) : {};
-      } catch {}
+        notifiedLevels = notifiedLogRaw?.trim()
+          ? JSON.parse(notifiedLogRaw)
+          : {};
+      } catch {
+        console.warn(
+          `[push-check] Invalid notifiedLogRaw JSON for row ${rowIdx + 2}, resetting`,
+        );
+        notifiedLevels = {};
+      }
 
       // 2. Remove old date entries — keep only today's key
       const hasOldEntries = Object.keys(notifiedLevels).some(
@@ -108,9 +127,25 @@ export async function GET(req: Request) {
 
       for (const setting of notifSettings.notifications) {
         const { symbol, type, targetPrice } = setting;
+
+        // Guard: skip malformed setting entries
+        if (!symbol || !type) continue;
+
         const settingKey = `${symbol}_${type}`; // e.g. "PTT_support1", "PTT_price"
 
-        const levels = await getAdvancedLevels(symbol);
+        // FIX 4: Wrap getAdvancedLevels in try/catch so one bad symbol
+        // doesn't crash the entire loop and return 500
+        let levels;
+        try {
+          levels = await getAdvancedLevels(symbol);
+        } catch (err) {
+          console.error(
+            `[push-check] getAdvancedLevels failed for ${symbol}:`,
+            err,
+          );
+          continue;
+        }
+
         const currentPrice = levels.currentPrice;
         const previousClose = levels.previousClose;
         if (!currentPrice) continue;
@@ -185,7 +220,10 @@ export async function GET(req: Request) {
           newTodayLevels[settingKey] = reachedLevel;
           didNotify = true;
         } catch (err) {
-          console.error(`Push failed for ${userId} / ${symbol}:`, err);
+          console.error(
+            `[push-check] Push failed for ${userId} / ${symbol}:`,
+            err,
+          );
         }
       }
 
@@ -204,7 +242,7 @@ export async function GET(req: Request) {
 
     return Response.json({ message: "Check complete", date: todayKey });
   } catch (err) {
-    console.error(err);
+    console.error("[push-check] Unhandled error:", err);
     return Response.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
