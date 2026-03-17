@@ -161,7 +161,7 @@ export async function GET() {
     const [sp500, gold, set, btc, oil, fearGreed] = await Promise.all([
       getMarketData(MARKET_SYMBOLS.sp500), // daily
       getMarketData(MARKET_SYMBOLS.gold, "rolling24h"), // 24h
-      getMarketData(MARKET_SYMBOLS.set), // daily
+      getMarketData(MARKET_SYMBOLS.set, "rolling24h"), // daily
       getMarketData(MARKET_SYMBOLS.btc, "rolling24h"), // 24h
       getMarketData(MARKET_SYMBOLS.oil, "rolling24h"), // ✅ 24h
       getFearAndGreed(),
