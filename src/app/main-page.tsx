@@ -747,7 +747,7 @@ export default function MainApp() {
 
                     <div className="flex flex-col items-end whitespace-nowrap">
                       <div className="font-bold text-[15px] text-white">
-                        {isLoadingThis ? (
+                        {(isLoadingThis || marketValueThb === 0) ? (
                           <span className="inline-block w-16 h-4 bg-white/10 rounded animate-pulse" />
                         ) : (
                           <>
