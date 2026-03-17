@@ -37,9 +37,6 @@ export default function FooterPortfolio({
 
   if (!assets) return null;
 
-  // ✅ เช็คว่า prices โหลดครบทุก asset หรือยัง
-  const isFullyLoaded = assets.every((a) => a.symbol in prices);
-
   // Total cost in THB (converting USD stocks to THB)
   const totalCostThb = assets.reduce((sum, a) => {
     const isThai = isThaiStock(a.symbol);
@@ -54,6 +51,10 @@ export default function FooterPortfolio({
     const value = currentPrice * asset.quantity;
     return sum + (isThai ? value : value * currencyRate);
   }, 0);
+
+  // ✅ เช็คว่า prices โหลดครบทุก asset หรือยัง
+  const isFullyLoaded =
+    assets.every((a) => a.symbol in prices) && totalMarketThb !== 0 && formattedDate !== null;
 
   // Profit/Loss in THB
   const totalProfitThb = totalMarketThb - totalCostThb;
