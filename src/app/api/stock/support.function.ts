@@ -1,4 +1,4 @@
-import { fetchYahooChart } from "@/app/lib/yahoo.helpers";
+import { fetchYahooChart, isInUSTradingHoursTH } from "@/app/lib/yahoo.helpers";
 
 export interface AdvancedLevels {
   symbol: string;
@@ -13,6 +13,9 @@ export interface AdvancedLevels {
   resistance: number;
   trend: "ขาขึ้น" | "ขาลง" | "ทรงตัว";
   recommendation?: any;
+  // Graph data — merged here to avoid a redundant Yahoo fetch in route.ts
+  graphData: { time: number; price: number }[];
+  graphBase: number | null;
 }
 
 const INITIAL_LEVELS = (symbol: string): AdvancedLevels => ({
@@ -27,11 +30,13 @@ const INITIAL_LEVELS = (symbol: string): AdvancedLevels => ({
   resistance: 0,
   trend: "ทรงตัว",
   recommendation: "",
+  graphData: [],
+  graphBase: null,
 });
 
-// Cache: 3-month chart data doesn't change minute-to-minute
+// Cache: 5-minute TTL is fine for both technical levels and intraday graph
 const cache = new Map<string, { value: AdvancedLevels; ts: number }>();
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const CACHE_TTL_MS = 5 * 60 * 1000;
 
 export async function getAdvancedLevels(
   symbol: string = "TSLA",
@@ -40,11 +45,17 @@ export async function getAdvancedLevels(
   if (cached && Date.now() - cached.ts < CACHE_TTL_MS) return cached.value;
 
   try {
-    /* ================= FETCH ================= */
-
+    /* ================= FETCH =================
+       Previously route.ts made a separate fetchYahooChart(symbol, "1d", "1d")
+       for recent price AND a separate fetch1DGraphForStock() call which used
+       fetchYahooChart(symbol, "1d", "1m"). Both hit the same Yahoo endpoint for
+       the same symbol on the same day. We now do one "1d/1m" fetch here that
+       serves both purposes: 1m candles contain regularMarketPrice in meta
+       (same as 1d/1d did), and the candle data feeds the graph directly.
+    =============================================== */
     const [chart3mo, chartRecent] = await Promise.all([
-      fetchYahooChart(symbol, "3mo", "1d"),
-      fetchYahooChart(symbol, "1d", "1d"),
+      fetchYahooChart(symbol, "3mo", "1d"), // for EMA / ATR / swing levels
+      fetchYahooChart(symbol, "1d", "1m"), // replaces both the old "1d/1d" and fetch1DGraphForStock
     ]);
 
     /* ================= PARSE 3mo ================= */
@@ -56,18 +67,34 @@ export async function getAdvancedLevels(
 
     if (closes.length < 10) return INITIAL_LEVELS(symbol);
 
+    // Exclude the last (potentially incomplete) candle when computing EMAs
     const stableCloses = closes.slice(0, -1);
 
-    /* ================= PARSE recent ================= */
+    /* ================= PARSE recent (1m candles) ================= */
 
     const { meta, data: recentData } = chartRecent;
+
     const recentCloses = recentData
       .map((p) => p.close)
       .filter((v): v is number => v != null);
 
     const shortName = meta?.shortName || meta?.symbol || symbol;
+
+    // meta.regularMarketPrice is the live price — same field the old "1d/1d" fetch used
     const currentPrice = meta?.regularMarketPrice ?? recentCloses.at(-1);
     const previousClose = meta?.chartPreviousClose ?? recentCloses.at(-2) ?? 0;
+
+    /* ================= GRAPH POINTS =================
+       Previously fetch1DGraphForStock() did this exact filtering in route.ts.
+       We do it here so route.ts can drop that whole function and its
+       Promise.all entry.
+    =============================================== */
+    const inHours = recentData.filter(
+      (p): p is { time: number; close: number } =>
+        p.close != null && isInUSTradingHoursTH(p.time),
+    );
+    const graphData = inHours.map((p) => ({ time: p.time, price: p.close }));
+    const graphBase = graphData[0]?.price ?? null;
 
     /* ================= EMA ================= */
 
@@ -133,6 +160,8 @@ export async function getAdvancedLevels(
       stopLoss: Number(stopLoss.toFixed(2)),
       resistance: Number(swingHigh.toFixed(2)),
       trend,
+      graphData,
+      graphBase,
     };
 
     cache.set(symbol, { value, ts: Date.now() });

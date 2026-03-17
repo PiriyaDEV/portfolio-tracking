@@ -2,11 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdvancedLevels } from "./support.function";
 import { getRecommendation } from "./recommendation.function";
 import { isThaiStock } from "@/app/lib/utils";
-import {
-  fetchYahooChart,
-  fetchUSDTHBRate,
-  isInUSTradingHoursTH,
-} from "@/app/lib/yahoo.helpers";
+import { fetchUSDTHBRate } from "@/app/lib/yahoo.helpers";
 
 const API_KEY = process.env.FINNHUB_API_KEY || "";
 
@@ -37,29 +33,13 @@ type GraphResult = {
 } | null;
 
 /* =======================
-   Fetch 1D Graph
+   NOTE: fetch1DGraphForStock() has been removed.
+   Graph data (1d/1m candles filtered to trading hours) is now produced
+   inside getAdvancedLevels() and returned via graphData / graphBase fields.
+   This eliminates one Yahoo API call per symbol (was fetching "1d/1m" here
+   AND "1d/1d" inside getAdvancedLevels — now only one "1d/1m" fetch happens).
+   shortName is also sourced exclusively from levels — no more dual extraction.
 ======================= */
-
-async function fetch1DGraphForStock(symbol: string): Promise<GraphResult> {
-  try {
-    const { meta, data } = await fetchYahooChart(symbol, "1d", "1m");
-    const shortName = meta?.shortName || meta?.symbol || symbol;
-
-    const inHours = data.filter(
-      (p): p is { time: number; close: number } =>
-        p.close != null && isInUSTradingHoursTH(p.time),
-    );
-
-    if (inHours.length === 0)
-      return { symbol, shortName, base: null, data: [] };
-
-    const points = inHours.map((p) => ({ time: p.time, price: p.close }));
-    return { symbol, shortName, base: points[0].price, data: points };
-  } catch (error) {
-    console.error(`Failed to fetch 1D graph for ${symbol}:`, error);
-    return null;
-  }
-}
 
 /* =======================
    Dividend
@@ -138,16 +118,39 @@ async function processAsset(
 ) {
   const { symbol } = asset;
 
-  const [levels, recommendation, dividendPerShare, graph] = await Promise.all([
+  /* Previously 4 parallel calls:
+       getAdvancedLevels  → fetchYahooChart("3mo","1d") + fetchYahooChart("1d","1d")
+       getRecommendation  → Finnhub
+       fetchTTMDividend   → Yahoo dividend endpoint
+       fetch1DGraphForStock → fetchYahooChart("1d","1m")   ← REMOVED (redundant)
+
+     Now 3 parallel calls:
+       getAdvancedLevels  → fetchYahooChart("3mo","1d") + fetchYahooChart("1d","1m")
+                            (also builds graphData/graphBase internally)
+       getRecommendation  → Finnhub
+       fetchTTMDividend   → Yahoo dividend endpoint
+  */
+  const [levels, recommendation, dividendPerShare] = await Promise.all([
     getAdvancedLevels(symbol),
     getRecommendation(symbol, API_KEY),
     fetchTTMDividend(symbol),
-    fetch1DGraphForStock(symbol),
   ]);
 
   if (!levels.currentPrice && !levels.previousClose) return null;
 
-  const shortName = graph?.shortName ?? null;
+  // shortName comes from levels only — no second extraction from a graph fetch
+  const shortName = levels.shortName ?? null;
+
+  // Assemble GraphResult from data already returned by getAdvancedLevels
+  const graph: GraphResult =
+    levels.graphData.length > 0
+      ? {
+          symbol,
+          shortName,
+          base: levels.graphBase,
+          data: levels.graphData,
+        }
+      : { symbol, shortName, base: null, data: [] };
 
   const dividend = calculateDividend(
     asset,

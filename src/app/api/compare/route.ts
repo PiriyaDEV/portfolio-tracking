@@ -17,7 +17,7 @@ interface Asset {
   costPerShare: number;
 }
 
-type Range = "1d" | "5d" | "1m" | "6m" | "1y";
+type Range = "1d" | "5d" | "1m" | "3m"  | "6m" | "1y";
 
 /* =======================
    Currency helpers
@@ -37,6 +37,7 @@ const RANGE_CONFIG: Record<
 > = {
   "5d": { range: "5d", interval: "30m" },
   "1m": { range: "1mo", interval: "1d" },
+  "3m": { range: "3mo", interval: "1d" },
   "6m": { range: "6mo", interval: "1wk" },
   "1y": { range: "1y", interval: "1wk" },
 };

@@ -26,15 +26,16 @@ interface Asset {
   costPerShare: number;
 }
 
-type TimeRange = "1D" | "5D" | "1M" | "6M" | "1Y";
-type ApiRange = "1d" | "5d" | "1m" | "6m" | "1y";
+type TimeRange = "1D" | "5D" | "1M" | "3M" | "6M" | "1Y";
+type ApiRange = "1d" | "5d" | "1m" | "3m" | "6m" | "1y";
 
-export const TIME_RANGES = ["1D", "5D", "1M", "6M", "1Y"] as const;
+export const TIME_RANGES = ["1D", "5D", "1M", "3M", "6M", "1Y"] as const;
 
 const RANGE_MAP: Record<TimeRange, ApiRange> = {
   "1D": "1d",
   "5D": "5d",
   "1M": "1m",
+  "3M": "3m",
   "6M": "6m",
   "1Y": "1y",
 };
