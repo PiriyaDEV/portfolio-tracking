@@ -131,7 +131,7 @@ async function getFearAndGreed() {
           Accept: "application/json",
           Referer: "https://edition.cnn.com/",
         },
-        next: { revalidate: 3600 },
+        cache: "no-store",
       },
     );
 

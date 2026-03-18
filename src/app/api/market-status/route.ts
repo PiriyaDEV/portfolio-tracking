@@ -12,7 +12,7 @@ export async function GET() {
 
   try {
     const url = `https://finnhub.io/api/v1/stock/market-status?exchange=US&token=${process.env.FINNHUB_API_KEY}`;
-    const res = await fetch(url, { next: { revalidate: 30 } });
+    const res = await fetch(url, { cache: "no-store" });
 
     if (!res.ok) {
       return NextResponse.json({
