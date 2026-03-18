@@ -36,21 +36,9 @@ const INITIAL_LEVELS = (symbol: string): AdvancedLevels => ({
   graphBase: null,
 });
 
-// Cache: 5-minute TTL is fine for both technical levels and intraday graph
-const cache = new Map<string, { value: AdvancedLevels; ts: number }>();
-const CACHE_TTL_MS = 5 * 1000;
-
-const isMarketOpen = isInUSTradingHoursTH(Date.now());
-
 export async function getAdvancedLevels(
   symbol: string = "TSLA",
 ): Promise<AdvancedLevels> {
-  if (!isMarketOpen) {
-    const cached = cache.get(symbol);
-    if (cached && Date.now() - cached.ts < CACHE_TTL_MS) {
-      return cached.value;
-    }
-  }
 
   try {
     /* ================= FETCH =================
@@ -171,8 +159,6 @@ export async function getAdvancedLevels(
       graphData,
       graphBase,
     };
-
-    cache.set(symbol, { value, ts: Date.now() });
     return value;
   } catch (error) {
     console.error(`[getAdvancedLevels] Failed for ${symbol}`, error);

@@ -303,7 +303,7 @@ function LWChart({ rawData, prevPrice, range, isLoading }: LWChartProps) {
       if (rect.width >= 32 && rect.height >= 32) markReady();
     };
     check(el.getBoundingClientRect());
-    const fallback = setTimeout(markReady, 100);
+    const fallback = setTimeout(markReady, 300);
     if (typeof ResizeObserver === "undefined")
       return () => clearTimeout(fallback);
     const ro = new ResizeObserver((entries) => {
@@ -1047,7 +1047,7 @@ export function GraphModal({
   );
 
   const [visible, setVisible] = useState(false);
-  const [range, setRange] = useState<TimeRange>("1d");
+  const [range, setRange] = useState<TimeRange>("1m");
   const [chartHistory, setChartHistory] = useState<ChartHistoryResponse | null>(
     null,
   );
@@ -1068,7 +1068,7 @@ export function GraphModal({
 
   const handleClose = useCallback(() => {
     setVisible(false);
-    setTimeout(onClose, 200);
+    setTimeout(onClose, 300);
   }, [onClose]);
 
   const handleOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -1101,10 +1101,12 @@ export function GraphModal({
   }, [fetchMarketData, isPageVisible, isMarketOpen]);
 
   const fetchChartHistory = useCallback(
-    async (r: TimeRange) => {
-      setIsLoadingChart(true);
-      setChartError(null);
-      setChartHistory(null);
+    async (r: TimeRange, silent = false) => {
+      if (!silent) {
+        setIsLoadingChart(true);
+        setChartError(null);
+        setChartHistory(null);
+      }
       try {
         const res = await fetch(
           `/api/chart-history?symbol=${encodeURIComponent(symbol)}&range=${r}`,
@@ -1113,9 +1115,9 @@ export function GraphModal({
         setChartHistory(await res.json());
       } catch (err) {
         console.error("chart-history", err);
-        setChartError("โหลดข้อมูลไม่ได้");
+        if (!silent) setChartError("โหลดข้อมูลไม่ได้");
       } finally {
-        setIsLoadingChart(false);
+        if (!silent) setIsLoadingChart(false);
       }
     },
     [symbol],
@@ -1128,7 +1130,7 @@ export function GraphModal({
   useEffect(() => {
     if (range !== "1m" || !isPageVisible || !isMarketOpen) return;
     const id = setInterval(
-      () => fetchChartHistory("1m"),
+      () => fetchChartHistory("1m", true),
       AUTO_REFRESH_GRAPH_INTERVAL_MS,
     );
     return () => clearInterval(id);
@@ -1149,7 +1151,7 @@ export function GraphModal({
   const isThai = isThaiStock(symbol);
 
   const displayPrice =
-    pp?.regularMarketPrice ?? storeCurrentPrice ?? pp?.currentPrice ?? null;
+    storeCurrentPrice ?? pp?.regularMarketPrice ?? pp?.currentPrice ?? null;
   const priceForPct =
     storeCurrentPrice ?? pp?.regularMarketPrice ?? pp?.currentPrice ?? null;
   const prevForPct = storePreviousPrice ?? pp?.previousClose ?? null;

@@ -95,10 +95,6 @@ async function fetchPrePost(symbol: string): Promise<PrePostResult> {
   };
 }
 
-// In-memory cache per symbol — 60s TTL
-const cache = new Map<string, { value: PrePostResult; ts: number }>();
-const CACHE_TTL_MS = 60_000;
-
 export async function POST(req: NextRequest) {
   try {
     const { symbols }: { symbols: string[] } = await req.json();
@@ -108,11 +104,7 @@ export async function POST(req: NextRequest) {
 
     const results = await Promise.all(
       symbols.map(async (sym) => {
-        const cached = cache.get(sym);
-        if (cached && Date.now() - cached.ts < CACHE_TTL_MS)
-          return cached.value;
         const value = await fetchPrePost(sym);
-        cache.set(sym, { value, ts: Date.now() });
         return value;
       }),
     );
@@ -138,14 +130,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const cached = cache.get(symbol);
-    if (cached && Date.now() - cached.ts < CACHE_TTL_MS) {
-      return NextResponse.json(cached.value);
-    }
-
     const value = await fetchPrePost(symbol);
-
-    cache.set(symbol, { value, ts: Date.now() });
 
     return NextResponse.json(value);
   } catch (err: any) {
