@@ -25,7 +25,7 @@ import { fNumber, getLogo, getName, isThaiStock } from "@/app/lib/utils";
 import { TimeRange } from "@/app/api/chart-history/route";
 import {
   AUTO_REFRESH_1M_INTERVAL_MS,
-  AUTO_REFRESH_10SECS_INTERVAL_MS,
+  AUTO_REFRESH_GRAPH_INTERVAL_MS,
 } from "@/app/config";
 import { usePageVisible } from "@/shared/hooks/usePageVisible";
 import { useMarketStore } from "@/store/useMarketStore";
@@ -303,7 +303,7 @@ function LWChart({ rawData, prevPrice, range, isLoading }: LWChartProps) {
       if (rect.width >= 32 && rect.height >= 32) markReady();
     };
     check(el.getBoundingClientRect());
-    const fallback = setTimeout(markReady, 100);
+    const fallback = setTimeout(markReady, 300);
     if (typeof ResizeObserver === "undefined")
       return () => clearTimeout(fallback);
     const ro = new ResizeObserver((entries) => {
@@ -689,7 +689,6 @@ function LWChart({ rawData, prevPrice, range, isLoading }: LWChartProps) {
               <span style={{ color: "rgba(255,255,255,0.38)" }}>
                 {cfg.label}:
               </span>
-              {/* ── Animated EMA value ── */}
               {emaValues[idx] != null ? (
                 <NumberFlow
                   value={emaValues[idx]!}
@@ -744,7 +743,6 @@ function LWChart({ rawData, prevPrice, range, isLoading }: LWChartProps) {
           >
             RSI(14)
           </span>
-          {/* ── Animated RSI value ── */}
           {rsiValue != null ? (
             <NumberFlow
               value={rsiValue}
@@ -959,7 +957,6 @@ function StatRow({
           gap: 2,
         }}
       >
-        {/* Use NumberFlow when animatedValue is provided, else fall back to string */}
         {animatedValue != null ? (
           <NumberFlow
             value={animatedValue}
@@ -1047,7 +1044,7 @@ export function GraphModal({
   );
 
   const [visible, setVisible] = useState(false);
-  const [range, setRange] = useState<TimeRange>("1d");
+  const [range, setRange] = useState<TimeRange>("1m");
   const [chartHistory, setChartHistory] = useState<ChartHistoryResponse | null>(
     null,
   );
@@ -1068,7 +1065,7 @@ export function GraphModal({
 
   const handleClose = useCallback(() => {
     setVisible(false);
-    setTimeout(onClose, 200);
+    setTimeout(onClose, 300);
   }, [onClose]);
 
   const handleOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -1101,10 +1098,12 @@ export function GraphModal({
   }, [fetchMarketData, isPageVisible, isMarketOpen]);
 
   const fetchChartHistory = useCallback(
-    async (r: TimeRange) => {
-      setIsLoadingChart(true);
-      setChartError(null);
-      setChartHistory(null);
+    async (r: TimeRange, silent = false) => {
+      if (!silent) {
+        setIsLoadingChart(true);
+        setChartError(null);
+        setChartHistory(null);
+      }
       try {
         const res = await fetch(
           `/api/chart-history?symbol=${encodeURIComponent(symbol)}&range=${r}`,
@@ -1113,9 +1112,9 @@ export function GraphModal({
         setChartHistory(await res.json());
       } catch (err) {
         console.error("chart-history", err);
-        setChartError("โหลดข้อมูลไม่ได้");
+        if (!silent) setChartError("โหลดข้อมูลไม่ได้");
       } finally {
-        setIsLoadingChart(false);
+        if (!silent) setIsLoadingChart(false);
       }
     },
     [symbol],
@@ -1128,8 +1127,8 @@ export function GraphModal({
   useEffect(() => {
     if (range !== "1m" || !isPageVisible || !isMarketOpen) return;
     const id = setInterval(
-      () => fetchChartHistory("1m"),
-      AUTO_REFRESH_10SECS_INTERVAL_MS,
+      () => fetchChartHistory("1m", true),
+      AUTO_REFRESH_GRAPH_INTERVAL_MS,
     );
     return () => clearInterval(id);
   }, [range, fetchChartHistory, isPageVisible, isMarketOpen]);
