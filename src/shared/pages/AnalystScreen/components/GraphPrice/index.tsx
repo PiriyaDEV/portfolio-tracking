@@ -11,6 +11,7 @@ import {
   ReferenceLine,
 } from "recharts";
 import React from "react";
+import NumberFlow from "@number-flow/react";
 import {
   FearGreedGauge,
   getFearGreedBg,
@@ -30,6 +31,7 @@ import { AUTO_REFRESH_INTERVAL_MS } from "@/app/config";
 import { usePageVisible } from "@/shared/hooks/usePageVisible";
 import { MARKET_SYMBOLS } from "@/app/api/market/route";
 import { useMarketStore } from "@/store/useMarketStore";
+import { numberFlowTiming } from "@/shared/components/common/AnimatedNumber";
 
 /* =======================
    Types
@@ -145,9 +147,6 @@ function calcPct(
 
 export function GraphPrice({ assets, market }: Props) {
   // ─── All market data from shared store ───────────────────────────────────
-  // silentRefresh is intentionally NOT used here —
-  // MainApp already calls it on the shared interval. Using it here too
-  // would cause double-fetching every 20s.
   const { prices, graphs, previousPrice, currencyRate, marketStatus } =
     useMarketStore();
 
@@ -159,7 +158,6 @@ export function GraphPrice({ assets, market }: Props) {
   );
   const [isLoadingPrePost, setIsLoadingPrePost] = useState(true);
 
-  // ─── Selected symbol for detail modal ────────────────────────────────────
   const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
 
   const isLoading = !graphs || Object.keys(graphs).length === 0;
@@ -174,7 +172,7 @@ export function GraphPrice({ assets, market }: Props) {
       market.fearGreed.value === null);
   const isPageVisible = usePageVisible();
 
-  // ─── Pre/post market data (separate from main refresh) ───────────────────
+  // ─── Pre/post market data ─────────────────────────────────────────────────
   useEffect(() => {
     const usSymbols = assets
       .map((a) => a.symbol)
@@ -346,14 +344,37 @@ export function GraphPrice({ assets, market }: Props) {
                           className="flex flex-col whitespace-nowrap"
                           style={{ gap: "1px" }}
                         >
-                          <span className="text-[12px] font-semibold text-[#f0f0f0] tracking-[0.01em] font-mono">
-                            {fNumber(displayPrice)}
-                          </span>
+                          {/* ── Animated market price ── */}
+                          <NumberFlow
+                            value={displayPrice}
+                            format={{
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                              useGrouping: true,
+                            }}
+                            className="text-[12px] font-semibold tracking-[0.01em] font-mono"
+                            style={{ color: "#f0f0f0" }}
+                            {...numberFlowTiming}
+                          />
+                          {/* ── Animated % change ── */}
                           <span
-                            className={`text-[10px] font-medium tracking-[0.02em] ${isUp ? "!text-emerald-600" : "!text-red-600"}`}
+                            className={`text-[10px] font-medium tracking-[0.02em] flex items-center gap-0.5 ${isUp ? "!text-emerald-500" : "!text-red-500"}`}
                           >
-                            {isUp ? "▲ +" : "▼ "}
-                            {fNumber(pct)}%
+                            {isUp ? "▲" : "▼"}
+                            <NumberFlow
+                              value={pct}
+                              format={{
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                                signDisplay: "always",
+                                useGrouping: true,
+                              }}
+                              suffix="%"
+                              style={{
+                                color: isUp ? "#22c55e" : "#ef4444",
+                              }}
+                              {...numberFlowTiming}
+                            />
                           </span>
                         </div>
                       </div>
@@ -565,12 +586,11 @@ export function GraphPrice({ assets, market }: Props) {
                   {(() => {
                     const pp = prePostData[symbol];
                     const ppChange = pp?.prePostChangePercent;
-                    const hasPrePost = pp && pp.session !== "regular" && pp.session !== "closed";
+                    const hasPrePost =
+                      pp && pp.session !== "regular" && pp.session !== "closed";
 
                     const rawPrice =
-                      pp?.regularMarketPrice ?? currentPrice ?? undefined;
-                    const displayPrice =
-                      rawPrice != null ? fNumber(rawPrice) : "—";
+                      pp?.regularMarketPrice ?? currentPrice ?? null;
 
                     return (
                       <>
@@ -579,7 +599,8 @@ export function GraphPrice({ assets, market }: Props) {
                             {isLoadingPrePost ? (
                               <SkeletonPulse className="h-[16px] w-[60px] rounded-md" />
                             ) : (
-                              hasPrePost && ppChange != null && (
+                              hasPrePost &&
+                              ppChange != null && (
                                 <SessionBadge
                                   session={pp!.session}
                                   ppChange={ppChange}
@@ -588,15 +609,29 @@ export function GraphPrice({ assets, market }: Props) {
                             )}
                           </>
                         )}
+                        {/* ── Animated asset price ── */}
                         <div
-                          className="!text-gray-400"
+                          className="!text-gray-400 flex items-center gap-1"
                           style={{
                             fontSize: "11px",
-                            fontVariantNumeric: "tabular-nums",
                             letterSpacing: "0.01em",
                           }}
                         >
-                          ราคา: {displayPrice}
+                          <span>ราคา:</span>
+                          {rawPrice != null ? (
+                            <NumberFlow
+                              value={rawPrice}
+                              format={{
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                                useGrouping: true,
+                              }}
+                              style={{ color: "inherit", fontSize: "11px" }}
+                              {...numberFlowTiming}
+                            />
+                          ) : (
+                            <span>—</span>
+                          )}
                         </div>
                       </>
                     );
