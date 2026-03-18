@@ -50,11 +50,12 @@ import { AUTO_REFRESH_INTERVAL_MS } from "./config";
 import { usePageVisible } from "@/shared/hooks/usePageVisible";
 import { useMarketStore } from "@/store/useMarketStore";
 import { GraphModal } from "@/shared/pages/AnalystScreen/components/GraphPrice/components/GraphModal";
+import { AnimatedNumber } from "@/shared/components/common/AnimatedNumber";
 
 const isMock = false;
 
 interface SessionData {
-  userId: string; // column A — internal key, used for GET/POST /api/user/[id]
+  userId: string;
   userColId: string;
   expiresAt: number;
 }
@@ -83,11 +84,11 @@ export default function MainApp() {
   } = useMarketStore();
 
   // ─── User / session state ──────────────────────────────────────────────────
-  const [userId, setUserId] = useState(""); // column A internal key
-  const [username, setUsername] = useState(""); // column K — login username (read-only)
-  const [displayName, setDisplayName] = useState(""); // column D — display name (editable)
+  const [userId, setUserId] = useState("");
+  const [username, setUsername] = useState("");
+  const [displayName, setDisplayName] = useState("");
   const [assets, setAssets] = useState<Asset[] | null>(null);
-  const [userColId, setUserColId] = useState(""); // same as userId (column A)
+  const [userColId, setUserColId] = useState("");
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [profileImage, setProfileImage] = useState<string | null>(null);
 
@@ -150,7 +151,6 @@ export default function MainApp() {
           return;
         }
 
-        // session.userId = column A internal key
         const internalId = session.userId;
         saveSession(internalId, internalId);
         setUserId(internalId);
@@ -254,18 +254,11 @@ export default function MainApp() {
 
   useEffect(() => {
     window.scrollTo({ top: 0 });
-
-    // หา element ทั้งหมด
     const elements = document.querySelectorAll("*");
-
     elements.forEach((el) => {
       const element = el as HTMLElement;
-
-      // เช็คว่า element นี้ scroll ได้ไหม
       if (element.scrollHeight > element.clientHeight) {
-        element.scrollTo({
-          top: 0,
-        });
+        element.scrollTo({ top: 0 });
       }
     });
   }, [currentPage]);
@@ -303,7 +296,7 @@ export default function MainApp() {
     setExpanded((prev) => ({ ...prev, [symbol]: !prev[symbol] }));
   };
 
-  // ─── Fetch user data by column A internal key ─────────────────────────────
+  // ─── Fetch user data ───────────────────────────────────────────────────────
   async function fetchUserData(internalId?: string) {
     const targetId = internalId || userId;
     if (!targetId) throw new Error("ไม่มี session");
@@ -322,7 +315,7 @@ export default function MainApp() {
         : data.assets || [];
 
     const parsedDisplayName = data.displayName || data.username || targetId;
-    const parsedUsername = data.username || targetId; // column K
+    const parsedUsername = data.username || targetId;
 
     let parsedImage: string | null = null;
     if (typeof data.image === "string" && data.image.trim() !== "") {
@@ -707,12 +700,24 @@ export default function MainApp() {
                   (prices[asset.symbol] === 0 ||
                     prices[asset.symbol] === undefined));
 
+              // Portfolio allocation percent
+              const allocationPercent =
+                portfolioValueThb > 0
+                  ? (marketValueThb / portfolioValueThb) * 100
+                  : 0;
+
+              // USD equivalent value
+              const marketValueUsd = isThai
+                ? marketValueBase / currencyRate
+                : marketValueBase;
+
               return (
                 <div key={asset.symbol} className="w-full">
                   <div
                     className="w-full grid grid-cols-[2fr_1fr_1fr] gap-3 px-4 py-3 cursor-pointer hover:bg-black-lighter/40 transition-colors"
                     onClick={() => toggleExpand(asset.symbol)}
                   >
+                    {/* ── Left column: logo + name + allocation ── */}
                     <div className="flex flex-col gap-1">
                       <div className="flex items-center gap-2">
                         <div
@@ -736,21 +741,34 @@ export default function MainApp() {
                           </div>
                         </div>
                       </div>
+                      {/* Allocation % with NumberFlow */}
                       <div className="text-[11px] text-gray-500 flex items-center gap-1">
                         <ChartIcon className="text-accent-yellow/60" />
-                        {portfolioValueThb > 0
-                          ? `${fNumber((marketValueThb / portfolioValueThb) * 100)}%`
-                          : "0.00%"}
+                        {isLoadingThis ? (
+                          <span className="inline-block w-8 h-3 bg-white/10 rounded animate-pulse" />
+                        ) : (
+                          <AnimatedNumber
+                            value={allocationPercent}
+                            decimals={2}
+                            suffix="%"
+                            masked={isNumbersHidden}
+                          />
+                        )}
                       </div>
                     </div>
 
+                    {/* ── Middle column: market value THB + USD ── */}
                     <div className="flex flex-col items-end whitespace-nowrap">
                       <div className="font-bold text-[15px] text-white">
-                        {(isLoadingThis || marketValueThb === 0) ? (
+                        {isLoadingThis || marketValueThb === 0 ? (
                           <span className="inline-block w-16 h-4 bg-white/10 rounded animate-pulse" />
                         ) : (
                           <>
-                            {maskNumber(fNumber(marketValueThb))}
+                            <AnimatedNumber
+                              value={marketValueThb}
+                              decimals={2}
+                              masked={isNumbersHidden}
+                            />
                             <span className="text-[10px] text-gray-500 ml-1">
                               บาท
                             </span>
@@ -763,19 +781,18 @@ export default function MainApp() {
                         ) : (
                           <>
                             ≈{" "}
-                            {maskNumber(
-                              fNumber(
-                                isThai
-                                  ? marketValueBase / currencyRate
-                                  : marketValueBase,
-                              ),
-                            )}
+                            <AnimatedNumber
+                              value={marketValueUsd}
+                              decimals={2}
+                              masked={isNumbersHidden}
+                            />
                             <span className="ml-1">USD</span>
                           </>
                         )}
                       </div>
                     </div>
 
+                    {/* ── Right column: profit % + profit THB ── */}
                     <div className="flex flex-col items-end text-right">
                       <div
                         className={`font-bold text-[15px] flex items-center gap-1 ${profitColor}`}
@@ -788,7 +805,13 @@ export default function MainApp() {
                         {isLoadingThis ? (
                           <span className="inline-block w-10 h-4 bg-white/10 rounded animate-pulse" />
                         ) : (
-                          <>{fNumber(profitPercent)}%</>
+                          <AnimatedNumber
+                            value={profitPercent}
+                            decimals={2}
+                            suffix="%"
+                            masked={isNumbersHidden}
+                            className={profitColor}
+                          />
                         )}
                       </div>
                       <div className={`text-[11px] ${profitColor}`}>
@@ -797,15 +820,23 @@ export default function MainApp() {
                         ) : (
                           <>
                             ({profitBase > 0 ? "+" : ""}
-                            {maskNumber(fNumber(profitThb))} บาท)
+                            <AnimatedNumber
+                              value={profitThb}
+                              decimals={2}
+                              masked={isNumbersHidden}
+                              className={profitColor}
+                            />{" "}
+                            บาท)
                           </>
                         )}
                       </div>
                     </div>
                   </div>
 
+                  {/* ── Expanded detail row ── */}
                   {isExpanded && (
                     <div className="bg-black-lighter border-y border-accent-yellow/10 text-[12px] grid grid-cols-2 gap-x-4 gap-y-2 px-4 py-3">
+                      {/* Today's change */}
                       <div className="col-span-2 flex items-center gap-2 mb-1">
                         <span className="text-gray-500 text-[11px]">
                           เปลี่ยนแปลงวันนี้
@@ -819,37 +850,60 @@ export default function MainApp() {
                             <DownIcon className="text-[10px]" />
                           ) : null}
                           {percentChange > 0 ? "+" : ""}
-                          {fNumber(percentChange)}%
+                          <AnimatedNumber
+                            value={percentChange}
+                            decimals={2}
+                            suffix="%"
+                            masked={isNumbersHidden}
+                            className={getProfitColor(percentChange)}
+                          />
                         </span>
                       </div>
+
+                      {/* Quantity */}
                       <div className="text-gray-400">
                         จำนวนหุ้น{" "}
-                        <span className="text-white font-medium">
-                          {maskNumber(
-                            fNumber(asset.quantity, { decimalNumber: 7 }),
-                          )}
-                        </span>
+                        <AnimatedNumber
+                          value={asset.quantity}
+                          decimals={7}
+                          masked={isNumbersHidden}
+                          className="text-white font-medium"
+                        />
                       </div>
+
+                      {/* Current price */}
                       <div className="text-gray-400">
                         ราคาปัจจุบัน{" "}
-                        <span className="text-white font-medium">
-                          {fNumber(currentPrice)} {currencyLabel}
-                        </span>
+                        <AnimatedNumber
+                          value={currentPrice}
+                          decimals={2}
+                          suffix={` ${currencyLabel}`}
+                          className="text-white font-medium"
+                        />
                       </div>
+
+                      {/* Cost per share */}
                       <div className="text-gray-400">
                         ต้นทุน/หุ้น{" "}
-                        <span className="text-white font-medium">
-                          {maskNumber(
-                            fNumber(asset.costPerShare, { decimalNumber: 4 }),
-                          )}{" "}
-                          {currencyLabel}
-                        </span>
+                        <AnimatedNumber
+                          value={asset.costPerShare}
+                          decimals={4}
+                          suffix={` ${currencyLabel}`}
+                          masked={isNumbersHidden}
+                          className="text-white font-medium"
+                        />
                       </div>
+
+                      {/* Total cost */}
                       <div className="text-gray-400">
                         ต้นทุนรวม{" "}
-                        <span className="text-white font-medium">
-                          {maskNumber(fNumber(cost))} {currencyLabel}
-                        </span>
+                        <AnimatedNumber
+                          value={cost}
+                          decimals={2}
+                          suffix={` ${currencyLabel}`}
+                          masked={isNumbersHidden}
+                          className="text-white font-medium"
+                        />
                       </div>
                     </div>
                   )}

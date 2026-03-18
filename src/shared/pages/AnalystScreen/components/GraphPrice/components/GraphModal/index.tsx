@@ -19,6 +19,7 @@ import {
   Time,
 } from "lightweight-charts";
 import { RSI, EMA } from "lightweight-charts-indicators";
+import NumberFlow from "@number-flow/react";
 import { Asset } from "@/app/lib/interface";
 import { fNumber, getLogo, getName, isThaiStock } from "@/app/lib/utils";
 import { TimeRange } from "@/app/api/chart-history/route";
@@ -29,11 +30,7 @@ import {
 import { usePageVisible } from "@/shared/hooks/usePageVisible";
 import { useMarketStore } from "@/store/useMarketStore";
 import { AdvancedLevels } from "@/app/api/stock/support.function";
-import {
-  isNearResistance,
-  isNormalBuy,
-  isStrongBuy,
-} from "@/app/lib/market.logic";
+import { numberFlowTiming } from "@/shared/components/common/AnimatedNumber";
 
 /* ─────────────────────────────────────────────
    Types
@@ -50,7 +47,7 @@ type PrePostData = {
 };
 
 type ChartHistoryPoint = {
-  time: number; // ms
+  time: number;
   price: number;
   high: number;
   low: number;
@@ -59,7 +56,7 @@ type ChartHistoryPoint = {
 };
 
 type DividendEvent = {
-  date: number; // ms
+  date: number;
   amount: number;
 };
 
@@ -154,7 +151,6 @@ function fmtDate(ms: number | null | undefined): string {
   });
 }
 
-/** Build deduplicated + sorted candle/vol arrays from raw API points */
 function buildCandles(rawData: ChartHistoryPoint[]) {
   const candleMap = new Map<
     number,
@@ -193,17 +189,14 @@ function buildCandles(rawData: ChartHistoryPoint[]) {
   const candles = Array.from(candleMap.values()).sort(sort);
   const volBars = Array.from(volMap.values()).sort(sort);
 
-  // ── เติม bridge candle เต็มแท่งในวันที่มี gap ──────────────────────
   const bridgeCandles: typeof candles = [];
   const bridgeVolBars: typeof volBars = [];
 
   for (let i = 1; i < candles.length; i++) {
     const prev = candles[i - 1];
     const curr = candles[i];
-
     const gapUp = curr.low > prev.high;
     const gapDown = curr.high < prev.low;
-
     if (gapUp || gapDown) {
       const bridgeOpen = prev.close;
       const bridgeClose = curr.open;
@@ -212,7 +205,6 @@ function buildCandles(rawData: ChartHistoryPoint[]) {
       const bridgeTime = Math.round(
         (prevTime + currTime) / 2,
       ) as unknown as Time;
-
       bridgeCandles.push({
         time: bridgeTime,
         open: bridgeOpen,
@@ -231,7 +223,6 @@ function buildCandles(rawData: ChartHistoryPoint[]) {
     }
   }
 
-  // รวมแล้ว sort ใหม่
   const allCandles = [...candles, ...bridgeCandles].sort(sort);
   const allVolBars = [...volBars, ...bridgeVolBars].sort(sort);
 
@@ -304,22 +295,17 @@ function LWChart({ rawData, prevPrice, range, isLoading }: LWChartProps) {
   const emaDataRef = useRef<number[][]>([[], [], [], []]);
   const rsiDataRef = useRef<number[]>([]);
 
-  /* ── 1. ResizeObserver gate ──────────────────────────────────────────── */
   useLayoutEffect(() => {
     const el = wrapperRef.current;
     if (!el) return;
-
     const markReady = () => setIsReady(true);
     const check = (rect: DOMRectReadOnly | DOMRect) => {
       if (rect.width >= 32 && rect.height >= 32) markReady();
     };
-
     check(el.getBoundingClientRect());
     const fallback = setTimeout(markReady, 100);
-
     if (typeof ResizeObserver === "undefined")
       return () => clearTimeout(fallback);
-
     const ro = new ResizeObserver((entries) => {
       for (const e of entries) if (e.target === el) check(e.contentRect);
     });
@@ -330,7 +316,6 @@ function LWChart({ rawData, prevPrice, range, isLoading }: LWChartProps) {
     };
   }, []);
 
-  /* ── 2. Create charts once ready ─────────────────────────────────────── */
   useEffect(() => {
     if (!isReady || !mainContainerRef.current || !rsiContainerRef.current)
       return;
@@ -537,7 +522,6 @@ function LWChart({ rawData, prevPrice, range, isLoading }: LWChartProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isReady]);
 
-  /* ── 3. Feed data ────────────────────────────────────────────────────── */
   useEffect(() => {
     if (!isReady || !candleRef.current || !volRef.current || !rawData.length)
       return;
@@ -569,13 +553,11 @@ function LWChart({ rawData, prevPrice, range, isLoading }: LWChartProps) {
           candles,
         );
         series.setData(mapped);
-
         const arr = new Array(candles.length).fill(null);
         mapped.forEach((p) => {
           const i = candles.findIndex((c) => c.time === p.time);
           if (i !== -1) arr[i] = p.value;
         });
-
         newEmaData[idx] = arr;
         const last = mapped[mapped.length - 1];
         if (last != null) newEmaValues[idx] = last.value;
@@ -603,7 +585,6 @@ function LWChart({ rawData, prevPrice, range, isLoading }: LWChartProps) {
           const i = candles.findIndex((c) => c.time === p.time);
           if (i !== -1) rsiArr[i] = p.value;
         });
-
         rsiDataRef.current = rsiArr;
         rsiRef.current.setData(mappedRsi);
         rsiObRef.current.setData(
@@ -632,7 +613,6 @@ function LWChart({ rawData, prevPrice, range, isLoading }: LWChartProps) {
     }, 100);
   }, [isReady, rawData, range, prevPrice]);
 
-  /* ── Render ──────────────────────────────────────────────────────────── */
   const totalH = MAIN_H + RSI_H + 28;
   const showChart = isReady && !isLoading && rawData.length > 0;
 
@@ -709,9 +689,26 @@ function LWChart({ rawData, prevPrice, range, isLoading }: LWChartProps) {
               <span style={{ color: "rgba(255,255,255,0.38)" }}>
                 {cfg.label}:
               </span>
-              <span style={{ color: cfg.color, fontWeight: 700 }}>
-                {emaValues[idx] != null ? fmt(emaValues[idx]) : "—"}
-              </span>
+              {/* ── Animated EMA value ── */}
+              {emaValues[idx] != null ? (
+                <NumberFlow
+                  value={emaValues[idx]!}
+                  format={{
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                    useGrouping: true,
+                  }}
+                  style={{
+                    color: cfg.color,
+                    fontWeight: 700,
+                    fontSize: 10,
+                    fontFamily: "monospace",
+                  }}
+                  {...numberFlowTiming}
+                />
+              ) : (
+                <span style={{ color: cfg.color, fontWeight: 700 }}>—</span>
+              )}
             </div>
           ))}
         </div>
@@ -747,9 +744,27 @@ function LWChart({ rawData, prevPrice, range, isLoading }: LWChartProps) {
           >
             RSI(14)
           </span>
-          <span style={{ color: "#1e7fcb", fontWeight: 700, fontSize: 10 }}>
-            {rsiValue != null ? rsiValue.toFixed(2) : "—"}
-          </span>
+          {/* ── Animated RSI value ── */}
+          {rsiValue != null ? (
+            <NumberFlow
+              value={rsiValue}
+              format={{
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              }}
+              style={{
+                color: "#1e7fcb",
+                fontWeight: 700,
+                fontSize: 10,
+                fontFamily: "monospace",
+              }}
+              {...numberFlowTiming}
+            />
+          ) : (
+            <span style={{ color: "#1e7fcb", fontWeight: 700, fontSize: 10 }}>
+              —
+            </span>
+          )}
           <span style={{ color: "rgba(255,255,255,0.18)", marginLeft: "auto" }}>
             OB 70 · OS 30
           </span>
@@ -843,16 +858,25 @@ function StatRow({
   signed,
   active,
   activeColor,
+  animatedValue,
+  animatedDecimals,
+  animatedSuffix,
+  animatedSubValue,
 }: {
   label: string;
-  value: string;
+  value?: string;
   subValue?: string;
   signed?: boolean;
   active?: boolean;
   activeColor?: "emerald" | "red" | "orange";
+  animatedValue?: number | null;
+  animatedDecimals?: number;
+  animatedSuffix?: string;
+  animatedSubValue?: number | null;
 }) {
-  const isPos = signed && value.startsWith("+");
-  const isNeg = signed && value.startsWith("-");
+  const displayValue = value ?? "—";
+  const isPos = signed && displayValue.startsWith("+");
+  const isNeg = signed && displayValue.startsWith("-");
 
   const colorMap = {
     emerald: {
@@ -882,6 +906,12 @@ function StatRow({
   };
 
   const c = active && activeColor ? colorMap[activeColor] : null;
+
+  const valueColor = c
+    ? c.value
+    : signed
+      ? undefined
+      : "rgba(255,255,255,0.88)";
 
   return (
     <div
@@ -929,18 +959,41 @@ function StatRow({
           gap: 2,
         }}
       >
-        <span
-          className={isPos ? "!text-green-500" : isNeg ? "!text-red-500" : ""}
-          style={{
-            fontSize: 13,
-            fontWeight: active ? 700 : 600,
-            fontFamily: "monospace",
-            color: c ? c.value : !signed ? "rgba(255,255,255,0.88)" : undefined,
-            transition: "color 0.2s",
-          }}
-        >
-          {value}
-        </span>
+        {/* Use NumberFlow when animatedValue is provided, else fall back to string */}
+        {animatedValue != null ? (
+          <NumberFlow
+            value={animatedValue}
+            format={{
+              minimumFractionDigits: animatedDecimals ?? 2,
+              maximumFractionDigits: animatedDecimals ?? 2,
+              signDisplay: signed ? "always" : "auto",
+              useGrouping: true,
+            }}
+            suffix={animatedSuffix ?? ""}
+            className={isPos ? "!text-green-500" : isNeg ? "!text-red-500" : ""}
+            style={{
+              fontSize: 13,
+              fontWeight: active ? 700 : 600,
+              fontFamily: "monospace",
+              color: valueColor,
+              transition: "color 0.2s",
+            }}
+            {...numberFlowTiming}
+          />
+        ) : (
+          <span
+            className={isPos ? "!text-green-500" : isNeg ? "!text-red-500" : ""}
+            style={{
+              fontSize: 13,
+              fontWeight: active ? 700 : 600,
+              fontFamily: "monospace",
+              color: valueColor,
+              transition: "color 0.2s",
+            }}
+          >
+            {displayValue}
+          </span>
+        )}
         {subValue && (
           <span
             style={{
@@ -1005,7 +1058,6 @@ export function GraphModal({
   const isMarketOpen = useMarketStore((s) => s.marketStatus?.isOpen ?? true);
   const isPageVisible = usePageVisible();
 
-  /* ── Modal open/close ─────────────────────────────────────────────────── */
   useEffect(() => {
     requestAnimationFrame(() => setVisible(true));
     document.body.style.overflow = "hidden";
@@ -1030,7 +1082,6 @@ export function GraphModal({
       .catch(console.error);
   }, [symbol]);
 
-  /* ── Market data ──────────────────────────────────────────────────────── */
   const fetchMarketData = useCallback(async () => {
     const res = await fetch(
       `/api/prepost?symbol=${encodeURIComponent(symbol)}`,
@@ -1049,7 +1100,6 @@ export function GraphModal({
     return () => clearInterval(id);
   }, [fetchMarketData, isPageVisible, isMarketOpen]);
 
-  /* ── Chart history ────────────────────────────────────────────────────── */
   const fetchChartHistory = useCallback(
     async (r: TimeRange) => {
       setIsLoadingChart(true);
@@ -1075,7 +1125,6 @@ export function GraphModal({
     fetchChartHistory(range);
   }, [range, fetchChartHistory]);
 
-  /* ── 1m realtime refresh ──────────────────────────────────────────────── */
   useEffect(() => {
     if (range !== "1m" || !isPageVisible || !isMarketOpen) return;
     const id = setInterval(
@@ -1085,7 +1134,6 @@ export function GraphModal({
     return () => clearInterval(id);
   }, [range, fetchChartHistory, isPageVisible, isMarketOpen]);
 
-  /* ── Non-1m intraday polling ──────────────────────────────────────────── */
   useEffect(() => {
     if (!INTRADAY_RANGES.has(range) || range === "1m") return;
     if (!isPageVisible || !isMarketOpen) return;
@@ -1196,7 +1244,7 @@ export function GraphModal({
                 </h2>
                 {hasPrePost && ppChange != null && (
                   <span
-                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full font-mono ${ppChange >= 0 ? "!text-green-500" : "!text-red-500"}`}
+                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full font-mono flex items-center gap-1 ${ppChange >= 0 ? "!text-green-500" : "!text-red-500"}`}
                     style={{
                       background:
                         ppChange >= 0
@@ -1205,7 +1253,24 @@ export function GraphModal({
                       border: `1px solid ${ppChange >= 0 ? "rgba(74,222,128,0.22)" : "rgba(248,113,113,0.22)"}`,
                     }}
                   >
-                    {sessionLabel[pp!.session]} {signedFmt(ppChange, true)}
+                    {sessionLabel[pp!.session]}
+                    {/* ── Animated pre/post badge ── */}
+                    <NumberFlow
+                      value={ppChange}
+                      format={{
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                        signDisplay: "always",
+                      }}
+                      suffix="%"
+                      style={{
+                        color: ppChange >= 0 ? "#4ade80" : "#f87171",
+                        fontSize: "10px",
+                        fontFamily: "monospace",
+                        fontWeight: 700,
+                      }}
+                      {...numberFlowTiming}
+                    />
                   </span>
                 )}
               </div>
@@ -1230,19 +1295,41 @@ export function GraphModal({
           {/* Price */}
           <div className="py-4 border-b border-accent-yellow border-opacity-10">
             <div className="flex items-end gap-3 flex-wrap">
-              <div
-                className="text-white font-bold"
-                style={{
-                  fontSize: 34,
-                  fontFamily: "monospace",
-                  letterSpacing: "-0.02em",
-                  lineHeight: 1,
-                }}
-              >
-                {isThai ? fmt(displayPrice) : fmtUsd(displayPrice)}
-              </div>
+              {/* ── Animated main price ── */}
+              {displayPrice != null ? (
+                <NumberFlow
+                  value={displayPrice}
+                  format={{
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                    useGrouping: true,
+                  }}
+                  suffix={isThai ? "" : " USD"}
+                  className="text-white font-bold"
+                  style={{
+                    fontSize: 34,
+                    fontFamily: "monospace",
+                    letterSpacing: "-0.02em",
+                    lineHeight: 1,
+                  }}
+                  {...numberFlowTiming}
+                />
+              ) : (
+                <div
+                  className="text-white font-bold"
+                  style={{
+                    fontSize: 34,
+                    fontFamily: "monospace",
+                    letterSpacing: "-0.02em",
+                    lineHeight: 1,
+                  }}
+                >
+                  —
+                </div>
+              )}
+              {/* ── Animated price change badge ── */}
               <span
-                className={`text-sm font-bold px-3 py-1 rounded-full mb-0.5 font-mono ${isUp ? "!text-green-500" : "!text-red-500"}`}
+                className={`text-sm font-bold px-3 py-1 rounded-full mb-0.5 font-mono flex items-center gap-1 ${isUp ? "!text-green-500" : "!text-red-500"}`}
                 style={{
                   background: isUp
                     ? "rgba(74,222,128,0.1)"
@@ -1250,16 +1337,62 @@ export function GraphModal({
                   border: `1px solid ${isUp ? "rgba(74,222,128,0.22)" : "rgba(248,113,113,0.22)"}`,
                 }}
               >
-                {signedFmt(priceChange, false, !isThai)} (
-                {signedFmt(percentChange, true)})
+                <NumberFlow
+                  value={priceChange}
+                  format={{
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                    signDisplay: "always",
+                    useGrouping: true,
+                  }}
+                  suffix={isThai ? "" : " USD"}
+                  style={{
+                    color: isUp ? "#4ade80" : "#f87171",
+                    fontSize: "14px",
+                    fontFamily: "monospace",
+                  }}
+                  {...numberFlowTiming}
+                />
+                <span style={{ color: isUp ? "#4ade80" : "#f87171" }}>(</span>
+                <NumberFlow
+                  value={percentChange}
+                  format={{
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                    signDisplay: "always",
+                  }}
+                  suffix="%"
+                  style={{
+                    color: isUp ? "#4ade80" : "#f87171",
+                    fontSize: "14px",
+                    fontFamily: "monospace",
+                  }}
+                  {...numberFlowTiming}
+                />
+                <span style={{ color: isUp ? "#4ade80" : "#f87171" }}>)</span>
               </span>
             </div>
-            {!isThai && (
+            {!isThai && displayPrice != null && (
               <div
-                className="mt-1 text-xs font-mono"
+                className="mt-1 text-xs font-mono flex items-center gap-1"
                 style={{ color: "rgba(255,255,255,0.28)" }}
               >
-                ≈ {toBaht(displayPrice, currencyRate)}
+                ≈
+                <NumberFlow
+                  value={displayPrice * currencyRate}
+                  format={{
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                    useGrouping: true,
+                  }}
+                  suffix=" บาท"
+                  style={{
+                    color: "rgba(255,255,255,0.28)",
+                    fontSize: "12px",
+                    fontFamily: "monospace",
+                  }}
+                  {...numberFlowTiming}
+                />
               </div>
             )}
           </div>
@@ -1342,50 +1475,67 @@ export function GraphModal({
           <div className="pb-5">
             {activeTab === "info" && (
               <>
-                {/* ── ราคาวันนี้ ───────────────────────────────────────────── */}
                 <SectionLabel>ราคาวันนี้</SectionLabel>
                 <StatRow
                   label="ราคาปัจจุบัน"
-                  value={isThai ? fmt(displayPrice) : fmtUsd(displayPrice)}
+                  animatedValue={displayPrice}
+                  animatedSuffix={isThai ? "" : " USD"}
                   subValue={
-                    !isThai ? toBaht(displayPrice, currencyRate) : undefined
+                    !isThai && displayPrice != null
+                      ? toBaht(displayPrice, currencyRate)
+                      : undefined
                   }
                 />
                 <StatRow
                   label="ราคาปิดก่อนหน้า"
-                  value={isThai ? fmt(prevForPct) : fmtUsd(prevForPct)}
+                  animatedValue={prevForPct}
+                  animatedSuffix={isThai ? "" : " USD"}
                   subValue={
-                    !isThai ? toBaht(prevForPct, currencyRate) : undefined
+                    !isThai && prevForPct != null
+                      ? toBaht(prevForPct, currencyRate)
+                      : undefined
                   }
                 />
                 <StatRow
                   label="เปลี่ยนแปลง"
-                  value={signedFmt(priceChange, false, !isThai)}
+                  animatedValue={priceChange}
+                  animatedSuffix={isThai ? "" : " USD"}
                   signed
+                  subValue={
+                    !isThai && priceChange != null
+                      ? (priceChange >= 0 ? "+" : "") +
+                        toBaht(priceChange, currencyRate)
+                      : undefined
+                  }
                 />
                 <StatRow
                   label="% เปลี่ยนแปลง"
-                  value={signedFmt(percentChange, true)}
+                  animatedValue={percentChange}
+                  animatedSuffix="%"
                   signed
                 />
                 <StatRow
                   label="สูงสุดวันนี้"
-                  value={isThai ? fmt(maxPrice) : fmtUsd(maxPrice)}
+                  animatedValue={maxPrice}
+                  animatedSuffix={isThai ? "" : " USD"}
                   subValue={
-                    !isThai ? toBaht(maxPrice, currencyRate) : undefined
+                    !isThai && maxPrice != null
+                      ? toBaht(maxPrice, currencyRate)
+                      : undefined
                   }
                 />
                 <StatRow
                   label="ต่ำสุดวันนี้"
-                  value={isThai ? fmt(minPrice) : fmtUsd(minPrice)}
+                  animatedValue={minPrice}
+                  animatedSuffix={isThai ? "" : " USD"}
                   subValue={
-                    !isThai ? toBaht(minPrice, currencyRate) : undefined
+                    !isThai && minPrice != null
+                      ? toBaht(minPrice, currencyRate)
+                      : undefined
                   }
                 />
 
-                {/* ── ปันผล ─────────────────────────────────────────────── */}
                 <SectionLabel>ปันผล</SectionLabel>
-
                 {dividendRate == null ? (
                   <>
                     <StatRow label="สถานะ" value="ไม่มีปันผล" />
@@ -1400,32 +1550,24 @@ export function GraphModal({
                   <>
                     <StatRow
                       label="ปันผลต่อหุ้น / ปี"
-                      value={
-                        isThai
-                          ? `${fmt(dividendRate)} บาท`
-                          : fmtUsd(dividendRate)
-                      }
+                      animatedValue={dividendRate}
+                      animatedSuffix={isThai ? " บาท" : " USD"}
                       subValue={
                         !isThai ? toBaht(dividendRate, currencyRate) : undefined
                       }
                     />
                     <StatRow
                       label="Dividend Yield"
-                      value={
-                        dividendYield != null
-                          ? `${(dividendYield * 100).toFixed(2)}%`
-                          : "—"
+                      animatedValue={
+                        dividendYield != null ? dividendYield * 100 : null
                       }
+                      animatedSuffix="%"
+                      animatedDecimals={2}
                     />
                     <StatRow
                       label="จ่ายล่าสุด"
-                      value={
-                        lastDividendAmount != null
-                          ? isThai
-                            ? `${fmt(lastDividendAmount)} บาท`
-                            : fmtUsd(lastDividendAmount)
-                          : "—"
-                      }
+                      animatedValue={lastDividendAmount}
+                      animatedSuffix={isThai ? " บาท" : " USD"}
                       subValue={
                         lastDividendDate != null
                           ? fmtDate(lastDividendDate)
@@ -1435,13 +1577,8 @@ export function GraphModal({
                     {asset && (
                       <StatRow
                         label="รับปันผล / ปี (พอร์ต)"
-                        value={
-                          annualDividendFromPortfolio != null
-                            ? isThai
-                              ? `${fmt(annualDividendFromPortfolio)} บาท`
-                              : fmtUsd(annualDividendFromPortfolio)
-                            : "—"
-                        }
+                        animatedValue={annualDividendFromPortfolio}
+                        animatedSuffix={isThai ? " บาท" : " USD"}
                         subValue={
                           !isThai && annualDividendFromPortfolio != null
                             ? toBaht(annualDividendFromPortfolio, currencyRate)
@@ -1452,7 +1589,6 @@ export function GraphModal({
                   </>
                 )}
 
-                {/* ── พอร์ตฉัน ───────────────────────────────────────────── */}
                 {asset && (
                   <>
                     <SectionLabel>พอร์ตฉัน</SectionLabel>
@@ -1462,11 +1598,8 @@ export function GraphModal({
                     />
                     <StatRow
                       label="ต้นทุนเฉลี่ย"
-                      value={
-                        isThai
-                          ? fmt(asset.costPerShare)
-                          : fmtUsd(asset.costPerShare)
-                      }
+                      animatedValue={asset.costPerShare}
+                      animatedSuffix={isThai ? "" : " USD"}
                       subValue={
                         !isThai
                           ? toBaht(asset.costPerShare, currencyRate)
@@ -1475,37 +1608,44 @@ export function GraphModal({
                     />
                     <StatRow
                       label="มูลค่าต้นทุน"
-                      value={isThai ? fmt(holdingValue) : fmtUsd(holdingValue)}
+                      animatedValue={holdingValue}
+                      animatedSuffix={isThai ? "" : " USD"}
                       subValue={
-                        !isThai ? toBaht(holdingValue, currencyRate) : undefined
+                        !isThai && holdingValue != null
+                          ? toBaht(holdingValue, currencyRate)
+                          : undefined
                       }
                     />
                     <StatRow
                       label="มูลค่าปัจจุบัน"
-                      value={isThai ? fmt(currentValue) : fmtUsd(currentValue)}
+                      animatedValue={currentValue}
+                      animatedSuffix={isThai ? "" : " USD"}
                       subValue={
-                        !isThai ? toBaht(currentValue, currencyRate) : undefined
+                        !isThai && currentValue != null
+                          ? toBaht(currentValue, currencyRate)
+                          : undefined
                       }
                     />
                     <StatRow
                       label="กำไร / ขาดทุน"
-                      value={signedFmt(profitLoss, false, !isThai)}
+                      animatedValue={profitLoss}
+                      animatedSuffix={isThai ? "" : " USD"}
+                      signed
                       subValue={
                         !isThai && profitLoss != null
                           ? `${profitLoss >= 0 ? "+" : ""}${toBaht(profitLoss, currencyRate)}`
                           : undefined
                       }
-                      signed
                     />
                     <StatRow
                       label="% กำไร / ขาดทุน"
-                      value={signedFmt(profitPct, true)}
+                      animatedValue={profitPct}
+                      animatedSuffix="%"
                       signed
                     />
                   </>
                 )}
 
-                {/* ── Pre/Post market ────────────────────────────────────── */}
                 {pp && pp.session !== "regular" && (
                   <>
                     <SectionLabel>
@@ -1519,46 +1659,38 @@ export function GraphModal({
                       <>
                         <StatRow
                           label="ราคา ก่อน/หลัง"
-                          value={
-                            isThai
-                              ? fmt(pp.currentPrice)
-                              : fmtUsd(pp.currentPrice)
-                          }
+                          animatedValue={pp.currentPrice}
+                          animatedSuffix={isThai ? "" : " USD"}
                           subValue={
-                            !isThai
+                            !isThai && pp.currentPrice != null
                               ? toBaht(pp.currentPrice, currencyRate)
                               : undefined
                           }
                         />
                         <StatRow
                           label="% เปลี่ยนแปลง"
-                          value={signedFmt(ppChange, true)}
+                          animatedValue={ppChange}
+                          animatedSuffix="%"
                           signed
                         />
                       </>
                     )}
                     <StatRow
                       label="ราคาปิดตลาด"
-                      value={
-                        isThai
-                          ? fmt(pp.regularMarketPrice)
-                          : fmtUsd(pp.regularMarketPrice)
-                      }
+                      animatedValue={pp.regularMarketPrice}
+                      animatedSuffix={isThai ? "" : " USD"}
                       subValue={
-                        !isThai
+                        !isThai && pp.regularMarketPrice != null
                           ? toBaht(pp.regularMarketPrice, currencyRate)
                           : undefined
                       }
                     />
                     <StatRow
                       label="ราคาปิดก่อนหน้า"
-                      value={
-                        isThai
-                          ? fmt(pp.previousClose)
-                          : fmtUsd(pp.previousClose)
-                      }
+                      animatedValue={pp.previousClose}
+                      animatedSuffix={isThai ? "" : " USD"}
                       subValue={
-                        !isThai
+                        !isThai && pp.previousClose != null
                           ? toBaht(pp.previousClose, currencyRate)
                           : undefined
                       }
@@ -1568,7 +1700,6 @@ export function GraphModal({
               </>
             )}
 
-            {/* ── Analysis tab ────────────────────────────────────────────── */}
             {activeTab === "analysis" && (
               <>
                 {!levels ? (
@@ -1588,7 +1719,7 @@ export function GraphModal({
                     <SectionLabel>วิเคราะห์เทคนิค</SectionLabel>
                     <StatRow
                       label="จุดซื้อ 1"
-                      value={fmt(levels.entry1)}
+                      animatedValue={levels.entry1}
                       active={
                         (displayPrice ?? 0) <= levels.entry1 &&
                         (displayPrice ?? 0) > levels.entry2
@@ -1597,19 +1728,19 @@ export function GraphModal({
                     />
                     <StatRow
                       label="จุดซื้อ 2"
-                      value={fmt(levels.entry2)}
+                      animatedValue={levels.entry2}
                       active={(displayPrice ?? 0) <= levels.entry2}
                       activeColor="emerald"
                     />
                     <StatRow
                       label="จุดตัดขาดทุน"
-                      value={fmt(levels.stopLoss)}
+                      animatedValue={levels.stopLoss}
                       active={(displayPrice ?? 0) <= levels.stopLoss}
                       activeColor="red"
                     />
                     <StatRow
                       label="แนวต้าน"
-                      value={fmt(levels.resistance)}
+                      animatedValue={levels.resistance}
                       active={
                         (displayPrice ?? 0) >= levels.resistance * 0.98 &&
                         (displayPrice ?? 0) <= levels.resistance * 1.02

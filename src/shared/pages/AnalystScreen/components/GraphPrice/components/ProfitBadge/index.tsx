@@ -1,3 +1,5 @@
+import NumberFlow from "@number-flow/react";
+
 export function ProfitBadge({ percentChange }: { percentChange: number }) {
   const isUp = percentChange > 0;
   const isDown = percentChange < 0;
@@ -24,7 +26,26 @@ export function ProfitBadge({ percentChange }: { percentChange: number }) {
           color: "#4ade80",
         }}
       >
-        <span style={{ fontSize: "9px" }}>▲</span>+{percentChange.toFixed(2)}%
+        <span style={{ fontSize: "9px" }}>▲</span>
+        <NumberFlow
+          value={percentChange}
+          format={{
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+            signDisplay: "always",
+          }}
+          suffix="%"
+          style={{ color: "#4ade80" }}
+          transformTiming={{
+            duration: 900,
+            easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+          }}
+          spinTiming={{
+            duration: 700,
+            easing: "cubic-bezier(0.25, 1, 0.5, 1)",
+          }}
+          opacityTiming={{ duration: 400, easing: "ease-out" }}
+        />
       </div>
     );
   }
@@ -40,7 +61,21 @@ export function ProfitBadge({ percentChange }: { percentChange: number }) {
         }}
       >
         <span style={{ fontSize: "9px" }}>▼</span>
-        {percentChange.toFixed(2)}%
+        <NumberFlow
+          value={percentChange}
+          format={{ minimumFractionDigits: 2, maximumFractionDigits: 2 }}
+          suffix="%"
+          style={{ color: "#f87171" }}
+          transformTiming={{
+            duration: 900,
+            easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+          }}
+          spinTiming={{
+            duration: 700,
+            easing: "cubic-bezier(0.25, 1, 0.5, 1)",
+          }}
+          opacityTiming={{ duration: 400, easing: "ease-out" }}
+        />
       </div>
     );
   }
@@ -55,7 +90,18 @@ export function ProfitBadge({ percentChange }: { percentChange: number }) {
       }}
     >
       <span style={{ fontSize: "9px" }}>—</span>
-      {percentChange.toFixed(2)}%
+      <NumberFlow
+        value={percentChange}
+        format={{ minimumFractionDigits: 2, maximumFractionDigits: 2 }}
+        suffix="%"
+        style={{ color: "#9ca3af" }}
+        transformTiming={{
+          duration: 900,
+          easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+        }}
+        spinTiming={{ duration: 700, easing: "cubic-bezier(0.25, 1, 0.5, 1)" }}
+        opacityTiming={{ duration: 400, easing: "ease-out" }}
+      />
     </div>
   );
 }
