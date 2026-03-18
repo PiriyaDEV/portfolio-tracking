@@ -565,6 +565,7 @@ export function GraphPrice({ assets, market }: Props) {
                   {(() => {
                     const pp = prePostData[symbol];
                     const ppChange = pp?.prePostChangePercent;
+                    const hasPrePost = pp && pp.session !== "regular" && pp.session !== "closed";
 
                     const rawPrice =
                       pp?.regularMarketPrice ?? currentPrice ?? undefined;
@@ -578,11 +579,9 @@ export function GraphPrice({ assets, market }: Props) {
                             {isLoadingPrePost ? (
                               <SkeletonPulse className="h-[16px] w-[60px] rounded-md" />
                             ) : (
-                              pp &&
-                              pp.session !== "regular" &&
-                              pp.session !== "closed" && (
+                              hasPrePost && ppChange != null && (
                                 <SessionBadge
-                                  session={pp.session}
+                                  session={pp!.session}
                                   ppChange={ppChange}
                                 />
                               )

@@ -2,7 +2,7 @@ export function SessionBadge({
   session,
   ppChange,
 }: {
-  session: "pre" | "post" | "closed";
+  session: string;
   ppChange: number | null;
 }) {
   const isUp = (ppChange ?? 0) > 0;
