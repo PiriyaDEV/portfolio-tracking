@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { fetchYahooChart, isInUSTradingHoursTH } from "@/app/lib/yahoo.helpers";
 
 export interface AdvancedLevels {
@@ -36,13 +38,19 @@ const INITIAL_LEVELS = (symbol: string): AdvancedLevels => ({
 
 // Cache: 5-minute TTL is fine for both technical levels and intraday graph
 const cache = new Map<string, { value: AdvancedLevels; ts: number }>();
-const CACHE_TTL_MS = 5 * 60 * 1000;
+const CACHE_TTL_MS = 5 * 1000;
+
+const isMarketOpen = isInUSTradingHoursTH(Date.now());
 
 export async function getAdvancedLevels(
   symbol: string = "TSLA",
 ): Promise<AdvancedLevels> {
-  const cached = cache.get(symbol);
-  if (cached && Date.now() - cached.ts < CACHE_TTL_MS) return cached.value;
+  if (!isMarketOpen) {
+    const cached = cache.get(symbol);
+    if (cached && Date.now() - cached.ts < CACHE_TTL_MS) {
+      return cached.value;
+    }
+  }
 
   try {
     /* ================= FETCH =================

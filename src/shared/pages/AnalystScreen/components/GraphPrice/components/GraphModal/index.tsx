@@ -25,7 +25,7 @@ import { fNumber, getLogo, getName, isThaiStock } from "@/app/lib/utils";
 import { TimeRange } from "@/app/api/chart-history/route";
 import {
   AUTO_REFRESH_1M_INTERVAL_MS,
-  AUTO_REFRESH_10SECS_INTERVAL_MS,
+  AUTO_REFRESH_GRAPH_INTERVAL_MS,
 } from "@/app/config";
 import { usePageVisible } from "@/shared/hooks/usePageVisible";
 import { useMarketStore } from "@/store/useMarketStore";
@@ -1129,7 +1129,7 @@ export function GraphModal({
     if (range !== "1m" || !isPageVisible || !isMarketOpen) return;
     const id = setInterval(
       () => fetchChartHistory("1m"),
-      AUTO_REFRESH_10SECS_INTERVAL_MS,
+      AUTO_REFRESH_GRAPH_INTERVAL_MS,
     );
     return () => clearInterval(id);
   }, [range, fetchChartHistory, isPageVisible, isMarketOpen]);

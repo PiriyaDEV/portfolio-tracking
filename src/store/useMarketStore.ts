@@ -229,6 +229,7 @@ async function fetchFinancialData(assets: Asset[]) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ assets: batch, isMock }),
+        cache: "no-store",
       });
       if (!res.ok) throw new Error("Failed to fetch /api/stock");
       const data = await res.json();

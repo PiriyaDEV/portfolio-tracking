@@ -27,7 +27,7 @@ import {
 import { SortIcon } from "./components/SortIcon";
 import { ProfitBadge } from "./components/ProfitBadge";
 import { SessionBadge } from "./components/SessionBadge";
-import { AUTO_REFRESH_INTERVAL_MS } from "@/app/config";
+import { AUTO_REFRESH_GRAPH_INTERVAL_MS, AUTO_REFRESH_INTERVAL_MS } from "@/app/config";
 import { usePageVisible } from "@/shared/hooks/usePageVisible";
 import { MARKET_SYMBOLS } from "@/app/api/market/route";
 import { useMarketStore } from "@/store/useMarketStore";
@@ -215,7 +215,7 @@ export function GraphPrice({ assets, market }: Props) {
     checkSessionAndFetch();
     const interval = setInterval(
       checkSessionAndFetch,
-      AUTO_REFRESH_INTERVAL_MS,
+      AUTO_REFRESH_GRAPH_INTERVAL_MS,
     );
     return () => clearInterval(interval);
   }, [assets, isPageVisible]);
