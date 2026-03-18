@@ -64,8 +64,6 @@ export default function LoginPage() {
         }),
       );
 
-      document.cookie = `${SESSION_KEY}=1; max-age=${SESSION_COOKIE_MAX_AGE}; path=/`;
-
       router.replace("/main");
     } catch (err: any) {
       setLoginError(err.message || "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง");

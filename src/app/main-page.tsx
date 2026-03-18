@@ -121,7 +121,6 @@ export default function MainApp() {
       expiresAt: Date.now() + SESSION_DURATION_MS,
     };
     localStorage.setItem(SESSION_KEY, JSON.stringify(sessionData));
-    document.cookie = `${SESSION_KEY}=1; max-age=${SESSION_COOKIE_MAX_AGE}; path=/`;
   };
 
   const clearSession = () => {

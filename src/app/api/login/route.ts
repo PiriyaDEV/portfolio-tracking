@@ -9,6 +9,7 @@ const ADMIN_BYPASS = false;
 
 import { google } from "googleapis";
 import { decrypt } from "@/app/lib/utils";
+import { SESSION_COOKIE_MAX_AGE, SESSION_KEY } from "@/app/lib/constants";
 
 let sheetsClient: ReturnType<typeof google.sheets> | null = null;
 
@@ -136,7 +137,13 @@ export async function POST(req: Request) {
         assets,
         image: userRow[4] ?? "", // column E
       }),
-      { status: 200, headers: { "Content-Type": "application/json" } },
+      {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+          "Set-Cookie": `${SESSION_KEY}=1; Max-Age=${SESSION_COOKIE_MAX_AGE}; Path=/; SameSite=Lax`,
+        },
+      },
     );
   } catch (error: any) {
     console.error("POST /api/login error:", error);
