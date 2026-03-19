@@ -557,15 +557,15 @@ export default function LoginModal({
   const [shakeError, setShakeError] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  if (isLoggedIn) return null;
-  if (isLoading) return <CommonLoading />;
-
   useEffect(() => {
     if (loginError) {
       setShakeError(true);
       setTimeout(() => setShakeError(false), 600);
     }
   }, [loginError]);
+
+  if (isLoggedIn) return null;
+  if (isLoading) return <CommonLoading />;
 
   const canSubmit = !isLoading && username.trim() !== "" && password !== "";
 
