@@ -462,11 +462,7 @@ export default function MainApp({
               onClick={() =>
                 assets && loadData(assets, userId, userColId, saveSession)
               }
-              className={`w-8 h-8 rounded-full flex items-center justify-center bg-black-lighter border border-white/10 transition-all text-[18px] ${
-                isSilentRefreshing
-                  ? "text-accent-yellow animate-spin"
-                  : "text-gray-400 hover:text-white"
-              }`}
+              className={`w-8 h-8 rounded-full flex items-center justify-center bg-black-lighter border border-white/10 transition-all text-[18px] text-gray-400`}
             >
               <RefreshIcon />
             </button>
