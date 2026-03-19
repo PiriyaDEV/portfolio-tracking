@@ -1,15 +1,11 @@
+import { MARKET_KEY_TO_SYMBOL } from "@/app/config";
 import { NextResponse } from "next/server";
 
-/* =======================
-   Yahoo symbols
-======================= */
-export const MARKET_SYMBOLS = {
-  sp500: "^GSPC",
-  gold: "GC=F",
-  set: "^SET.BK",
-  btc: "BTC-USD",
-  oil: "CL=F", // ✅ WTI Crude Oil
-};
+// FIX: MARKET_SYMBOLS is kept here as an alias for backward compatibility
+// with any other code that imports it from this file directly.
+// The canonical definition lives in @/app/lib/marketSymbols so both this
+// file and marketStore.ts share the same object and can never drift.
+export const MARKET_SYMBOLS = MARKET_KEY_TO_SYMBOL;
 
 /* =======================
    Yahoo Helper
@@ -159,11 +155,11 @@ async function getFearAndGreed() {
 export async function GET() {
   try {
     const [sp500, gold, set, btc, oil, fearGreed] = await Promise.all([
-      getMarketData(MARKET_SYMBOLS.sp500), // daily
+      getMarketData(MARKET_SYMBOLS.sp500), // dailyMeta
       getMarketData(MARKET_SYMBOLS.gold, "rolling24h"), // 24h
-      getMarketData(MARKET_SYMBOLS.set, "rolling24h"), // daily
+      getMarketData(MARKET_SYMBOLS.set, "rolling24h"), // 24h rolling (SET trades in different TZ)
       getMarketData(MARKET_SYMBOLS.btc, "rolling24h"), // 24h
-      getMarketData(MARKET_SYMBOLS.oil, "rolling24h"), // ✅ 24h
+      getMarketData(MARKET_SYMBOLS.oil, "rolling24h"), // 24h WTI
       getFearAndGreed(),
     ]);
 
@@ -174,7 +170,7 @@ export async function GET() {
         gold,
         set,
         btc,
-        oil, // ✅ added
+        oil,
         fearGreed,
       },
       timestamp: Date.now(),

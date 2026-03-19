@@ -36,10 +36,29 @@ const INITIAL_LEVELS = (symbol: string): AdvancedLevels => ({
   graphBase: null,
 });
 
+// FIX: calcEMA now iterates from a tail index directly instead of calling
+// data.slice() first. This eliminates one heap allocation per EMA call
+// (previously two slice() copies per asset — one for ema20, one for ema50).
+//
+// The optional `end` parameter lets callers exclude the last (potentially
+// incomplete) candle without creating a stableCloses copy beforehand.
+//
+// Before: slice(-p) → reduce  → 2 allocs per asset
+// After:  tail index loop     → 0 allocs per asset
+function calcEMA(data: number[], period: number, end = data.length): number {
+  const p = Math.min(period, end);
+  const k = 2 / (p + 1);
+  const start = end - p;
+  let ema = data[start];
+  for (let i = start + 1; i < end; i++) {
+    ema = data[i] * k + ema * (1 - k);
+  }
+  return ema;
+}
+
 export async function getAdvancedLevels(
   symbol: string = "TSLA",
 ): Promise<AdvancedLevels> {
-
   try {
     /* ================= FETCH =================
        Previously route.ts made a separate fetchYahooChart(symbol, "1d", "1d")
@@ -63,8 +82,10 @@ export async function getAdvancedLevels(
 
     if (closes.length < 10) return INITIAL_LEVELS(symbol);
 
-    // Exclude the last (potentially incomplete) candle when computing EMAs
-    const stableCloses = closes.slice(0, -1);
+    // FIX: stableEnd replaces stableCloses = closes.slice(0, -1).
+    // Passing an end index to calcEMA avoids copying the entire closes array
+    // just to exclude the last element.
+    const stableEnd = closes.length - 1;
 
     /* ================= PARSE recent (1m candles) ================= */
 
@@ -92,17 +113,12 @@ export async function getAdvancedLevels(
     const graphData = inHours.map((p) => ({ time: p.time, price: p.close }));
     const graphBase = graphData[0]?.price ?? null;
 
-    /* ================= EMA ================= */
-
-    function calcEMA(data: number[], period: number): number {
-      const p = Math.min(period, data.length);
-      const slice = data.slice(-p);
-      const k = 2 / (p + 1);
-      return slice.reduce((prev, curr) => curr * k + prev * (1 - k), slice[0]);
-    }
-
-    const ema20 = calcEMA(stableCloses, 20);
-    const ema50 = calcEMA(stableCloses, 50);
+    /* ================= EMA =================
+       Both calls pass stableEnd so the incomplete last candle is excluded,
+       with zero array allocations.
+    =============================================== */
+    const ema20 = calcEMA(closes, 20, stableEnd);
+    const ema50 = calcEMA(closes, 50, stableEnd);
 
     /* ================= ATR ================= */
 

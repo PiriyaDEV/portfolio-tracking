@@ -42,6 +42,36 @@ type GraphResult = {
 ======================= */
 
 /* =======================
+   Concurrency pool
+   FIX: Promise.all over all assets fires every Yahoo + Finnhub request
+   simultaneously. With 15+ assets this reliably triggers HTTP 429s from
+   Yahoo, causing whole assets to fall back to INITIAL_LEVELS (zeros).
+   A concurrency-limited pool caps simultaneous outbound connections without
+   changing any function signature — assets still resolve in parallel, just
+   with a ceiling of MAX_CONCURRENCY at a time.
+======================= */
+const MAX_CONCURRENCY = 4;
+
+async function poolAll<T, R>(
+  items: T[],
+  concurrency: number,
+  fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let next = 0;
+
+  async function worker() {
+    while (next < items.length) {
+      const idx = next++;
+      results[idx] = await fn(items[idx]);
+    }
+  }
+
+  await Promise.all(Array.from({ length: concurrency }, worker));
+  return results;
+}
+
+/* =======================
    Dividend
 ======================= */
 
@@ -201,8 +231,13 @@ export async function POST(req: NextRequest) {
 
     const usdThbRate = await fetchUSDTHBRate();
 
-    const results = await Promise.all(
-      assets.map((asset) => processAsset(asset, baseCurrency, usdThbRate)),
+    // FIX: replaced Promise.all with poolAll to cap concurrent Yahoo requests.
+    // Firing all assets simultaneously with large portfolios reliably causes
+    // HTTP 429 rate-limit errors from Yahoo, which silently zeroes out asset
+    // data via the INITIAL_LEVELS fallback. MAX_CONCURRENCY = 4 keeps
+    // throughput high while staying under Yahoo's undocumented per-IP limit.
+    const results = await poolAll(assets, MAX_CONCURRENCY, (asset) =>
+      processAsset(asset, baseCurrency, usdThbRate),
     );
 
     const prices: Record<string, number | null> = {};

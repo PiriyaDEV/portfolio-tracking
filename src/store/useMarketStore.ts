@@ -5,6 +5,7 @@ import {
   defaultMarketResponse,
   MarketResponse,
 } from "@/shared/pages/AnalystScreen/components/GraphPrice";
+import { MARKET_KEY_TO_SYMBOL } from "@/app/config";
 
 // ─── Thai month labels ────────────────────────────────────────────────────────
 const thaiMonths = [
@@ -48,17 +49,6 @@ function buildFormattedDate(): string {
   const minutes = now.getMinutes().toString().padStart(2, "0");
   return `${day} ${month} ${year} ${hours}:${minutes} น.`;
 }
-
-// ─── Market symbol → Yahoo symbol mapping (mirrors MARKET_SYMBOLS in route) ──
-// We need this to inject market data into prices/previousPrice so
-// the chip % and the store % use the exact same formula.
-const MARKET_KEY_TO_SYMBOL: Record<string, string> = {
-  sp500: "^GSPC",
-  gold: "GC=F",
-  set: "^SET.BK",
-  btc: "BTC-USD",
-  oil: "CL=F",
-};
 
 // ─── State shape ──────────────────────────────────────────────────────────────
 export interface MarketState {
@@ -123,20 +113,14 @@ export const useMarketStore = create<MarketState>((set, get) => ({
       const json = await res.json();
 
       const session = json?.session ?? null;
-
       const isPrePost = session === "pre-market" || session === "post-market";
-
       const isOpen =
         session === "regular" ||
         session === "pre-market" ||
         session === "post-market";
 
       useMarketStore.setState({
-        marketStatus: {
-          session,
-          isOpen,
-          isPrePost,
-        },
+        marketStatus: { session, isOpen, isPrePost },
       });
     } catch (err) {
       console.error("fetchMarketStatus error:", err);
@@ -190,6 +174,7 @@ export const useMarketStore = create<MarketState>((set, get) => ({
     }
   },
 
+  // FIX: silentRefresh now uses retry consistently, matching loadData behaviour.
   silentRefresh: async (assets) => {
     if (_isSilentRefreshing) return;
     _isSilentRefreshing = true;
@@ -197,9 +182,9 @@ export const useMarketStore = create<MarketState>((set, get) => ({
 
     try {
       await Promise.all([
-        fetchFinancialData(assets),
-        fetchFxRate(),
-        fetchMarket(),
+        retry(() => fetchFinancialData(assets)),
+        retry(() => fetchFxRate()),
+        retry(() => fetchMarket()),
         get().fetchMarketStatus(),
       ]);
       set({ formattedDate: buildFormattedDate() });
@@ -294,20 +279,9 @@ async function fetchMarket() {
     const json = await res.json();
     const marketData: MarketResponse = json.data;
 
-    useMarketStore.setState({ market: marketData });
-
-    // ── Inject market symbol prices into store so chip % uses same formula ──
-    //
-    // /api/market already computes currentPrice and changePercent for each
-    // symbol. We back-calculate previousPrice so that:
-    //   calcPct(prices[sym], previousPrice[sym])  ===  chip changePercent
-    //
-    // Formula: prev = price / (1 + changePercent/100)
-    //
-    // This means btc/gold/oil (rolling24h) and sp500/set (dailyMeta) all
-    // land in the store with the right baseline — chip, row, and modal
-    // will all use the identical formula and get the same number.
-
+    // FIX: Compute price/previousPrice patches first, then merge everything
+    // into a single setState call — was previously two separate calls which
+    // triggered two Zustand re-renders on every refresh.
     const pricesPatch: Record<string, number | null> = {};
     const prevPatch: Record<string, number | null> = {};
 
@@ -328,7 +302,9 @@ async function fetchMarket() {
       }
     }
 
+    // Single setState merges market data + injected prices in one render.
     useMarketStore.setState((prev) => ({
+      market: marketData,
       prices: { ...prev.prices, ...pricesPatch },
       previousPrice: { ...prev.previousPrice, ...prevPatch },
     }));
