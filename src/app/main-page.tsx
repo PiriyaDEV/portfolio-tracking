@@ -60,8 +60,9 @@ interface SessionData {
   expiresAt: number;
 }
 
-export default function MainApp() {
+export default function MainApp({ onReady }: { onReady?: () => void }) {
   const router = useRouter();
+  const onReadyCalled = useRef(false);
 
   // ─── Market state ──────────────────────────────────────────────────────────
   const {
@@ -286,9 +287,17 @@ export default function MainApp() {
       resetMarket();
       loadData(assets, userId, userColId, saveSession).then(() => {
         setIsInitialLoad(false);
+        if (!onReadyCalled.current) {
+          onReadyCalled.current = true;
+          onReady?.();
+        }
       });
     } else if (assets !== null && assets.length === 0) {
       setIsInitialLoad(false);
+      if (!onReadyCalled.current) {
+        onReadyCalled.current = true;
+        onReady?.();
+      }
     }
   }, [assets]);
 
