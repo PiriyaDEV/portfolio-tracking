@@ -60,7 +60,13 @@ interface SessionData {
   expiresAt: number;
 }
 
-export default function MainApp({ onReady }: { onReady?: () => void }) {
+export default function MainApp({
+  onReady,
+  isSplashDone,
+}: {
+  onReady?: () => void;
+  isSplashDone?: boolean;
+}) {
   const router = useRouter();
   const onReadyCalled = useRef(false);
 
@@ -470,9 +476,9 @@ export default function MainApp({ onReady }: { onReady?: () => void }) {
     </div>
   );
 
-  if (assets === null) return <CommonLoading />;
+  if (assets === null) return isSplashDone ? <CommonLoading /> : null;
   if (isLoading && !isFirstBatchLoaded && assets.length > 0)
-    return <CommonLoading />;
+    return isSplashDone ? <CommonLoading /> : null;
 
   if (assets?.length === 0) {
     return (
