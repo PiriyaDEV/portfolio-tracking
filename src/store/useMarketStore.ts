@@ -264,7 +264,7 @@ async function fetchFxRate() {
     return;
   }
   try {
-    const res = await fetch("/api/rate", { method: "POST" });
+    const res = await fetch("/api/rate", { method: "GET" });
     if (!res.ok) throw new Error(`BOT API Error: ${res.status}`);
     const data = await res.json();
     useMarketStore.setState({ currencyRate: Number(data.rate) ?? 0 });
