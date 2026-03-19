@@ -185,7 +185,7 @@ export const useMarketStore = create<MarketState>((set, get) => ({
         retry(() => fetchFinancialData(assets)),
         retry(() => fetchFxRate()),
         retry(() => fetchMarket()),
-        get().fetchMarketStatus(),
+        // get().fetchMarketStatus(),
       ]);
       set({ formattedDate: buildFormattedDate() });
     } catch (err) {
