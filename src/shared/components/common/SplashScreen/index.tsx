@@ -73,7 +73,7 @@ export default function SplashScreen({ exiting = false }: SplashScreenProps) {
           >
             P'Tracker
           </span>
-          <span className="text-yellow-400/60 text-[13px] tracking-widest uppercase font-medium">
+          <span className="text-yellow-400/60 text-[13px] tracking-widest font-medium">
             Portfolio Tracking
           </span>
         </div>

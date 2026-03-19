@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
-import { fNumber, isThaiStock } from "@/app/lib/utils";
+import { useState, useMemo } from "react";
+import { isThaiStock } from "@/app/lib/utils";
 import {
   FaArrowTrendUp as UpIcon,
   FaArrowTrendDown as DownIcon,
 } from "react-icons/fa6";
 import { HiChevronDown } from "react-icons/hi2";
+import { AnimatedNumber } from "../AnimatedNumber";
 
 type Asset = {
   symbol: string;
@@ -37,36 +38,41 @@ export default function FooterPortfolio({
 
   if (!assets) return null;
 
-  // Total cost in THB (converting USD stocks to THB)
-  const totalCostThb = assets.reduce((sum, a) => {
-    const isThai = isThaiStock(a.symbol);
-    const cost = a.quantity * a.costPerShare;
-    return sum + (isThai ? cost : cost * currencyRate);
-  }, 0);
+  // ✅ Total cost (THB)
+  const totalCostThb = useMemo(() => {
+    return assets.reduce((sum, a) => {
+      const isThai = isThaiStock(a.symbol);
+      const cost = a.quantity * a.costPerShare;
+      return sum + (isThai ? cost : cost * currencyRate);
+    }, 0);
+  }, [assets, currencyRate]);
 
-  // Total current market value in THB
-  const totalMarketThb = assets.reduce((sum, asset) => {
-    const isThai = isThaiStock(asset.symbol);
-    const currentPrice = prices[asset.symbol] ?? 0;
-    const value = currentPrice * asset.quantity;
-    return sum + (isThai ? value : value * currencyRate);
-  }, 0);
+  // ✅ Total market value (THB)
+  const totalMarketThb = useMemo(() => {
+    return assets.reduce((sum, asset) => {
+      const isThai = isThaiStock(asset.symbol);
+      const currentPrice = prices[asset.symbol] ?? 0;
+      const value = currentPrice * asset.quantity;
+      return sum + (isThai ? value : value * currencyRate);
+    }, 0);
+  }, [assets, prices, currencyRate]);
 
-  // ✅ เช็คว่า prices โหลดครบทุก asset หรือยัง
-  const isFullyLoaded =
-    assets.every((a) => a.symbol in prices) &&
-    totalMarketThb !== 0 &&
-    formattedDate !== null;
+  // ✅ Fully loaded check
+  const isFullyLoaded = useMemo(() => {
+    return (
+      assets.every((a) => a.symbol in prices) &&
+      totalMarketThb !== 0 &&
+      formattedDate !== null
+    );
+  }, [assets, prices, totalMarketThb, formattedDate]);
 
-  // Profit/Loss in THB
+  // ✅ Profit
   const totalProfitThb = totalMarketThb - totalCostThb;
-
   const totalProfitPercent =
     totalCostThb > 0 ? (totalProfitThb / totalCostThb) * 100 : 0;
 
-  const totalDailyChange = (): { percent: number; value: number } => {
-    if (!assets || assets.length === 0) return { percent: 0, value: 0 };
-
+  // ✅ Daily change (compute ONCE)
+  const daily = useMemo(() => {
     let totalPreviousValue = 0;
     let totalCurrentValue = 0;
 
@@ -85,18 +91,16 @@ export default function FooterPortfolio({
       totalCurrentValue += isThai ? currValue : currValue * currencyRate;
     }
 
-    const percentChange =
+    const percent =
       totalPreviousValue > 0
         ? ((totalCurrentValue - totalPreviousValue) / totalPreviousValue) * 100
         : 0;
 
     return {
-      percent: percentChange,
+      percent,
       value: totalCurrentValue - totalPreviousValue,
     };
-  };
-
-  const totalPercentChange = (): number => totalDailyChange().percent;
+  }, [assets, prices, previousPrice, currencyRate]);
 
   return (
     <div className="fixed bottom-[52px] left-1/2 -translate-x-1/2 w-full sm:w-[450px] bg-black-lighter shadow-[0_-8px_32px_rgba(0,0,0,0.6)] border-t border-white/[0.05]">
@@ -104,7 +108,7 @@ export default function FooterPortfolio({
         className="container mx-auto px-5 pt-4 pb-7 text-center"
         onClick={() => setIsOpen(!isOpen)}
       >
-        {/* Total Value - always visible */}
+        {/* TOTAL VALUE */}
         <div>
           <div className="font-medium text-[9px] uppercase text-gray-300">
             มูลค่าเงินทั้งหมด{" "}
@@ -112,6 +116,7 @@ export default function FooterPortfolio({
               ({formattedDate})
             </span>
           </div>
+
           <div className="font-bold text-[27px] mt-1 flex items-center justify-center gap-2 tracking-tight">
             <span className="text-white/90">
               {isNumbersHidden ? (
@@ -119,90 +124,118 @@ export default function FooterPortfolio({
                   •••••
                 </span>
               ) : isFullyLoaded ? (
-                fNumber(totalMarketThb)
+                <AnimatedNumber value={totalMarketThb} decimals={2} />
               ) : (
-                <span className="inline-block w-32 h-7 bg-white/10 rounded animate-pulse align-middle" />
+                <span className="inline-block w-32 h-7 bg-white/10 rounded animate-pulse" />
               )}
             </span>
+
             <span className="text-[12px] font-medium text-gray-600 self-end mb-1.5">
               บาท
             </span>
+
             <HiChevronDown
-              className={`self-end mb-1.5 !text-[14px] text-gray-700 hover:text-gray-400 cursor-pointer transition-all duration-300 ${
+              className={`self-end mb-1.5 text-[14px] text-gray-700 hover:text-gray-400 cursor-pointer transition-all duration-300 ${
                 !isOpen ? "rotate-180" : "rotate-0"
               }`}
             />
           </div>
         </div>
 
-        {/* Collapsible: 3 stats side by side */}
+        {/* DETAILS */}
         {isOpen && (
           <div className="mt-2 pt-2 border-t border-accent-yellow/50 flex items-center justify-between gap-2 text-[10px]">
-            {/* Daily Change */}
+            {/* DAILY */}
             <div className="flex flex-col items-center gap-0.5 flex-1">
               <span className="text-gray-600">วันนี้</span>
+
               <span
-                className={`flex items-center gap-0.5 font-bold ${getProfitColor(totalDailyChange().percent)}`}
+                className={`flex items-center gap-0.5 font-bold ${getProfitColor(
+                  daily.percent,
+                )}`}
               >
                 {isFullyLoaded ? (
                   <>
-                    {totalDailyChange().percent > 0 ? (
-                      <UpIcon className="text-[9px]" />
-                    ) : totalDailyChange().percent < 0 ? (
-                      <DownIcon className="text-[9px]" />
-                    ) : null}
-                    {fNumber(totalDailyChange().percent)}%
+                    {daily.percent > 0 && <UpIcon className="text-[9px]" />}
+                    {daily.percent < 0 && <DownIcon className="text-[9px]" />}
+
+                    <AnimatedNumber
+                      value={daily.percent}
+                      decimals={2}
+                      suffix="%"
+                    />
                   </>
                 ) : (
                   <span className="inline-block w-12 h-3 bg-white/10 rounded animate-pulse" />
                 )}
               </span>
+
               <span className="!text-white/40">
-                ({isFullyLoaded && (
+                (
+                {isFullyLoaded && (
                   <>
-                    {totalDailyChange().value > 0 ? "+" : ""}
-                    {isNumbersHidden
-                      ? "•••••"
-                      : fNumber(totalDailyChange().value)}
+                    <AnimatedNumber
+                      value={daily.value}
+                      decimals={2}
+                      prefix={daily.value > 0 ? "+" : ""}
+                      masked={isNumbersHidden}
+                    />
                   </>
-                )}) บาท
+                )}
+                ) บาท
               </span>
             </div>
 
-            <span className="w-px h-8 bg-white/10 flex-shrink-0" />
+            <span className="w-px h-8 bg-white/10" />
 
-            {/* Holding Profit */}
+            {/* PROFIT */}
             <div className="flex flex-col items-center gap-0.5 flex-1">
               <span className="text-gray-600">กำไรสะสม</span>
+
               <span
-                className={`flex items-center gap-0.5 font-bold ${getProfitColor(totalProfitThb)}`}
+                className={`flex items-center gap-0.5 font-bold ${getProfitColor(
+                  totalProfitThb,
+                )}`}
               >
                 {isFullyLoaded ? (
                   <>
-                    {totalProfitPercent > 0 ? (
+                    {totalProfitPercent > 0 && (
                       <UpIcon className="text-[9px]" />
-                    ) : totalProfitPercent < 0 ? (
+                    )}
+                    {totalProfitPercent < 0 && (
                       <DownIcon className="text-[9px]" />
-                    ) : null}
-                    {fNumber(totalProfitPercent)}%
+                    )}
+
+                    <AnimatedNumber
+                      value={totalProfitPercent}
+                      decimals={2}
+                      suffix="%"
+                    />
                   </>
                 ) : (
                   <span className="inline-block w-14 h-3 bg-white/10 rounded animate-pulse" />
                 )}
               </span>
+
               <span className="!text-white/40">
-                ({isFullyLoaded && (
+                (
+                {isFullyLoaded && (
                   <>
-                    {totalProfitPercent > 0 ? "+" : ""}
-                    {isNumbersHidden ? "•••••" : fNumber(totalProfitThb)}
+                    <AnimatedNumber
+                      value={totalProfitThb}
+                      decimals={2}
+                      prefix={totalProfitThb > 0 ? "+" : ""}
+                      masked={isNumbersHidden}
+                    />
                   </>
-                )}) บาท
+                )}
+                ) บาท
               </span>
             </div>
 
-            <span className="w-px h-8 bg-white/10 flex-shrink-0" />
+            <span className="w-px h-8 bg-white/10" />
 
-            {/* Currency Rate */}
+            {/* USD RATE */}
             <div className="flex flex-col items-center gap-0.5 flex-1">
               <div className="flex items-center gap-1">
                 <img
@@ -212,9 +245,11 @@ export default function FooterPortfolio({
                 />
                 <span className="text-gray-600">USD</span>
               </div>
+
               <span className="text-white/50 font-medium">
-                {fNumber(currencyRate)}
+                <AnimatedNumber value={currencyRate} decimals={2} />
               </span>
+
               <span className="!text-white/40">บาท</span>
             </div>
           </div>
