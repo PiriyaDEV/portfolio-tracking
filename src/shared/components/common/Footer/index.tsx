@@ -54,7 +54,9 @@ export default function FooterPortfolio({
 
   // ✅ เช็คว่า prices โหลดครบทุก asset หรือยัง
   const isFullyLoaded =
-    assets.every((a) => a.symbol in prices) && totalMarketThb !== 0 && formattedDate !== null;
+    assets.every((a) => a.symbol in prices) &&
+    totalMarketThb !== 0 &&
+    formattedDate !== null;
 
   // Profit/Loss in THB
   const totalProfitThb = totalMarketThb - totalCostThb;
@@ -133,66 +135,87 @@ export default function FooterPortfolio({
           </div>
         </div>
 
-        {/* Collapsible Change & Profit */}
+        {/* Collapsible: 3 stats side by side */}
         {isOpen && (
-          <div className="mt-3 pt-2.5 border-t !border-accent-yellow/80 flex flex-col items-center gap-2 justify-center">
+          <div className="mt-2 pt-2 border-t border-accent-yellow/50 flex items-center justify-between gap-2 text-[10px]">
             {/* Daily Change */}
-            <div className="flex items-center gap-2 text-[10px]">
-              <span className="text-gray-600 tracking-wide">
-                เปลี่ยนจากวันก่อน
-              </span>
-              <span className="w-px h-3 bg-white/10" />
+            <div className="flex flex-col items-center gap-0.5 flex-1">
+              <span className="text-gray-600">วันนี้</span>
               <span
-                className={`flex items-center gap-1 font-bold ${getProfitColor(totalDailyChange().percent)}`}
+                className={`flex items-center gap-0.5 font-bold ${getProfitColor(totalDailyChange().percent)}`}
               >
                 {isFullyLoaded ? (
                   <>
                     {totalDailyChange().percent > 0 ? (
-                      <UpIcon className="text-[10px]" />
+                      <UpIcon className="text-[9px]" />
                     ) : totalDailyChange().percent < 0 ? (
-                      <DownIcon className="text-[10px]" />
+                      <DownIcon className="text-[9px]" />
                     ) : null}
                     {fNumber(totalDailyChange().percent)}%
-                    <span className="!text-white/30 font-normal">
-                      ({totalDailyChange().value > 0 ? "+" : ""}
-                      {isNumbersHidden
-                        ? "•••••"
-                        : fNumber(totalDailyChange().value)}{" "}
-                      บาท)
-                    </span>
                   </>
                 ) : (
-                  <span className="inline-block w-16 h-3 bg-white/10 rounded animate-pulse" />
+                  <span className="inline-block w-12 h-3 bg-white/10 rounded animate-pulse" />
                 )}
+              </span>
+              <span className="!text-white/40">
+                ({isFullyLoaded && (
+                  <>
+                    {totalDailyChange().value > 0 ? "+" : ""}
+                    {isNumbersHidden
+                      ? "•••••"
+                      : fNumber(totalDailyChange().value)}
+                  </>
+                )}) บาท
               </span>
             </div>
 
+            <span className="w-px h-8 bg-white/10 flex-shrink-0" />
+
             {/* Holding Profit */}
-            <div className="flex items-center gap-2 text-[10px]">
-              <span className="text-gray-600 tracking-wide">
-                กำไรที่ถืออยู่ทั้งหมด
-              </span>
-              <span className="w-px h-3 bg-white/10" />
+            <div className="flex flex-col items-center gap-0.5 flex-1">
+              <span className="text-gray-600">กำไรสะสม</span>
               <span
-                className={`flex items-center gap-1 font-bold ${getProfitColor(totalProfitThb)}`}
+                className={`flex items-center gap-0.5 font-bold ${getProfitColor(totalProfitThb)}`}
               >
                 {isFullyLoaded ? (
                   <>
                     {totalProfitPercent > 0 ? (
-                      <UpIcon className="text-[10px]" />
+                      <UpIcon className="text-[9px]" />
                     ) : totalProfitPercent < 0 ? (
-                      <DownIcon className="text-[10px]" />
+                      <DownIcon className="text-[9px]" />
                     ) : null}
                     {fNumber(totalProfitPercent)}%
-                    <span className="text-white/20 font-normal">
-                      ({totalProfitPercent > 0 ? "+" : ""}
-                      {isNumbersHidden ? "•••••" : fNumber(totalProfitThb)} บาท)
-                    </span>
                   </>
                 ) : (
-                  <span className="inline-block w-24 h-3 bg-white/10 rounded animate-pulse" />
+                  <span className="inline-block w-14 h-3 bg-white/10 rounded animate-pulse" />
                 )}
               </span>
+              <span className="!text-white/40">
+                ({isFullyLoaded && (
+                  <>
+                    {totalProfitPercent > 0 ? "+" : ""}
+                    {isNumbersHidden ? "•••••" : fNumber(totalProfitThb)}
+                  </>
+                )}) บาท
+              </span>
+            </div>
+
+            <span className="w-px h-8 bg-white/10 flex-shrink-0" />
+
+            {/* Currency Rate */}
+            <div className="flex flex-col items-center gap-0.5 flex-1">
+              <div className="flex items-center gap-1">
+                <img
+                  alt="USD"
+                  className="w-3.5 h-3.5 rounded-full object-cover bg-white"
+                  src="https://cdn-icons-png.flaticon.com/512/3909/3909383.png"
+                />
+                <span className="text-gray-600">USD</span>
+              </div>
+              <span className="text-white/50 font-medium">
+                {fNumber(currencyRate)}
+              </span>
+              <span className="!text-white/40">บาท</span>
             </div>
           </div>
         )}

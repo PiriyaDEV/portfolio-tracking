@@ -671,7 +671,7 @@ export default function MainApp({
         {currentPage === "calculator" && <CalculateScreen assets={assets} />}
 
         {currentPage === "portfolio" && (
-          <div className="mt-[90px] mb-[50px] w-full">
+          <div className="mt-[90px] mb-[80px] w-full">
             {sortedAssets.map((asset) => {
               const isThai = isThaiStock(asset.symbol);
               const currentPrice = prices[asset.symbol] ?? 0;
