@@ -18,7 +18,7 @@ export default function SplashScreen({ exiting = false }: SplashScreenProps) {
 
   return (
     <div
-      className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black"
+      className="fixed inset-0 !z-[99999] flex flex-col items-center justify-center bg-black"
       style={{
         opacity: exiting ? 0 : 1,
         transform: exiting ? "scale(1.04)" : "scale(1)",

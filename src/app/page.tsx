@@ -9,6 +9,7 @@ import {
   SESSION_DURATION_MS,
   SESSION_KEY,
 } from "./lib/constants";
+import SplashScreen from "@/shared/components/common/SplashScreen";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -71,7 +72,7 @@ export default function LoginPage() {
     }
   }
 
-  if (isLoading) return <CommonLoading />;
+  if (isLoading) return <SplashScreen exiting={false} />;
 
   return (
     <LoginModal
