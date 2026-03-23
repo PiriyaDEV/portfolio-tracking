@@ -1047,7 +1047,7 @@ export function GraphModal({
   );
 
   const [visible, setVisible] = useState(false);
-  const [range, setRange] = useState<TimeRange>("1m");
+  const [range, setRange] = useState<TimeRange>("1d");
   const [chartHistory, setChartHistory] = useState<ChartHistoryResponse | null>(
     null,
   );
