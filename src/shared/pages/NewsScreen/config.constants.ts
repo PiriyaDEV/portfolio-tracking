@@ -9,7 +9,7 @@ export type Channel = {
 };
 
 export const CHANNELS: Channel[] = [
-  { id: "usstockthailand1", label: "ข่าวด่วนสหรัฐ", emoji: "🇺🇸" },
+  // { id: "usstockthailand1", label: "ข่าวด่วนสหรัฐ", emoji: "🇺🇸" },
   { id: "wethaiinvestbot", label: "กูรูซื้อ-ขาย", emoji: "🧙‍♂️" },
 ];
 

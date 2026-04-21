@@ -1,6 +1,10 @@
 export const dynamic = "force-dynamic";
 
-import { fetchYahooChart, isInUSTradingHoursTH } from "@/app/lib/yahoo.helpers";
+import {
+  fetchPreviousClose,
+  fetchYahooChart,
+  isInUSTradingHoursTH,
+} from "@/app/lib/yahoo.helpers";
 
 export interface AdvancedLevels {
   symbol: string;
@@ -68,10 +72,28 @@ export async function getAdvancedLevels(
        serves both purposes: 1m candles contain regularMarketPrice in meta
        (same as 1d/1d did), and the candle data feeds the graph directly.
     =============================================== */
-    const [chart3mo, chartRecent] = await Promise.all([
+    const [chart3mo, chartRecent, prevClose] = await Promise.all([
       fetchYahooChart(symbol, "3mo", "1d"), // for EMA / ATR / swing levels
       fetchYahooChart(symbol, "1d", "1m"), // replaces both the old "1d/1d" and fetch1DGraphForStock
+      fetchPreviousClose(symbol),
     ]);
+
+    // ─── DEBUG ───────────────────────────────────────────────
+    const metaT = chartRecent.meta;
+    console.log(`[${symbol}] chartRecent.meta keys:`, Object.keys(metaT ?? {}));
+    console.log(`[${symbol}] chartPreviousClose:`, metaT?.chartPreviousClose);
+    console.log(`[${symbol}] regularMarketPrice:`, metaT?.regularMarketPrice);
+    console.log(`[${symbol}] recentData length:`, chartRecent.data.length);
+    console.log(
+      `[${symbol}] recentCloses[-1]:`,
+      chartRecent.data.at(-1)?.close,
+    );
+    console.log(
+      `[${symbol}] recentCloses[-2]:`,
+      chartRecent.data.at(-2)?.close,
+    );
+    console.log(`[${symbol}] chartRecent HTTP ok:`, !!metaT); // null meta = failed fetch
+    // ─────────────────────────────────────────────────────────
 
     /* ================= PARSE 3mo ================= */
 
@@ -99,7 +121,8 @@ export async function getAdvancedLevels(
 
     // meta.regularMarketPrice is the live price — same field the old "1d/1d" fetch used
     const currentPrice = meta?.regularMarketPrice ?? recentCloses.at(-1);
-    const previousClose = meta?.chartPreviousClose ?? recentCloses.at(-2) ?? 0;
+    const previousClose =
+      meta?.chartPreviousClose || meta?.previousClose || prevClose;
 
     /* ================= GRAPH POINTS =================
        Previously fetch1DGraphForStock() did this exact filtering in route.ts.
