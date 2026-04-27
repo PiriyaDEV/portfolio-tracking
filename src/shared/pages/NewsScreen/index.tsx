@@ -11,6 +11,7 @@ import {
 } from "./config.constants";
 import { GraphModal } from "../AnalystScreen/components/GraphPrice/components/GraphModal";
 import { useMarketStore } from "@/store/useMarketStore";
+import GoogleNewsPanel from "./GoogleNewsPanel";
 
 /* =======================
    Types
@@ -159,240 +160,6 @@ function TickerAvatar({ ticker }: { ticker: string }) {
         {ticker.slice(0, 2)}
       </span>
     </div>
-  );
-}
-
-/* =======================
-   Google News Card
-======================= */
-function GoogleNewsCard({
-  item,
-  ticker,
-}: {
-  item: GoogleNewsItem;
-  ticker: string;
-}) {
-  const fresh = item.pubDate
-    ? Date.now() - new Date(item.pubDate).getTime() <= 30 * 60_000
-    : false;
-
-  return (
-    <a
-      href={item.link}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="
-        group relative block
-        bg-[#161616]
-        rounded-2xl
-        border border-white/[0.07]
-        hover:border-white/[0.15]
-        hover:bg-[#1a1a1a]
-        transition-all duration-200
-        overflow-hidden
-        no-underline
-      "
-    >
-      <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-accent-yellow/60 rounded-l-2xl" />
-
-      <div className="px-4 pt-3.5 pb-4 pl-5 bg-white !text-black">
-        {/* Author row */}
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-3">
-            <TickerAvatar ticker={ticker} />
-            <div className="flex flex-col gap-0.5">
-              <span className="text-[13px] font-semibold text-white/90 leading-tight">
-                {ticker}
-              </span>
-              <span className="text-[11px] text-white/35">
-                {item.source ?? "Google News"}
-              </span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 shrink-0">
-            {fresh && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-gradient-to-r from-red-500 to-pink-500 text-white text-[10px] font-bold rounded-full shadow-sm animate-pulse">
-                🔥 ใหม่
-              </span>
-            )}
-            <span className="text-[11px] text-white/35">
-              {formatTimeAgo(item.pubDate)}
-            </span>
-          </div>
-        </div>
-
-        {/* Headline */}
-        <p className="text-[14px] text-white/80 leading-relaxed line-clamp-3 group-hover:text-white/95 transition-colors">
-          {item.title}
-        </p>
-
-        <div className="mt-2 flex items-center gap-1 text-accent-yellow/60 text-[11px] font-medium group-hover:text-accent-yellow/90 transition-colors">
-          <span>อ่านต่อ</span>
-          <span className="group-hover:translate-x-0.5 transition-transform">
-            →
-          </span>
-        </div>
-      </div>
-    </a>
-  );
-}
-
-/* =======================
-   Google News Panel
-======================= */
-function GoogleNewsPanel({ assets }: { assets: Asset[] }) {
-  const tickers = assets.map((a) => a.symbol);
-  const [activeTicker, setActiveTicker] = useState<string>(tickers[0] ?? "");
-  const [newsMap, setNewsMap] = useState<
-    Record<string, { news: GoogleNewsItem[]; loading: boolean; error: boolean }>
-  >({});
-  const [refreshing, setRefreshing] = useState(false);
-  const cacheRef = useRef<Record<string, GoogleNewsItem[]>>({});
-
-  const fetchTickerNews = useCallback(async (ticker: string, force = false) => {
-    if (!ticker) return;
-
-    if (!force && cacheRef.current[ticker]) {
-      setNewsMap((prev) => ({
-        ...prev,
-        [ticker]: {
-          news: cacheRef.current[ticker],
-          loading: false,
-          error: false,
-        },
-      }));
-      return;
-    }
-
-    setNewsMap((prev) => ({
-      ...prev,
-      [ticker]: { news: prev[ticker]?.news ?? [], loading: true, error: false },
-    }));
-
-    try {
-      const res = await fetch(`/api/google-news?symbol=${ticker}`);
-      const data = await res.json();
-      const news: GoogleNewsItem[] = data.news ?? [];
-      cacheRef.current[ticker] = news;
-      setNewsMap((prev) => ({
-        ...prev,
-        [ticker]: { news, loading: false, error: false },
-      }));
-    } catch {
-      setNewsMap((prev) => ({
-        ...prev,
-        [ticker]: { news: [], loading: false, error: true },
-      }));
-    }
-  }, []);
-
-  useEffect(() => {
-    if (activeTicker) fetchTickerNews(activeTicker);
-  }, [activeTicker, fetchTickerNews]);
-
-  const handleRefresh = async () => {
-    if (refreshing || !activeTicker) return;
-    setRefreshing(true);
-    delete cacheRef.current[activeTicker];
-    await fetchTickerNews(activeTicker, true);
-    setRefreshing(false);
-  };
-
-  const activeData = newsMap[activeTicker];
-  const isLoading = activeData?.loading ?? true;
-  const hasError = activeData?.error ?? false;
-  const news = activeData?.news ?? [];
-
-  if (tickers.length === 0) {
-    return (
-      <div className="mt-16 flex flex-col items-center gap-3 text-center">
-        <span className="text-5xl">📭</span>
-        <p className="text-white/40 text-sm">ยังไม่มีหุ้นในพอร์ต</p>
-      </div>
-    );
-  }
-
-  return (
-    <>
-      {/* Sub-header: ticker pills + refresh */}
-      <div className="flex items-center justify-between px-4 py-2 border-b border-white/[0.06] bg-black-lighter">
-        <div className="flex items-center gap-2 overflow-x-auto scrollbar-none flex-1 pr-2">
-          {tickers.map((ticker) => {
-            const isActive = ticker === activeTicker;
-            return (
-              <button
-                key={ticker}
-                onClick={() => setActiveTicker(ticker)}
-                className={`
-                  flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-medium
-                  whitespace-nowrap shrink-0 transition-all duration-200
-                  ${
-                    isActive
-                      ? "bg-accent-yellow text-black shadow-[0_0_12px_rgba(255,200,0,0.35)]"
-                      : "bg-white/[0.07] text-white/60 hover:bg-white/[0.12] hover:text-white/90"
-                  }
-                `}
-              >
-                {ticker}
-              </button>
-            );
-          })}
-        </div>
-        <button
-          onClick={handleRefresh}
-          disabled={refreshing}
-          aria-label="Refresh"
-          className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-white/10 transition disabled:opacity-40 shrink-0"
-        >
-          <RefreshIcon
-            className={`text-white/80 text-lg ${refreshing ? "animate-spin" : ""}`}
-          />
-        </button>
-      </div>
-
-      {/* Content */}
-      <div className="space-y-3 pt-3">
-        {isLoading && <CommonLoading isFullScreen={false} />}
-
-        {!isLoading && hasError && (
-          <div className="mt-10 flex flex-col items-center gap-3 text-center">
-            <span className="text-5xl">⚠️</span>
-            <p className="text-white/40 text-sm">โหลดข่าวไม่สำเร็จ</p>
-            <button
-              onClick={handleRefresh}
-              className="px-4 py-2 rounded-full bg-accent-yellow text-black text-[13px] font-semibold"
-            >
-              ลองใหม่
-            </button>
-          </div>
-        )}
-
-        {!isLoading && !hasError && news.length === 0 && (
-          <div className="mt-10 flex flex-col items-center gap-3 text-center">
-            <span className="text-5xl">😢</span>
-            <p className="text-white/40 text-sm">
-              ไม่พบข่าวสำหรับ {activeTicker}
-            </p>
-          </div>
-        )}
-
-        {!isLoading &&
-          !hasError &&
-          news.map((item, i) => (
-            <GoogleNewsCard key={i} item={item} ticker={activeTicker} />
-          ))}
-
-        {!isLoading && !hasError && news.length > 0 && (
-          <div className="py-1 flex flex-col items-center gap-1.5">
-            <div className="w-8 h-px bg-white/20" />
-            <p className="text-[12px] text-white/30">
-              ข่าวทั้งหมด {news.length} รายการ
-            </p>
-          </div>
-        )}
-      </div>
-    </>
   );
 }
 
@@ -786,6 +553,25 @@ export default function NewsScreen({ assets = [] }: Props) {
 
         {/* Channel tab pills */}
         <div className="flex items-center gap-2 px-4 py-2.5 bg-black border-b !border-yellow-400/[0.5] overflow-x-auto scrollbar-none">
+          {/* Google News tab — only shown if assets provided */}
+          {assets.length > 0 && (
+            <button
+              onClick={() => handleChannelChange(GOOGLE_NEWS_TAB_ID)}
+              className={`
+                flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[12px] font-medium
+                whitespace-nowrap shrink-0 transition-all duration-200
+                ${
+                  isGoogleTab
+                    ? "bg-accent-yellow text-black shadow-[0_0_12px_rgba(255,200,0,0.35)]"
+                    : "bg-white/[0.07] text-white/60 hover:bg-white/[0.12] hover:text-white/90"
+                }
+              `}
+            >
+              <span>📰</span>
+              <span>ข่าวหุ้น</span>
+            </button>
+          )}
+
           {/* Telegram channels */}
           {CHANNELS.map((ch) => {
             const isActive = ch.id === activeChannel;
@@ -809,25 +595,6 @@ export default function NewsScreen({ assets = [] }: Props) {
               </button>
             );
           })}
-
-          {/* Google News tab — only shown if assets provided */}
-          {assets.length > 0 && (
-            <button
-              onClick={() => handleChannelChange(GOOGLE_NEWS_TAB_ID)}
-              className={`
-                flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[12px] font-medium
-                whitespace-nowrap shrink-0 transition-all duration-200
-                ${
-                  isGoogleTab
-                    ? "bg-accent-yellow text-black shadow-[0_0_12px_rgba(255,200,0,0.35)]"
-                    : "bg-white/[0.07] text-white/60 hover:bg-white/[0.12] hover:text-white/90"
-                }
-              `}
-            >
-              <span>📰</span>
-              <span>หุ้นของฉัน</span>
-            </button>
-          )}
         </div>
       </div>
 

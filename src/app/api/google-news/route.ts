@@ -5,15 +5,18 @@ type NewsItem = {
   link: string;
   pubDate: string;
   source?: string;
+  symbol: string;
 };
 
-// simple RSS parser (no library)
-function parseRSS(xml: string): NewsItem[] {
-  const items: NewsItem[] = [];
+/* =======================
+   RSS Parser
+======================= */
+function parseRSS(xml: string): Omit<NewsItem, "symbol">[] {
+  const items: Omit<NewsItem, "symbol">[] = [];
 
   const matches = xml.match(/<item>([\s\S]*?)<\/item>/g) || [];
 
-  for (const item of matches.slice(0, 10)) {
+  for (const item of matches) {
     const title =
       item.match(/<title><!\[CDATA\[(.*?)\]\]><\/title>/)?.[1] ||
       item.match(/<title>(.*?)<\/title>/)?.[1];
@@ -23,52 +26,105 @@ function parseRSS(xml: string): NewsItem[] {
     const source = item.match(/<source.*?>(.*?)<\/source>/)?.[1];
 
     if (title && link) {
-      items.push({ title, link, pubDate: pubDate || "", source });
+      items.push({
+        title,
+        link,
+        pubDate: pubDate || "",
+        source,
+      });
     }
   }
 
   return items;
 }
 
+/* =======================
+   Helper: safe date
+======================= */
+function safeTime(dateStr: string) {
+  const t = new Date(dateStr).getTime();
+  return isNaN(t) ? 0 : t;
+}
+
+/* =======================
+   GET
+======================= */
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const symbol = searchParams.get("symbol");
 
-  if (!symbol) {
-    return NextResponse.json({ error: "symbol is required" }, { status: 400 });
+  const symbolsParam = searchParams.get("symbols"); // AAPL,TSLA
+  const offset = Number(searchParams.get("offset") ?? 0);
+  const limit = Number(searchParams.get("limit") ?? 10);
+
+  if (!symbolsParam) {
+    return NextResponse.json({ error: "symbols is required" }, { status: 400 });
   }
 
-  // Use the symbol directly as the keyword (dynamic, no static map)
-  const keyword = symbol.toUpperCase();
-
-  // Google News Thai
-  const url = `https://news.google.com/rss/search?q=${encodeURIComponent(
-    keyword,
-  )}&hl=th&gl=TH&ceid=TH:th`;
+  // จำกัดจำนวน ticker ป้องกันยิงเยอะเกิน
+  const symbols = symbolsParam.split(",").slice(0, 5);
 
   try {
-    const res = await fetch(url, {
-      headers: {
-        "User-Agent": "Mozilla/5.0",
-      },
-      next: { revalidate: 300 }, // cache 5 min
-    });
+    const allNews: NewsItem[] = [];
 
-    if (!res.ok) {
-      return NextResponse.json(
-        { error: "failed to fetch news" },
-        { status: 500 },
-      );
+    /* =======================
+       Fetch ทุก ticker พร้อมกัน
+    ======================= */
+    const responses = await Promise.all(
+      symbols.map(async (symbol) => {
+        const url = `https://news.google.com/rss/search?q=${encodeURIComponent(
+          symbol,
+        )}&hl=th&gl=TH&ceid=TH:th`;
+
+        const res = await fetch(url, {
+          headers: { "User-Agent": "Mozilla/5.0" },
+          next: { revalidate: 300 },
+        });
+
+        if (!res.ok) return [];
+
+        const xml = await res.text();
+        const parsed = parseRSS(xml);
+
+        return parsed.map((item) => ({
+          ...item,
+          symbol,
+        }));
+      }),
+    );
+
+    responses.forEach((arr) => allNews.push(...arr));
+
+    /* =======================
+       DEDUPE (unique)
+       ใช้ title + link กันซ้ำ
+    ======================= */
+    const uniqueMap = new Map<string, NewsItem>();
+
+    for (const item of allNews) {
+      const key = `${item.title}-${item.link}`;
+      if (!uniqueMap.has(key)) {
+        uniqueMap.set(key, item);
+      }
     }
 
-    const xml = await res.text();
-    const news = parseRSS(xml);
+    const deduped = Array.from(uniqueMap.values());
+
+    /* =======================
+       SORT ล่าสุดก่อน
+    ======================= */
+    deduped.sort((a, b) => safeTime(b.pubDate) - safeTime(a.pubDate));
+
+    /* =======================
+       PAGINATION
+    ======================= */
+    const sliced = deduped.slice(offset, offset + limit);
 
     return NextResponse.json({
-      symbol,
-      keyword,
-      total: news.length,
-      news,
+      total: deduped.length,
+      offset,
+      limit,
+      news: sliced,
+      hasMore: offset + limit < deduped.length,
     });
   } catch (err) {
     return NextResponse.json(
