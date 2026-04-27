@@ -22,16 +22,30 @@ type Asset = {
 /* =======================
    Constants
 ======================= */
-const FIXED_SYMBOLS = ["S%26P500"];
+const FIXED_SYMBOLS = ["อิหร่าน"];
 
 /* =======================
    DateChip Component
 ======================= */
 function DateChip({ label }: { label: string }) {
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+
+  const msgDay = new Date(label);
+
+  let displayLabel = label;
+
+  if (msgDay.toDateString() === today.toDateString()) {
+    displayLabel = "วันนี้";
+  } else if (msgDay.toDateString() === yesterday.toDateString()) {
+    displayLabel = "เมื่อวาน";
+  }
+
   return (
     <div className="flex items-center justify-center pb-2">
       <span className="px-5 py-1 bg-black/40 backdrop-blur-sm border border-white/[0.1] rounded-full text-[11px] text-white/45 font-medium tracking-wide select-none">
-        {label}
+        {displayLabel}
       </span>
     </div>
   );
@@ -80,7 +94,7 @@ function TickerAvatar({ ticker }: { ticker: string }) {
   if (isFixed) {
     return (
       <div className="w-[30px] h-[30px] rounded-full bg-blue-500/20 border border-blue-400/40 flex items-center justify-center">
-        <span className="text-[10px] font-bold text-blue-400">S&P</span>
+        <span className="text-[10px] font-bold text-blue-400">US</span>
       </div>
     );
   }
@@ -197,7 +211,6 @@ export default function GoogleNewsPanel({ assets }: { assets: Asset[] }) {
   ======================= */
   return (
     <div>
-
       {/* News list */}
       {!loading &&
         news.map((item, i) => {
@@ -249,7 +262,7 @@ export default function GoogleNewsPanel({ assets }: { assets: Asset[] }) {
                       <div className="flex flex-col gap-0.5">
                         <div className="flex items-center gap-1.5">
                           <span className="text-[13px] font-semibold text-white/90 leading-tight">
-                            {isMarketOverview ? "S&P 500" : item.symbol}
+                            {isMarketOverview ? "ข่าวอเมริกา" : item.symbol}
                           </span>
                           {isMarketOverview && (
                             <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 font-semibold">
@@ -297,7 +310,7 @@ export default function GoogleNewsPanel({ assets }: { assets: Asset[] }) {
       {/* Loading more */}
       {loadingMore && (
         <div className="py-6 flex justify-center">
-          <div className="w-7 h-7 rounded-full border-2 border-white/10 border-t-accent-yellow animate-spin" />
+          <CommonLoading isFullScreen={false} />
         </div>
       )}
 

@@ -47,9 +47,87 @@ function safeTime(dateStr: string) {
 }
 
 /* =======================
-   Fixed symbols (always included)
+   DEDUPE Helpers
 ======================= */
-const FIXED_SYMBOLS = ["S%26P500"];
+function normalizeTitle(title: string): string {
+  return title
+    .toLowerCase()
+    .replace(/[^\w\s]/g, " ") // ตัด punctuation
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function titleWords(title: string): Set<string> {
+  const STOPWORDS = new Set([
+    "the",
+    "a",
+    "an",
+    "in",
+    "on",
+    "at",
+    "to",
+    "of",
+    "and",
+    "or",
+    "is",
+    "are",
+    "was",
+    "for",
+    "by",
+    "with",
+    "as",
+    "its",
+    "it",
+  ]);
+  return new Set(
+    normalizeTitle(title)
+      .split(" ")
+      .filter((w) => w.length > 1 && !STOPWORDS.has(w)),
+  );
+}
+
+function jaccardSimilarity(a: Set<string>, b: Set<string>): number {
+  if (a.size === 0 && b.size === 0) return 1;
+  const intersection = [...a].filter((w) => b.has(w)).length;
+  const union = new Set([...a, ...b]).size;
+  return intersection / union;
+}
+
+const SIMILARITY_THRESHOLD = 0.6; // ปรับได้: ต่ำ = กรองเข้มขึ้น, สูง = กรองหลวมลง
+const TIME_WINDOW_MS = 24 * 60 * 60 * 1000; // 24 ชั่วโมง
+
+function dedupeNews(items: NewsItem[]): NewsItem[] {
+  const kept: NewsItem[] = [];
+
+  for (const candidate of items) {
+    const candidateWords = titleWords(candidate.title);
+    const candidateTime = safeTime(candidate.pubDate);
+
+    const isDuplicate = kept.some((existing) => {
+      // ข้ามถ้า pubDate ห่างกันเกิน window
+      const timeDiff = Math.abs(candidateTime - safeTime(existing.pubDate));
+      if (timeDiff > TIME_WINDOW_MS) return false;
+
+      const similarity = jaccardSimilarity(
+        candidateWords,
+        titleWords(existing.title),
+      );
+      return similarity >= SIMILARITY_THRESHOLD;
+    });
+
+    if (!isDuplicate) {
+      kept.push(candidate);
+    }
+  }
+
+  return kept;
+}
+
+/* =======================
+   Fixed symbols (always included)
+   ใช้ plain text — encodeURIComponent จะจัดการตอน fetch เอง
+======================= */
+const FIXED_SYMBOLS = ["อิหร่าน"];
 
 /* =======================
    GET
@@ -57,7 +135,7 @@ const FIXED_SYMBOLS = ["S%26P500"];
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
 
-  const symbolsParam = searchParams.get("symbols"); // AAPL,TSLA
+  const symbolsParam = searchParams.get("symbols");
   const offset = Number(searchParams.get("offset") ?? 0);
   const limit = Number(searchParams.get("limit") ?? 10);
 
@@ -65,13 +143,12 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "symbols is required" }, { status: 400 });
   }
 
-  // จำกัดจำนวน ticker ป้องกันยิงเยอะเกิน (4 user + 1 fixed = 5 total)
-  const userSymbols = symbolsParam.split(",").slice(0, 4);
+  // filter fixed ออกก่อน แล้วค่อย slice — ป้องกัน fixed โดน slice ทิ้ง
+  const userSymbols = symbolsParam
+    .split(",")
+    .filter((s) => !FIXED_SYMBOLS.includes(s));
 
-  const mergedSymbols = [
-    ...FIXED_SYMBOLS,
-    ...userSymbols.filter((s) => !FIXED_SYMBOLS.includes(s)),
-  ];
+  const mergedSymbols = [...FIXED_SYMBOLS, ...userSymbols];
 
   try {
     const allNews: NewsItem[] = [];
@@ -105,24 +182,26 @@ export async function GET(req: NextRequest) {
     responses.forEach((arr) => allNews.push(...arr));
 
     /* =======================
-       DEDUPE (unique)
-       ใช้ title + link กันซ้ำ
+       DEDUPE
+       Step 1: exact (title + link)
+       Step 2: sort ล่าสุดก่อน — ให้ข่าวใหม่สุดชนะ fuzzy
+       Step 3: fuzzy title (Jaccard + time window)
     ======================= */
-    const uniqueMap = new Map<string, NewsItem>();
 
+    // Step 1: exact dedupe
+    const exactMap = new Map<string, NewsItem>();
     for (const item of allNews) {
       const key = `${item.title}-${item.link}`;
-      if (!uniqueMap.has(key)) {
-        uniqueMap.set(key, item);
-      }
+      if (!exactMap.has(key)) exactMap.set(key, item);
     }
 
-    const deduped = Array.from(uniqueMap.values());
+    // Step 2: sort ก่อน fuzzy
+    const sorted = Array.from(exactMap.values()).sort(
+      (a, b) => safeTime(b.pubDate) - safeTime(a.pubDate),
+    );
 
-    /* =======================
-       SORT ล่าสุดก่อน
-    ======================= */
-    deduped.sort((a, b) => safeTime(b.pubDate) - safeTime(a.pubDate));
+    // Step 3: fuzzy dedupe
+    const deduped = dedupeNews(sorted);
 
     /* =======================
        PAGINATION
