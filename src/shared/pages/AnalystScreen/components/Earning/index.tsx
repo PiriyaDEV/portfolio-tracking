@@ -24,6 +24,16 @@ type UiEarning = {
   epsEstimate?: number;
 };
 
+type PriceData = {
+  symbol: string;
+  type: "past" | "today" | "future";
+  pct?: number;
+  close?: number;
+  prevClose?: number; // ← เพิ่ม
+  price?: number;
+  reactionDate?: string;
+};
+
 /* =======================
    Date Utils (Thai)
 ======================= */
@@ -129,6 +139,171 @@ const Badge = ({
 );
 
 /* =======================
+   PriceChange Component
+======================= */
+
+const PriceChange = ({
+  data,
+  announceTime,
+}: {
+  data?: PriceData;
+  announceTime: string;
+}) => {
+  if (!data) {
+    return (
+      <div
+        className="mt-3 h-[52px] rounded-xl animate-pulse"
+        style={{ background: "rgba(255,255,255,0.04)" }}
+      />
+    );
+  }
+
+  const pct = data.pct;
+  const isUp = (pct ?? 0) >= 0;
+  const pctStr =
+    pct !== undefined ? `${isUp ? "+" : ""}${pct.toFixed(2)}%` : null;
+
+  const upStyle = { background: "rgba(52,211,153,0.1)", color: "#34d399" };
+  const downStyle = { background: "rgba(248,113,113,0.1)", color: "#f87171" };
+  const chipStyle =
+    pct === undefined
+      ? { background: "rgba(255,255,255,0.06)", color: "#6b7280" }
+      : isUp
+        ? upStyle
+        : downStyle;
+
+  // ── Future: ราคาปัจจุบัน + % วันนี้ ──────────────────────────────
+  if (data.type === "future") {
+    return (
+      <div
+        className="mt-3 flex items-center justify-between rounded-xl px-3 py-2.5"
+        style={{ background: "rgba(255,255,255,0.04)" }}
+      >
+        <div>
+          <div className="text-[11px] text-gray-500 mb-0.5">ราคาปัจจุบัน</div>
+          <div className="text-[13px] font-semibold text-white/80">
+            {data.price !== undefined ? `$${data.price.toFixed(2)}` : "—"}
+          </div>
+        </div>
+        {pctStr ? (
+          <div
+            className="flex items-center gap-1 text-[14px] font-bold px-3 py-1.5 rounded-lg"
+            style={chipStyle}
+          >
+            <span className="text-[10px]">{isUp ? "▲" : "▼"}</span>
+            {pctStr}
+          </div>
+        ) : (
+          <div
+            className="text-[12px] px-3 py-1.5 rounded-lg"
+            style={{ background: "rgba(255,255,255,0.06)", color: "#6b7280" }}
+          >
+            ไม่มีข้อมูล
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ── Past / Today: before → after ─────────────────────────────────
+  const reactionLabel =
+    announceTime === "After Market Close" ? "วันถัดไป" : "วันประกาศ";
+
+  const hasBoth = data.prevClose !== undefined && data.close !== undefined;
+
+  return (
+    <div
+      className="mt-3 rounded-xl overflow-hidden"
+      style={{ background: "rgba(255,255,255,0.04)" }}
+    >
+      {/* Top row: before → after prices */}
+      {hasBoth && (
+        <div className="flex items-center px-3 pt-2.5 pb-1 gap-2">
+          {/* ก่อนประกาศ */}
+          <div className="flex-1">
+            <div className="text-[10px] text-gray-500 mb-0.5">ก่อนประกาศ</div>
+            <div className="text-[13px] font-semibold text-white/50">
+              ${data.prevClose!.toFixed(2)}
+            </div>
+          </div>
+
+          {/* Arrow */}
+          <div
+            className="text-[11px] px-1"
+            style={{ color: isUp ? "#34d399" : "#f87171" }}
+          >
+            →
+          </div>
+
+          {/* หลังประกาศ */}
+          <div className="flex-1 text-right">
+            <div className="text-[10px] text-gray-500 mb-0.5">
+              {reactionLabel}
+            </div>
+            <div className="text-[13px] font-semibold text-white/80">
+              ${data.close!.toFixed(2)}
+            </div>
+          </div>
+
+          {/* % chip */}
+          {pctStr && (
+            <div
+              className="flex items-center gap-1 text-[13px] font-bold px-2.5 py-1 rounded-lg ml-1"
+              style={chipStyle}
+            >
+              <span className="text-[9px]">{isUp ? "▲" : "▼"}</span>
+              {pctStr}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ถ้าไม่มี prevClose แสดงแบบเดิม */}
+      {!hasBoth && (
+        <div className="flex items-center justify-between px-3 py-2.5">
+          <div>
+            <div className="text-[11px] text-gray-500 mb-0.5">
+              {reactionLabel}
+            </div>
+            <div className="text-[13px] font-semibold text-white/80">
+              {data.close !== undefined
+                ? `ปิดที่ $${data.close.toFixed(2)}`
+                : "ไม่พบข้อมูล"}
+            </div>
+          </div>
+          {pctStr ? (
+            <div
+              className="flex items-center gap-1 text-[14px] font-bold px-3 py-1.5 rounded-lg"
+              style={chipStyle}
+            >
+              <span className="text-[10px]">{isUp ? "▲" : "▼"}</span>
+              {pctStr}
+            </div>
+          ) : (
+            <div
+              className="text-[12px] px-3 py-1.5 rounded-lg"
+              style={{ background: "rgba(255,255,255,0.06)", color: "#6b7280" }}
+            >
+              ไม่มีข้อมูล
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Bottom separator + label ถ้ามีทั้งคู่ */}
+      {hasBoth && (
+        <div
+          className="text-[10px] text-gray-500 px-3 pb-2 pt-0.5"
+          style={{ borderTop: "0.5px solid rgba(255,255,255,0.06)" }}
+        >
+          % เทียบราคาปิดก่อนประกาศ
+        </div>
+      )}
+    </div>
+  );
+};
+
+/* =======================
    EPS Explain
 ======================= */
 
@@ -205,6 +380,8 @@ export default function EarningsPage({
 }) {
   const [data, setData] = useState<UiEarning[]>([]);
   const [loading, setLoading] = useState(true);
+  const [priceMap, setPriceMap] = useState<Record<string, PriceData>>({});
+  const [priceLoading, setPriceLoading] = useState(false);
   const { currencyRate, graphs } = useMarketStore();
   const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
 
@@ -216,7 +393,7 @@ export default function EarningsPage({
     return Array.from(set).map((symbol) => ({ symbol }));
   }, [assets, wishlist]);
 
-  /* ===== fetch ===== */
+  /* ===== fetch earnings ===== */
   useEffect(() => {
     if (!mergedAssets.length) {
       setLoading(false);
@@ -232,6 +409,38 @@ export default function EarningsPage({
       .then(setData)
       .finally(() => setLoading(false));
   }, [mergedAssets]);
+
+  /* ===== fetch price data after earnings loaded ===== */
+  useEffect(() => {
+    if (!data.length) return;
+
+    // Only fetch for items within ±15 days
+    const items = data
+      .filter((e) => isWithin15Days(e.reportDate))
+      .map((e) => ({
+        symbol: e.symbol,
+        reportDate: e.reportDate,
+        announceTime: e.announceTime,
+      }));
+
+    if (!items.length) return;
+
+    setPriceLoading(true);
+    fetch("/api/earning-price", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ items }),
+    })
+      .then((r) => r.json())
+      .then((results: PriceData[]) => {
+        const map: Record<string, PriceData> = {};
+        results.forEach((r) => {
+          map[r.symbol] = r;
+        });
+        setPriceMap(map);
+      })
+      .finally(() => setPriceLoading(false));
+  }, [data]);
 
   /* ===== group by date (±15 days) ===== */
   const grouped = useMemo(() => {
@@ -300,7 +509,7 @@ export default function EarningsPage({
               {/* Date Row */}
               <div
                 className={`flex items-center gap-3 text-base font-semibold mb-3 ${
-                  past ? "text-gray-600" : DAY_COLORS[dayIdx]
+                  past ? "text-gray-500" : DAY_COLORS[dayIdx]
                 }`}
               >
                 <span
@@ -322,6 +531,11 @@ export default function EarningsPage({
                 {grouped[date].map((e, i) => {
                   const isWishlist = wishlist.includes(e.symbol);
                   const glowClass = past ? "" : DAY_GLOW[dayIdx];
+                  // Use symbol as key; if multiple same symbol on diff dates this still works
+                  // because priceMap is keyed by symbol+date ideally, but for simplicity symbol is fine
+                  const priceData = priceLoading
+                    ? undefined
+                    : priceMap[e.symbol];
 
                   return (
                     <div
@@ -406,6 +620,12 @@ export default function EarningsPage({
                       </div>
 
                       <EpsExplain eps={e.epsEstimate} isWishlist={isWishlist} />
+
+                      {/* Price Change — new! */}
+                      <PriceChange
+                        data={priceData}
+                        announceTime={e.announceTime}
+                      />
                     </div>
                   );
                 })}
@@ -444,7 +664,7 @@ export default function EarningsPage({
               <div className="text-lg font-semibold text-gray-400">
                 ยังไม่มี Earnings เร็วๆ นี้
               </div>
-              <div className="text-sm mt-2 text-gray-600">
+              <div className="text-sm mt-2 text-gray-500">
                 รอติดตามงบประกาศรอบถัดไปได้เลย 👀
               </div>
             </div>
