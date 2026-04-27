@@ -80,19 +80,19 @@ export async function getAdvancedLevels(
 
     // ─── DEBUG ───────────────────────────────────────────────
     const metaT = chartRecent.meta;
-    console.log(`[${symbol}] chartRecent.meta keys:`, Object.keys(metaT ?? {}));
-    console.log(`[${symbol}] chartPreviousClose:`, metaT?.chartPreviousClose);
-    console.log(`[${symbol}] regularMarketPrice:`, metaT?.regularMarketPrice);
-    console.log(`[${symbol}] recentData length:`, chartRecent.data.length);
-    console.log(
-      `[${symbol}] recentCloses[-1]:`,
-      chartRecent.data.at(-1)?.close,
-    );
-    console.log(
-      `[${symbol}] recentCloses[-2]:`,
-      chartRecent.data.at(-2)?.close,
-    );
-    console.log(`[${symbol}] chartRecent HTTP ok:`, !!metaT); // null meta = failed fetch
+    // console.log(`[${symbol}] chartRecent.meta keys:`, Object.keys(metaT ?? {}));
+    // console.log(`[${symbol}] chartPreviousClose:`, metaT?.chartPreviousClose);
+    // console.log(`[${symbol}] regularMarketPrice:`, metaT?.regularMarketPrice);
+    // console.log(`[${symbol}] recentData length:`, chartRecent.data.length);
+    // console.log(
+    //   `[${symbol}] recentCloses[-1]:`,
+    //   chartRecent.data.at(-1)?.close,
+    // );
+    // console.log(
+    //   `[${symbol}] recentCloses[-2]:`,
+    //   chartRecent.data.at(-2)?.close,
+    // );
+    // console.log(`[${symbol}] chartRecent HTTP ok:`, !!metaT); // null meta = failed fetch
     // ─────────────────────────────────────────────────────────
 
     /* ================= PARSE 3mo ================= */

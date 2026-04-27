@@ -20,6 +20,11 @@ type Asset = {
 };
 
 /* =======================
+   Constants
+======================= */
+const FIXED_SYMBOLS = ["S%26P500"];
+
+/* =======================
    DateChip Component
 ======================= */
 function DateChip({ label }: { label: string }) {
@@ -70,6 +75,16 @@ function isFresh(dateStr: string) {
    Ticker Avatar
 ======================= */
 function TickerAvatar({ ticker }: { ticker: string }) {
+  const isFixed = FIXED_SYMBOLS.includes(ticker);
+
+  if (isFixed) {
+    return (
+      <div className="w-[30px] h-[30px] rounded-full bg-blue-500/20 border border-blue-400/40 flex items-center justify-center">
+        <span className="text-[10px] font-bold text-blue-400">S&P</span>
+      </div>
+    );
+  }
+
   return (
     <div
       className={`w-[30px] h-[30px] rounded-full bg-cover bg-center border border-gray-600 ${
@@ -187,6 +202,7 @@ export default function GoogleNewsPanel({ assets }: { assets: Asset[] }) {
       {!loading &&
         news.map((item, i) => {
           const fresh = isFresh(item.pubDate);
+          const isMarketOverview = FIXED_SYMBOLS.includes(item.symbol);
 
           const currentDate = getDateLabel(item.pubDate);
           const prevDate = i > 0 ? getDateLabel(news[i - 1].pubDate) : null;
@@ -216,7 +232,11 @@ export default function GoogleNewsPanel({ assets }: { assets: Asset[] }) {
                 "
               >
                 {/* left border */}
-                <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-accent-yellow/60 rounded-l-2xl" />
+                <div
+                  className={`absolute left-0 top-0 bottom-0 w-[3px] rounded-l-2xl ${
+                    isMarketOverview ? "bg-blue-400/60" : "bg-accent-yellow/60"
+                  }`}
+                />
 
                 <div className="px-4 pt-3.5 pb-4 pl-5 bg-white !text-black">
                   {/* HEADER */}
@@ -227,9 +247,16 @@ export default function GoogleNewsPanel({ assets }: { assets: Asset[] }) {
                       </div>
 
                       <div className="flex flex-col gap-0.5">
-                        <span className="text-[13px] font-semibold text-white/90 leading-tight">
-                          {item.symbol}
-                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[13px] font-semibold text-white/90 leading-tight">
+                            {isMarketOverview ? "S&P 500" : item.symbol}
+                          </span>
+                          {isMarketOverview && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 font-semibold">
+                              ภาพรวมตลาด
+                            </span>
+                          )}
+                        </div>
 
                         <span className="text-[11px] text-white/35">
                           {formatDateTime(item.pubDate)} น.

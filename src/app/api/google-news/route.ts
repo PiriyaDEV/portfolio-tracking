@@ -47,6 +47,11 @@ function safeTime(dateStr: string) {
 }
 
 /* =======================
+   Fixed symbols (always included)
+======================= */
+const FIXED_SYMBOLS = ["S%26P500"];
+
+/* =======================
    GET
 ======================= */
 export async function GET(req: NextRequest) {
@@ -60,8 +65,13 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "symbols is required" }, { status: 400 });
   }
 
-  // จำกัดจำนวน ticker ป้องกันยิงเยอะเกิน
-  const symbols = symbolsParam.split(",").slice(0, 5);
+  // จำกัดจำนวน ticker ป้องกันยิงเยอะเกิน (4 user + 1 fixed = 5 total)
+  const userSymbols = symbolsParam.split(",").slice(0, 4);
+
+  const mergedSymbols = [
+    ...FIXED_SYMBOLS,
+    ...userSymbols.filter((s) => !FIXED_SYMBOLS.includes(s)),
+  ];
 
   try {
     const allNews: NewsItem[] = [];
@@ -70,7 +80,7 @@ export async function GET(req: NextRequest) {
        Fetch ทุก ticker พร้อมกัน
     ======================= */
     const responses = await Promise.all(
-      symbols.map(async (symbol) => {
+      mergedSymbols.map(async (symbol) => {
         const url = `https://news.google.com/rss/search?q=${encodeURIComponent(
           symbol,
         )}&hl=th&gl=TH&ceid=TH:th`;

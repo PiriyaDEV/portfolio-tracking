@@ -101,69 +101,6 @@ function DateChip({ label }: { label: string }) {
 }
 
 /* =======================
-   Google News Helpers
-======================= */
-function formatTimeAgo(pubDate: string): string {
-  if (!pubDate) return "";
-  const date = new Date(pubDate);
-  if (isNaN(date.getTime())) return pubDate;
-  const diffMin = Math.floor((Date.now() - date.getTime()) / 60_000);
-  if (diffMin < 1) return "เมื่อกี้";
-  if (diffMin < 60) return `${diffMin} นาทีที่แล้ว`;
-  const diffHr = Math.floor(diffMin / 60);
-  if (diffHr < 24) return `${diffHr} ชั่วโมงที่แล้ว`;
-  const diffDay = Math.floor(diffHr / 24);
-  if (diffDay === 1) return "เมื่อวาน";
-  return date.toLocaleDateString("th-TH", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-}
-
-function getTickerColor(ticker: string): string {
-  const colors = [
-    "from-yellow-500 to-orange-500",
-    "from-blue-500 to-cyan-500",
-    "from-purple-500 to-pink-500",
-    "from-green-500 to-emerald-500",
-    "from-red-500 to-rose-500",
-    "from-indigo-500 to-violet-500",
-  ];
-  let hash = 0;
-  for (let i = 0; i < ticker.length; i++) hash += ticker.charCodeAt(i);
-  return colors[hash % colors.length];
-}
-
-function TickerAvatar({ ticker }: { ticker: string }) {
-  const token = process.env.NEXT_PUBLIC_LOGOKIT_TOKEN;
-  const logoUrl = token
-    ? `https://img.logokit.com/ticker/${ticker}?token=${token}`
-    : null;
-  const [imgError, setImgError] = useState(false);
-
-  if (logoUrl && !imgError) {
-    return (
-      <img
-        src={logoUrl}
-        alt={ticker}
-        onError={() => setImgError(true)}
-        className="w-10 h-10 rounded-full object-cover ring-2 ring-accent-yellow/50 shrink-0"
-      />
-    );
-  }
-  return (
-    <div
-      className={`w-10 h-10 rounded-full bg-gradient-to-br ${getTickerColor(ticker)} flex items-center justify-center ring-2 ring-accent-yellow/50 shrink-0`}
-    >
-      <span className="text-[11px] font-black text-white">
-        {ticker.slice(0, 2)}
-      </span>
-    </div>
-  );
-}
-
-/* =======================
    Main NewsScreen
 ======================= */
 const GOOGLE_NEWS_TAB_ID = "__google_news__";
@@ -179,9 +116,8 @@ export default function NewsScreen({ assets = [] }: Props) {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [offset, setOffset] = useState(0);
-  const [activeChannel, setActiveChannel] = useState<string>(
-    CHANNELS[0]?.id ?? "usstockthailand1",
-  );
+  const [activeChannel, setActiveChannel] =
+    useState<string>(GOOGLE_NEWS_TAB_ID);
 
   const observerTarget = useRef<HTMLDivElement>(null);
 
