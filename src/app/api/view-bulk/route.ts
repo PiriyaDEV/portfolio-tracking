@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdvancedLevels } from "@/app/api/stock/support.function";
+import { getRecommendation } from "../stock/recommendation.function";
 
 const BAD_REQUEST = (msg: string) =>
   NextResponse.json({ error: msg }, { status: 400 });
+
+const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY ?? "";
 
 /**
  * POST /api/view/bulk
@@ -16,7 +19,6 @@ export async function POST(req: NextRequest) {
       return BAD_REQUEST("Symbols array is required");
     }
 
-    // Normalize + deduplicate in one pass
     const uniqueSymbols = [
       ...new Set(
         symbols
@@ -30,15 +32,25 @@ export async function POST(req: NextRequest) {
     }
 
     const results = await Promise.all(
-      uniqueSymbols.map((symbol) =>
-        getAdvancedLevels(symbol)
-          .then((levels) =>
-            levels?.currentPrice > 0
-              ? { symbol: levels.symbol, price: levels.currentPrice, levels }
-              : null,
-          )
-          .catch(() => null),
-      ),
+      uniqueSymbols.map(async (symbol) => {
+        try {
+          // Fetch levels and recommendation concurrently per symbol
+          const [levels, recommendation] = await Promise.all([
+            getAdvancedLevels(symbol),
+            getRecommendation(symbol, FINNHUB_API_KEY),
+          ]);
+
+          if (!levels?.currentPrice || levels.currentPrice <= 0) return null;
+
+          return {
+            symbol: levels.symbol,
+            price: levels.currentPrice,
+            levels: { ...levels, recommendation },
+          };
+        } catch {
+          return null;
+        }
+      }),
     );
 
     const data = results.filter(Boolean);

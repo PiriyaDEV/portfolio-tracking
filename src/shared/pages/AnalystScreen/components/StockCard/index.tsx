@@ -15,7 +15,6 @@ import {
   Minus,
   Target,
   Zap,
-  Shield,
   BarChart2,
 } from "lucide-react";
 
@@ -108,27 +107,22 @@ export default function StockCard({
       pulseColor: "bg-emerald-900",
     },
     {
-      label: "จุดตัดขาดทุน",
-      value: levels.stopLoss,
-      icon: <Shield size={8} />,
-      color: "!text-red-500/80",
-      active: price <= levels.stopLoss,
-      activeStyle:
-        "border-red-400/50 bg-red-500/[0.10] shadow-[0_0_10px_rgba(248,113,113,0.15),inset_0_1px_0_rgba(248,113,113,0.10)]",
-      activeColor: "!text-red-300",
-      pulseColor: "bg-red-900",
-    },
-    {
       label: "แนวต้าน",
       value: levels.resistance,
       icon: <TrendingUp size={8} />,
       color: "!text-orange-400/80",
-      active:
-        isNearResistance(price, levels.resistance),
+      active: isNearResistance(price, levels.resistance),
       activeStyle:
         "border-orange-400/50 bg-orange-500/[0.08] shadow-[0_0_10px_rgba(251,146,60,0.15),inset_0_1px_0_rgba(251,146,60,0.10)]",
       activeColor: "!text-orange-300",
       pulseColor: "bg-orange-900",
+    },
+    {
+      label: "คำแนะนำ",
+      value: getAnalystLabel(getAnalystView(levels.recommendation)),
+      icon: <BarChart2 size={8} />,
+      color: "!text-gray-400/80",
+      active: false,
     },
   ];
 
@@ -307,24 +301,12 @@ export default function StockCard({
                     active ? "text-white" : "text-slate-200"
                   }`}
                 >
-                  {fNumber(value)}
+                  {typeof value === "number" ? fNumber(value) : value}
                 </p>
               </div>
             ),
           )}
         </div>
-
-        {/* ── Analyst row ── */}
-        {showAnalyst && levels.recommendation && (
-          <div className="flex items-center justify-between rounded-[8px] border border-white/[0.06] bg-white/[0.02] px-2.5 py-1.5 backdrop-blur-md">
-            <span className="flex items-center gap-1.5 text-[9px] font-semibold uppercase !text-white/20">
-              <BarChart2 size={9} /> Analyst View
-            </span>
-            <span className="text-[11px] font-semibold !text-white/50 font-mono">
-              {getAnalystLabel(getAnalystView(levels.recommendation))}
-            </span>
-          </div>
-        )}
       </div>
     </div>
   );

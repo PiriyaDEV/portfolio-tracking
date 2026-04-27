@@ -1735,12 +1735,6 @@ export function GraphModal({
                       activeColor="emerald"
                     />
                     <StatRow
-                      label="จุดตัดขาดทุน"
-                      animatedValue={levels.stopLoss}
-                      active={(displayPrice ?? 0) <= levels.stopLoss}
-                      activeColor="red"
-                    />
-                    <StatRow
                       label="แนวต้าน"
                       animatedValue={levels.resistance}
                       active={
