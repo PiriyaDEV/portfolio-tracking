@@ -28,6 +28,23 @@ type ChannelCache = {
   hasMore: boolean;
 };
 
+type GoogleNewsItem = {
+  title: string;
+  link: string;
+  pubDate: string;
+  source?: string;
+};
+
+export type Asset = {
+  symbol: string;
+  quantity: number;
+  costPerShare: number;
+};
+
+type Props = {
+  assets?: Asset[];
+};
+
 /* =======================
    TickerChip Component
 ======================= */
@@ -83,12 +100,309 @@ function DateChip({ label }: { label: string }) {
 }
 
 /* =======================
-   Component
+   Google News Helpers
 ======================= */
-export default function NewsScreen() {
-  // Per-channel cache: keyed by channel id
-  const cacheRef = useRef<Record<string, ChannelCache>>({});
+function formatTimeAgo(pubDate: string): string {
+  if (!pubDate) return "";
+  const date = new Date(pubDate);
+  if (isNaN(date.getTime())) return pubDate;
+  const diffMin = Math.floor((Date.now() - date.getTime()) / 60_000);
+  if (diffMin < 1) return "เมื่อกี้";
+  if (diffMin < 60) return `${diffMin} นาทีที่แล้ว`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr} ชั่วโมงที่แล้ว`;
+  const diffDay = Math.floor(diffHr / 24);
+  if (diffDay === 1) return "เมื่อวาน";
+  return date.toLocaleDateString("th-TH", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
 
+function getTickerColor(ticker: string): string {
+  const colors = [
+    "from-yellow-500 to-orange-500",
+    "from-blue-500 to-cyan-500",
+    "from-purple-500 to-pink-500",
+    "from-green-500 to-emerald-500",
+    "from-red-500 to-rose-500",
+    "from-indigo-500 to-violet-500",
+  ];
+  let hash = 0;
+  for (let i = 0; i < ticker.length; i++) hash += ticker.charCodeAt(i);
+  return colors[hash % colors.length];
+}
+
+function TickerAvatar({ ticker }: { ticker: string }) {
+  const token = process.env.NEXT_PUBLIC_LOGOKIT_TOKEN;
+  const logoUrl = token
+    ? `https://img.logokit.com/ticker/${ticker}?token=${token}`
+    : null;
+  const [imgError, setImgError] = useState(false);
+
+  if (logoUrl && !imgError) {
+    return (
+      <img
+        src={logoUrl}
+        alt={ticker}
+        onError={() => setImgError(true)}
+        className="w-10 h-10 rounded-full object-cover ring-2 ring-accent-yellow/50 shrink-0"
+      />
+    );
+  }
+  return (
+    <div
+      className={`w-10 h-10 rounded-full bg-gradient-to-br ${getTickerColor(ticker)} flex items-center justify-center ring-2 ring-accent-yellow/50 shrink-0`}
+    >
+      <span className="text-[11px] font-black text-white">
+        {ticker.slice(0, 2)}
+      </span>
+    </div>
+  );
+}
+
+/* =======================
+   Google News Card
+======================= */
+function GoogleNewsCard({
+  item,
+  ticker,
+}: {
+  item: GoogleNewsItem;
+  ticker: string;
+}) {
+  const fresh = item.pubDate
+    ? Date.now() - new Date(item.pubDate).getTime() <= 30 * 60_000
+    : false;
+
+  return (
+    <a
+      href={item.link}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="
+        group relative block
+        bg-[#161616]
+        rounded-2xl
+        border border-white/[0.07]
+        hover:border-white/[0.15]
+        hover:bg-[#1a1a1a]
+        transition-all duration-200
+        overflow-hidden
+        no-underline
+      "
+    >
+      <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-accent-yellow/60 rounded-l-2xl" />
+
+      <div className="px-4 pt-3.5 pb-4 pl-5 bg-white !text-black">
+        {/* Author row */}
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-3">
+            <TickerAvatar ticker={ticker} />
+            <div className="flex flex-col gap-0.5">
+              <span className="text-[13px] font-semibold text-white/90 leading-tight">
+                {ticker}
+              </span>
+              <span className="text-[11px] text-white/35">
+                {item.source ?? "Google News"}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            {fresh && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-gradient-to-r from-red-500 to-pink-500 text-white text-[10px] font-bold rounded-full shadow-sm animate-pulse">
+                🔥 ใหม่
+              </span>
+            )}
+            <span className="text-[11px] text-white/35">
+              {formatTimeAgo(item.pubDate)}
+            </span>
+          </div>
+        </div>
+
+        {/* Headline */}
+        <p className="text-[14px] text-white/80 leading-relaxed line-clamp-3 group-hover:text-white/95 transition-colors">
+          {item.title}
+        </p>
+
+        <div className="mt-2 flex items-center gap-1 text-accent-yellow/60 text-[11px] font-medium group-hover:text-accent-yellow/90 transition-colors">
+          <span>อ่านต่อ</span>
+          <span className="group-hover:translate-x-0.5 transition-transform">
+            →
+          </span>
+        </div>
+      </div>
+    </a>
+  );
+}
+
+/* =======================
+   Google News Panel
+======================= */
+function GoogleNewsPanel({ assets }: { assets: Asset[] }) {
+  const tickers = assets.map((a) => a.symbol);
+  const [activeTicker, setActiveTicker] = useState<string>(tickers[0] ?? "");
+  const [newsMap, setNewsMap] = useState<
+    Record<string, { news: GoogleNewsItem[]; loading: boolean; error: boolean }>
+  >({});
+  const [refreshing, setRefreshing] = useState(false);
+  const cacheRef = useRef<Record<string, GoogleNewsItem[]>>({});
+
+  const fetchTickerNews = useCallback(async (ticker: string, force = false) => {
+    if (!ticker) return;
+
+    if (!force && cacheRef.current[ticker]) {
+      setNewsMap((prev) => ({
+        ...prev,
+        [ticker]: {
+          news: cacheRef.current[ticker],
+          loading: false,
+          error: false,
+        },
+      }));
+      return;
+    }
+
+    setNewsMap((prev) => ({
+      ...prev,
+      [ticker]: { news: prev[ticker]?.news ?? [], loading: true, error: false },
+    }));
+
+    try {
+      const res = await fetch(`/api/google-news?symbol=${ticker}`);
+      const data = await res.json();
+      const news: GoogleNewsItem[] = data.news ?? [];
+      cacheRef.current[ticker] = news;
+      setNewsMap((prev) => ({
+        ...prev,
+        [ticker]: { news, loading: false, error: false },
+      }));
+    } catch {
+      setNewsMap((prev) => ({
+        ...prev,
+        [ticker]: { news: [], loading: false, error: true },
+      }));
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTicker) fetchTickerNews(activeTicker);
+  }, [activeTicker, fetchTickerNews]);
+
+  const handleRefresh = async () => {
+    if (refreshing || !activeTicker) return;
+    setRefreshing(true);
+    delete cacheRef.current[activeTicker];
+    await fetchTickerNews(activeTicker, true);
+    setRefreshing(false);
+  };
+
+  const activeData = newsMap[activeTicker];
+  const isLoading = activeData?.loading ?? true;
+  const hasError = activeData?.error ?? false;
+  const news = activeData?.news ?? [];
+
+  if (tickers.length === 0) {
+    return (
+      <div className="mt-16 flex flex-col items-center gap-3 text-center">
+        <span className="text-5xl">📭</span>
+        <p className="text-white/40 text-sm">ยังไม่มีหุ้นในพอร์ต</p>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      {/* Sub-header: ticker pills + refresh */}
+      <div className="flex items-center justify-between px-4 py-2 border-b border-white/[0.06] bg-black-lighter">
+        <div className="flex items-center gap-2 overflow-x-auto scrollbar-none flex-1 pr-2">
+          {tickers.map((ticker) => {
+            const isActive = ticker === activeTicker;
+            return (
+              <button
+                key={ticker}
+                onClick={() => setActiveTicker(ticker)}
+                className={`
+                  flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-medium
+                  whitespace-nowrap shrink-0 transition-all duration-200
+                  ${
+                    isActive
+                      ? "bg-accent-yellow text-black shadow-[0_0_12px_rgba(255,200,0,0.35)]"
+                      : "bg-white/[0.07] text-white/60 hover:bg-white/[0.12] hover:text-white/90"
+                  }
+                `}
+              >
+                {ticker}
+              </button>
+            );
+          })}
+        </div>
+        <button
+          onClick={handleRefresh}
+          disabled={refreshing}
+          aria-label="Refresh"
+          className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-white/10 transition disabled:opacity-40 shrink-0"
+        >
+          <RefreshIcon
+            className={`text-white/80 text-lg ${refreshing ? "animate-spin" : ""}`}
+          />
+        </button>
+      </div>
+
+      {/* Content */}
+      <div className="space-y-3 pt-3">
+        {isLoading && <CommonLoading isFullScreen={false} />}
+
+        {!isLoading && hasError && (
+          <div className="mt-10 flex flex-col items-center gap-3 text-center">
+            <span className="text-5xl">⚠️</span>
+            <p className="text-white/40 text-sm">โหลดข่าวไม่สำเร็จ</p>
+            <button
+              onClick={handleRefresh}
+              className="px-4 py-2 rounded-full bg-accent-yellow text-black text-[13px] font-semibold"
+            >
+              ลองใหม่
+            </button>
+          </div>
+        )}
+
+        {!isLoading && !hasError && news.length === 0 && (
+          <div className="mt-10 flex flex-col items-center gap-3 text-center">
+            <span className="text-5xl">😢</span>
+            <p className="text-white/40 text-sm">
+              ไม่พบข่าวสำหรับ {activeTicker}
+            </p>
+          </div>
+        )}
+
+        {!isLoading &&
+          !hasError &&
+          news.map((item, i) => (
+            <GoogleNewsCard key={i} item={item} ticker={activeTicker} />
+          ))}
+
+        {!isLoading && !hasError && news.length > 0 && (
+          <div className="py-1 flex flex-col items-center gap-1.5">
+            <div className="w-8 h-px bg-white/20" />
+            <p className="text-[12px] text-white/30">
+              ข่าวทั้งหมด {news.length} รายการ
+            </p>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+/* =======================
+   Main NewsScreen
+======================= */
+const GOOGLE_NEWS_TAB_ID = "__google_news__";
+
+export default function NewsScreen({ assets = [] }: Props) {
+  const cacheRef = useRef<Record<string, ChannelCache>>({});
   const { currencyRate } = useMarketStore();
 
   const [messages, setMessages] = useState<TelegramMessage[]>([]);
@@ -104,6 +418,8 @@ export default function NewsScreen() {
 
   const observerTarget = useRef<HTMLDivElement>(null);
 
+  const isGoogleTab = activeChannel === GOOGLE_NEWS_TAB_ID;
+
   /* =======================
      Helpers
   ======================= */
@@ -116,15 +432,14 @@ export default function NewsScreen() {
 
   function detectNewsType(text?: string) {
     if (!text) return DEFAULT_AUTHOR;
-
     const lower = text.normalize("NFC").toLowerCase();
 
     function isThaiLetter(c?: string) {
       if (!c) return false;
       const code = c.charCodeAt(0);
-      if (code >= 0x0e01 && code <= 0x0e2e) return true;
-      if (code >= 0x0e2f && code <= 0x0e5b) return true;
-      return false;
+      return (
+        (code >= 0x0e01 && code <= 0x0e2e) || (code >= 0x0e2f && code <= 0x0e5b)
+      );
     }
 
     let matchedConfig: (typeof NEWS_CONFIG)[number] | null = null;
@@ -135,11 +450,9 @@ export default function NewsScreen() {
         const key = keyword.normalize("NFC").toLowerCase();
         const index = lower.indexOf(key);
         if (index === -1) continue;
-
         const before = lower[index - 1];
         const after = lower[index + key.length];
         if (isThaiLetter(before) || isThaiLetter(after)) continue;
-
         if (index < earliestIndex) {
           earliestIndex = index;
           matchedConfig = config;
@@ -170,25 +483,22 @@ export default function NewsScreen() {
   }
 
   /* =======================
-     Fetch News
+     Fetch News (Telegram)
   ======================= */
   const fetchNews = useCallback(
     async (reset = false, channelOverride?: string) => {
       const channel = channelOverride ?? activeChannel;
-      const cached = cacheRef.current[channel];
+      if (channel === GOOGLE_NEWS_TAB_ID) return;
 
-      // If not a reset and we already have cached data, load more from cache state
+      const cached = cacheRef.current[channel];
       if (!reset && cached && cached.messages.length >= 50) {
         setHasMore(false);
         return;
       }
 
       try {
-        if (reset) {
-          setRefreshing(true);
-        } else {
-          setLoadingMore(true);
-        }
+        if (reset) setRefreshing(true);
+        else setLoadingMore(true);
 
         const currentOffset = reset ? 0 : (cached?.offset ?? 0);
         const res = await fetch(
@@ -212,13 +522,11 @@ export default function NewsScreen() {
           const merged = [...prevMessages, ...newMessages];
           const newOffset = (cached?.offset ?? 0) + 5;
           const newHasMore = newMessages.length >= 5;
-
           cacheRef.current[channel] = {
             messages: merged,
             offset: newOffset,
             hasMore: newHasMore,
           };
-
           setMessages(merged);
           setOffset(newOffset);
           setHasMore(newHasMore);
@@ -246,19 +554,20 @@ export default function NewsScreen() {
   ======================= */
   const handleChannelChange = (channelId: string) => {
     if (channelId === activeChannel) return;
-
-    const cached = cacheRef.current[channelId];
-
     setActiveChannel(channelId);
 
+    if (channelId === GOOGLE_NEWS_TAB_ID) {
+      setLoading(false);
+      return;
+    }
+
+    const cached = cacheRef.current[channelId];
     if (cached) {
-      // Restore from cache — no fetch needed
       setMessages(cached.messages);
       setOffset(cached.offset);
       setHasMore(cached.hasMore);
       setLoading(false);
     } else {
-      // First visit to this channel
       setMessages([]);
       setOffset(0);
       setHasMore(true);
@@ -270,9 +579,9 @@ export default function NewsScreen() {
      Effects
   ======================= */
   useEffect(() => {
+    if (activeChannel === GOOGLE_NEWS_TAB_ID) return;
     const cached = cacheRef.current[activeChannel];
     if (cached) {
-      // Already have data, just restore UI state
       setMessages(cached.messages);
       setOffset(cached.offset);
       setHasMore(cached.hasMore);
@@ -286,11 +595,17 @@ export default function NewsScreen() {
   const handleObserver = useCallback(
     (entries: IntersectionObserverEntry[]) => {
       const [target] = entries;
-      if (target.isIntersecting && hasMore && !loadingMore && !loading) {
+      if (
+        target.isIntersecting &&
+        hasMore &&
+        !loadingMore &&
+        !loading &&
+        !isGoogleTab
+      ) {
         fetchNews(false);
       }
     },
-    [hasMore, loadingMore, loading, fetchNews],
+    [hasMore, loadingMore, loading, fetchNews, isGoogleTab],
   );
 
   useEffect(() => {
@@ -304,28 +619,24 @@ export default function NewsScreen() {
   }, [handleObserver]);
 
   /* =======================
-     Derived
+     Derived (Telegram)
   ======================= */
   const filteredMessages = messages.filter(
     (msg) => msg.text && msg.text.trim() !== "",
   );
 
-  /** Format date label like LINE: วันนี้ / เมื่อวาน / 10 เมษายน 2568 */
   function formatDateChip(date: Date): string {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const yesterday = new Date(today);
     yesterday.setDate(today.getDate() - 1);
-
     const msgDay = new Date(
       date.getFullYear(),
       date.getMonth(),
       date.getDate(),
     );
-
     if (msgDay.getTime() === today.getTime()) return "วันนี้";
     if (msgDay.getTime() === yesterday.getTime()) return "เมื่อวาน";
-
     return date.toLocaleDateString("th-TH", {
       day: "numeric",
       month: "long",
@@ -333,7 +644,6 @@ export default function NewsScreen() {
     });
   }
 
-  /** Build a flat display list interleaved with date separator items */
   type DisplayItem =
     | { type: "date"; label: string; key: string }
     | { type: "message"; msg: TelegramMessage; index: number };
@@ -344,7 +654,6 @@ export default function NewsScreen() {
   filteredMessages.forEach((msg, index) => {
     const msgDate = new Date(msg.date * 1000);
     const dateKey = `${msgDate.getFullYear()}-${msgDate.getMonth()}-${msgDate.getDate()}`;
-
     if (dateKey !== lastDateKey) {
       displayItems.push({
         type: "date",
@@ -353,24 +662,13 @@ export default function NewsScreen() {
       });
       lastDateKey = dateKey;
     }
-
     displayItems.push({ type: "message", msg, index });
   });
 
-  const activeChannelInfo = CHANNELS.find((c) => c.id === activeChannel);
-
-  /**
-   * Renders text with:
-   * - Clickable URLs
-   * - 🛒/💰 **TICKER** patterns replaced with <TickerChip>
-   * - 🟢/**text** and 🔴/**text** rendered bold + colored
-   */
   const renderTextWithLinks = (text: string) => {
     if (!text) return "-";
-
     const segmentRegex =
       /(https?:\/\/[^\s]+|(?:🛒|💰)\s*\*\*([A-Z]{1,6})\*\*|((?:🟢|🔴)\s*)\*\*([^*]+)\*\*|\*\*((?:🟢|🔴)[^*]+)\*\*)/g;
-
     const parts: React.ReactNode[] = [];
     let lastIndex = 0;
     let match: RegExpExecArray | null;
@@ -386,7 +684,6 @@ export default function NewsScreen() {
         signalText2,
       ] = match;
       const matchStart = match.index;
-
       if (matchStart > lastIndex) {
         parts.push(
           <span key={`t-${keyCounter++}`}>
@@ -394,7 +691,6 @@ export default function NewsScreen() {
           </span>,
         );
       }
-
       if (tickerCapture) {
         parts.push(
           <TickerChip
@@ -430,7 +726,6 @@ export default function NewsScreen() {
           </a>,
         );
       }
-
       lastIndex = matchStart + fullMatch.length;
     }
 
@@ -439,9 +734,10 @@ export default function NewsScreen() {
         <span key={`t-${keyCounter++}`}>{text.slice(lastIndex)}</span>,
       );
     }
-
     return parts.length > 0 ? parts : "-";
   };
+
+  const activeChannelInfo = CHANNELS.find((c) => c.id === activeChannel);
 
   /* =======================
      Render
@@ -461,10 +757,11 @@ export default function NewsScreen() {
         {/* Title row */}
         <div className="flex items-center justify-between px-4 py-2.5 bg-black-lighter border-b border-white/[0.06]">
           <div className="flex items-center gap-2">
-            <span className="text-lg">📢</span>
+            <span className="text-lg">{isGoogleTab ? "📰" : "📢"}</span>
             <h2 className="text-[13px] font-semibold text-white/90 tracking-wide">
-              {activeChannelInfo?.emoji}{" "}
-              {activeChannelInfo?.label ?? "ข่าวหุ้น"}
+              {isGoogleTab
+                ? "ข่าวหุ้นของคุณ"
+                : `${activeChannelInfo?.emoji ?? ""} ${activeChannelInfo?.label ?? "ข่าวหุ้น"}`}
             </h2>
             {refreshing && (
               <span className="text-[11px] text-white/40 animate-pulse">
@@ -473,27 +770,30 @@ export default function NewsScreen() {
             )}
           </div>
 
-          <button
-            onClick={() => fetchNews(true)}
-            disabled={refreshing}
-            aria-label="Refresh"
-            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 transition disabled:opacity-40"
-          >
-            <RefreshIcon
-              className={`text-white/80 text-xl ${refreshing ? "animate-spin" : ""}`}
-            />
-          </button>
+          {!isGoogleTab && (
+            <button
+              onClick={() => fetchNews(true)}
+              disabled={refreshing}
+              aria-label="Refresh"
+              className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 transition disabled:opacity-40"
+            >
+              <RefreshIcon
+                className={`text-white/80 text-xl ${refreshing ? "animate-spin" : ""}`}
+              />
+            </button>
+          )}
         </div>
 
         {/* Channel tab pills */}
         <div className="flex items-center gap-2 px-4 py-2.5 bg-black border-b !border-yellow-400/[0.5] overflow-x-auto scrollbar-none">
+          {/* Telegram channels */}
           {CHANNELS.map((ch) => {
             const isActive = ch.id === activeChannel;
             return (
               <button
                 key={ch.id}
                 onClick={() => handleChannelChange(ch.id)}
-                disabled={loading}
+                disabled={loading && !isGoogleTab}
                 className={`
                   flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[12px] font-medium
                   whitespace-nowrap shrink-0 transition-all duration-200
@@ -509,137 +809,151 @@ export default function NewsScreen() {
               </button>
             );
           })}
+
+          {/* Google News tab — only shown if assets provided */}
+          {assets.length > 0 && (
+            <button
+              onClick={() => handleChannelChange(GOOGLE_NEWS_TAB_ID)}
+              className={`
+                flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[12px] font-medium
+                whitespace-nowrap shrink-0 transition-all duration-200
+                ${
+                  isGoogleTab
+                    ? "bg-accent-yellow text-black shadow-[0_0_12px_rgba(255,200,0,0.35)]"
+                    : "bg-white/[0.07] text-white/60 hover:bg-white/[0.12] hover:text-white/90"
+                }
+              `}
+            >
+              <span>📰</span>
+              <span>หุ้นของฉัน</span>
+            </button>
+          )}
         </div>
       </div>
 
       {/* ======================= CONTENT ======================= */}
       <div className="space-y-3 pt-[98px] pb-6">
-        {/* Loading skeleton */}
-        {loading && (
-          <div className="pt-[100px]">
-            <CommonLoading isFullScreen={false} />
-          </div>
-        )}
+        {/* ── Google News Panel ── */}
+        {isGoogleTab && <GoogleNewsPanel assets={assets} />}
 
-        {/* Empty state */}
-        {!loading && messages.length === 0 && (
-          <div className="mt-16 flex flex-col items-center gap-3 text-center">
-            <span className="text-5xl">😢</span>
-            <p className="text-white/40 text-sm">วันนี้ไม่มีข่าวในช่องนี้เลย</p>
-          </div>
-        )}
+        {/* ── Telegram Feed ── */}
+        {!isGoogleTab && (
+          <>
+            {loading && (
+              <div className="pt-[100px]">
+                <CommonLoading isFullScreen={false} />
+              </div>
+            )}
 
-        {/* News cards with date chips */}
-        {!loading &&
-          displayItems.map((item) => {
-            if (item.type === "date") {
-              return <DateChip key={item.key} label={item.label} />;
-            }
+            {!loading && messages.length === 0 && (
+              <div className="mt-16 flex flex-col items-center gap-3 text-center">
+                <span className="text-5xl">😢</span>
+                <p className="text-white/40 text-sm">
+                  วันนี้ไม่มีข่าวในช่องนี้เลย
+                </p>
+              </div>
+            )}
 
-            const { msg, index } = item;
-            const newsType = detectNewsType(msg.text);
-            const messageDate = new Date(msg.date * 1000);
-            const diffMinutes = (Date.now() - messageDate.getTime()) / 60_000;
-            const isNew = diffMinutes <= 30;
+            {!loading &&
+              displayItems.map((item) => {
+                if (item.type === "date") {
+                  return <DateChip key={item.key} label={item.label} />;
+                }
 
-            return (
-              <div
-                key={`${msg.id}-${index}`}
-                className="
-                  group relative
-                  bg-[#161616]
-                  rounded-2xl
-                  border border-white/[0.07]
-                  hover:border-white/[0.15]
-                  hover:bg-[#1a1a1a]
-                  transition-all duration-200
-                  overflow-hidden
-                "
-              >
-                {/* Subtle left accent bar */}
-                <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-accent-yellow/60 rounded-l-2xl" />
+                const { msg, index } = item;
+                const newsType = detectNewsType(msg.text);
+                const messageDate = new Date(msg.date * 1000);
+                const diffMinutes =
+                  (Date.now() - messageDate.getTime()) / 60_000;
+                const isNew = diffMinutes <= 30;
 
-                <div className="px-4 pt-3.5 pb-4 pl-5 bg-white !text-black">
-                  {/* Author row */}
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                      {/* Avatar */}
-                      <div className="relative shrink-0">
-                        <img
-                          src={newsType.image}
-                          alt="author"
-                          className="w-10 h-10 rounded-full object-cover ring-2 ring-accent-yellow/50"
-                        />
-                        {newsType.emoji && (
-                          <span className="absolute -right-1 -bottom-1 text-base leading-none">
-                            {newsType.emoji}
+                return (
+                  <div
+                    key={`${msg.id}-${index}`}
+                    className="
+                      group relative
+                      bg-[#161616]
+                      rounded-2xl
+                      border border-white/[0.07]
+                      hover:border-white/[0.15]
+                      hover:bg-[#1a1a1a]
+                      transition-all duration-200
+                      overflow-hidden
+                    "
+                  >
+                    <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-accent-yellow/60 rounded-l-2xl" />
+                    <div className="px-4 pt-3.5 pb-4 pl-5 bg-white !text-black">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-3">
+                          <div className="relative shrink-0">
+                            <img
+                              src={newsType.image}
+                              alt="author"
+                              className="w-10 h-10 rounded-full object-cover ring-2 ring-accent-yellow/50"
+                            />
+                            {newsType.emoji && (
+                              <span className="absolute -right-1 -bottom-1 text-base leading-none">
+                                {newsType.emoji}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-[13px] font-semibold text-white/90 leading-tight">
+                              {newsType.name}
+                            </span>
+                            <span className="text-[11px] text-white/35">
+                              {messageDate.toLocaleString("th-TH", {
+                                year: "numeric",
+                                month: "2-digit",
+                                day: "2-digit",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                                hour12: false,
+                              })}{" "}
+                              น.
+                            </span>
+                          </div>
+                        </div>
+                        {isNew && (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-gradient-to-r from-red-500 to-pink-500 text-white text-[10px] font-bold rounded-full shadow-sm animate-pulse shrink-0">
+                            🔥 ใหม่
                           </span>
                         )}
                       </div>
 
-                      {/* Name + date */}
-                      <div className="flex flex-col gap-0.5">
-                        <span className="text-[13px] font-semibold text-white/90 leading-tight">
-                          {newsType.name}
-                        </span>
-                        <span className="text-[11px] text-white/35">
-                          {messageDate.toLocaleString("th-TH", {
-                            year: "numeric",
-                            month: "2-digit",
-                            day: "2-digit",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                            hour12: false,
-                          })}{" "}
-                          น.
-                        </span>
-                      </div>
-                    </div>
+                      <p className="text-[14px] text-white/80 leading-relaxed whitespace-pre-line">
+                        {renderTextWithLinks(msg.text) || "-"}
+                      </p>
 
-                    {/* NEW badge */}
-                    {isNew && (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-gradient-to-r from-red-500 to-pink-500 text-white text-[10px] font-bold rounded-full shadow-sm animate-pulse shrink-0">
-                        🔥 ใหม่
-                      </span>
-                    )}
+                      {msg.image && (
+                        <div className="mt-3 rounded-xl overflow-hidden border border-white/[0.08]">
+                          <img
+                            src={msg.image}
+                            alt="post image"
+                            className="w-full object-cover max-h-[320px]"
+                          />
+                        </div>
+                      )}
+                    </div>
                   </div>
+                );
+              })}
 
-                  {/* Body */}
-                  <p className="text-[14px] text-white/80 leading-relaxed whitespace-pre-line">
-                    {renderTextWithLinks(msg.text) || "-"}
-                  </p>
-
-                  {/* Post image */}
-                  {msg.image && (
-                    <div className="mt-3 rounded-xl overflow-hidden border border-white/[0.08]">
-                      <img
-                        src={msg.image}
-                        alt="post image"
-                        className="w-full object-cover max-h-[320px]"
-                      />
-                    </div>
-                  )}
-                </div>
+            {loadingMore && (
+              <div className="py-6 flex justify-center">
+                <div className="w-7 h-7 rounded-full border-2 border-white/10 border-t-accent-yellow animate-spin" />
               </div>
-            );
-          })}
+            )}
 
-        {/* Loading more spinner */}
-        {loadingMore && (
-          <div className="py-6 flex justify-center">
-            <div className="w-7 h-7 rounded-full border-2 border-white/10 border-t-accent-yellow animate-spin" />
-          </div>
-        )}
+            <div ref={observerTarget} className="h-2" />
 
-        {/* Intersection observer anchor */}
-        <div ref={observerTarget} className="h-2" />
-
-        {/* End of feed */}
-        {!loading && !hasMore && messages.length > 0 && (
-          <div className="py-1 flex flex-col items-center gap-1.5">
-            <div className="w-8 h-px bg-white/20" />
-            <p className="text-[12px] text-white/30">อ่านครบทุกข่าวแล้ว</p>
-          </div>
+            {!loading && !hasMore && messages.length > 0 && (
+              <div className="py-1 flex flex-col items-center gap-1.5">
+                <div className="w-8 h-px bg-white/20" />
+                <p className="text-[12px] text-white/30">อ่านครบทุกข่าวแล้ว</p>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

@@ -146,7 +146,7 @@ export default function AnalystScreen({ assets, wishlist, userId }: Props) {
           <Earning wishlist={wishlist} assets={assets} />
         )}
 
-        {activeTab === "news" && <NewsScreen />}
+        {activeTab === "news" && <NewsScreen assets={assets}/>}
       </div>
     </div>
   );
