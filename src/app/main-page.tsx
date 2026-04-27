@@ -762,7 +762,6 @@ export default function MainApp({
                             value={allocationPercent}
                             decimals={2}
                             suffix="%"
-                            masked={isNumbersHidden}
                           />
                         )}
                       </div>
@@ -820,7 +819,6 @@ export default function MainApp({
                             value={profitPercent}
                             decimals={2}
                             suffix="%"
-                            masked={isNumbersHidden}
                             className={profitColor}
                           />
                         )}
