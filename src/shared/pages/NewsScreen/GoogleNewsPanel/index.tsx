@@ -20,6 +20,19 @@ type Asset = {
 };
 
 /* =======================
+   DateChip Component
+======================= */
+function DateChip({ label }: { label: string }) {
+  return (
+    <div className="flex items-center justify-center pb-2">
+      <span className="px-5 py-1 bg-black/40 backdrop-blur-sm border border-white/[0.1] rounded-full text-[11px] text-white/45 font-medium tracking-wide select-none">
+        {label}
+      </span>
+    </div>
+  );
+}
+
+/* =======================
    Helpers
 ======================= */
 function formatDateTime(dateStr: string) {
@@ -33,6 +46,17 @@ function formatDateTime(dateStr: string) {
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
+  });
+}
+
+function getDateLabel(dateStr: string) {
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return "";
+
+  return date.toLocaleDateString("th-TH", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
   });
 }
 
@@ -157,80 +181,89 @@ export default function GoogleNewsPanel({ assets }: { assets: Asset[] }) {
      Render
   ======================= */
   return (
-    <div className="space-y-3 pt-3">
-      {/* Loading */}
-      {loading && <CommonLoading isFullScreen={false} />}
+    <div>
 
       {/* News list */}
       {!loading &&
         news.map((item, i) => {
           const fresh = isFresh(item.pubDate);
 
+          const currentDate = getDateLabel(item.pubDate);
+          const prevDate = i > 0 ? getDateLabel(news[i - 1].pubDate) : null;
+
+          const showDateChip = i === 0 || currentDate !== prevDate;
+
           return (
-            <a
-              key={`${item.link}-${i}`}
-              href={item.link}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="
-                group relative block
-                bg-[#161616]
-                rounded-2xl
-                border border-white/[0.07]
-                hover:border-white/[0.15]
-                hover:bg-[#1a1a1a]
-                transition-all duration-200
-                overflow-hidden
-              "
-            >
-              {/* left border */}
-              <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-accent-yellow/60 rounded-l-2xl" />
+            <div key={`${item.link}-${i}`}>
+              {/* DATE CHIP */}
+              {showDateChip && <DateChip label={currentDate} />}
 
-              <div className="px-4 pt-3.5 pb-4 pl-5 bg-white !text-black">
-                {/* HEADER */}
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    <div className="relative shrink-0">
-                      <TickerAvatar ticker={item.symbol} />
+              {/* NEWS CARD */}
+              <a
+                href={item.link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="
+                  group relative block
+                  bg-[#161616]
+                  rounded-2xl
+                  border border-white/[0.07]
+                  hover:border-white/[0.15]
+                  hover:bg-[#1a1a1a]
+                  transition-all duration-200
+                  overflow-hidden
+                  mb-2
+                "
+              >
+                {/* left border */}
+                <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-accent-yellow/60 rounded-l-2xl" />
+
+                <div className="px-4 pt-3.5 pb-4 pl-5 bg-white !text-black">
+                  {/* HEADER */}
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      <div className="relative shrink-0">
+                        <TickerAvatar ticker={item.symbol} />
+                      </div>
+
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-[13px] font-semibold text-white/90 leading-tight">
+                          {item.symbol}
+                        </span>
+
+                        <span className="text-[11px] text-white/35">
+                          {formatDateTime(item.pubDate)} น.
+                        </span>
+                      </div>
                     </div>
 
-                    <div className="flex flex-col gap-0.5">
-                      <span className="text-[13px] font-semibold text-white/90 leading-tight">
-                        {item.symbol}
+                    {fresh && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-gradient-to-r from-red-500 to-pink-500 text-white text-[10px] font-bold rounded-full shadow-sm animate-pulse shrink-0">
+                        🔥 ใหม่
                       </span>
+                    )}
+                  </div>
 
-                      <span className="text-[11px] text-white/35">
-                        {formatDateTime(item.pubDate)} น.
-                      </span>
+                  {/* CONTENT */}
+                  <p className="text-[14px] text-white/80 leading-relaxed whitespace-pre-line">
+                    {item.title}
+                  </p>
+
+                  {/* SOURCE */}
+                  <div className="mt-2 text-[11px] text-black/80">
+                    จาก {item.source ?? "Google News"}
+                  </div>
+
+                  {/* CTA */}
+                  <div className="w-full flex justify-end">
+                    <div className="w-fit bg-accent-yellow inline-flex items-center gap-1.5 mx-0.5 px-2 py-0.5 rounded-full border border-white/20 !text-black text-[13px] font-semibold align-middle mb-1">
+                      <span>อ่านต่อ</span>
+                      <span>→</span>
                     </div>
                   </div>
-
-                  {fresh && (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-gradient-to-r from-red-500 to-pink-500 text-white text-[10px] font-bold rounded-full shadow-sm animate-pulse shrink-0">
-                      🔥 ใหม่
-                    </span>
-                  )}
                 </div>
-
-                {/* CONTENT */}
-                <p className="text-[14px] text-white/80 leading-relaxed whitespace-pre-line">
-                  {item.title}
-                </p>
-
-                {/* SOURCE */}
-                <div className="mt-2 text-[11px] text-black/80">
-                  จาก {item.source ?? "Google News"}
-                </div>
-
-                {/* CTA */}
-                <div className="w-full flex justify-end">
-                  <div className="w-fit bg-accent-yellow inline-flex items-center gap-1.5 mx-0.5 px-2 py-0.5 rounded-full border border-white/20 !text-black text-[13px] font-semibold align-middle mb-1">
-                    <span>อ่านต่อ</span>
-                    <span>→</span>
-                  </div>
-                </div>
-              </div>
-            </a>
+              </a>
+            </div>
           );
         })}
 
