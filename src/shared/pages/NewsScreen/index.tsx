@@ -130,18 +130,6 @@ export default function NewsScreen({ assets = [] }: Props) {
      Helpers
   ======================= */
 
-  function getTickerFromText(text?: string): string | null {
-    const EXCLUDED = new Set(["IPO", "USD", "CEO"]);
-    if (!text) return null;
-
-    const first = text.slice(0, 40);
-    const matches = first.match(/\b[A-Z]{3,5}\b/g);
-
-    if (!matches) return null;
-
-    return matches.find((t) => !EXCLUDED.has(t)) || null;
-  }
-
   function detectNewsType(text?: string, defaultTicker?: string) {
     if (!text) return DEFAULT_AUTHOR;
     const lower = text.normalize("NFC").toLowerCase();

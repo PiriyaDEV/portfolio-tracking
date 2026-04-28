@@ -144,6 +144,9 @@ const DEFAULT_NEWS: { key: string; source: string[] }[] = [
 ======================= */
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
+  const MAPPING_KEY: Record<string, string> = {
+    O: "Realty Income Corp",
+  };
 
   const symbolsParam = searchParams.get("symbols");
   const offset = Number(searchParams.get("offset") ?? 0);
@@ -153,11 +156,24 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "symbols is required" }, { status: 400 });
   }
 
-  const defaultKeys = DEFAULT_NEWS.map((d) => d.key);
+  const rawSymbols = symbolsParam.split(",").map((s) => s.trim());
+
+  const dynamicDefaultNews = [...DEFAULT_NEWS];
+
+  if (rawSymbols.includes("GC=F")) {
+    dynamicDefaultNews.push({
+      key: "ทองคำ",
+      source: ["LINE TODAY"],
+    });
+  }
+
+  const defaultKeys = dynamicDefaultNews.map((d) => d.key);
 
   // filter default keys ออกก่อน แล้วค่อย merge — ป้องกัน default โดน slice ทิ้ง
   const userSymbols = symbolsParam
     .split(",")
+    .map((s) => s.trim())
+    .map((s) => MAPPING_KEY[s] ?? s)
     .filter((s) => !defaultKeys.includes(s));
 
   try {
@@ -167,7 +183,7 @@ export async function GET(req: NextRequest) {
        Fetch DEFAULT_NEWS พร้อม source filter
     ======================= */
     const defaultResponses = await Promise.all(
-      DEFAULT_NEWS.map(async ({ key, source: allowedSources }) => {
+      dynamicDefaultNews.map(async ({ key, source: allowedSources }) => {
         const url = `https://news.google.com/rss/search?q=${encodeURIComponent(
           key,
         )}&hl=th&gl=TH&ceid=TH:th`;
@@ -220,7 +236,12 @@ export async function GET(req: NextRequest) {
         const parsed = parseRSS(xml);
 
         return parsed
-          .filter((item) => !(item.source && isThaiText(item.source)))
+          .filter((item) => {
+            const sourceIsThai = item.source ? isThaiText(item.source) : false;
+            const titleHasThai = isThaiText(item.title);
+
+            return !sourceIsThai && titleHasThai;
+          })
           .map((item) => ({ ...item, symbol }));
       }),
     );
