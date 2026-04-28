@@ -124,10 +124,13 @@ function dedupeNews(items: NewsItem[]): NewsItem[] {
 }
 
 /* =======================
-   Fixed symbols (always included)
-   ใช้ plain text — encodeURIComponent จะจัดการตอน fetch เอง
+   Default news (always included)
+   key    = คำค้นหา
+   source = กรองเฉพาะ source ที่ระบุ (empty array = ไม่กรอง)
 ======================= */
-const FIXED_SYMBOLS = ["อิหร่าน"];
+const DEFAULT_NEWS: { key: string; source: string[] }[] = [
+  { key: "อิหร่าน", source: ["LINE TODAY"] },
+];
 
 /* =======================
    GET
@@ -143,21 +146,58 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "symbols is required" }, { status: 400 });
   }
 
-  // filter fixed ออกก่อน แล้วค่อย slice — ป้องกัน fixed โดน slice ทิ้ง
+  const defaultKeys = DEFAULT_NEWS.map((d) => d.key);
+
+  // filter default keys ออกก่อน แล้วค่อย merge — ป้องกัน default โดน slice ทิ้ง
   const userSymbols = symbolsParam
     .split(",")
-    .filter((s) => !FIXED_SYMBOLS.includes(s));
-
-  const mergedSymbols = [...FIXED_SYMBOLS, ...userSymbols];
+    .filter((s) => !defaultKeys.includes(s));
 
   try {
     const allNews: NewsItem[] = [];
 
     /* =======================
-       Fetch ทุก ticker พร้อมกัน
+       Fetch DEFAULT_NEWS พร้อม source filter
     ======================= */
-    const responses = await Promise.all(
-      mergedSymbols.map(async (symbol) => {
+    const defaultResponses = await Promise.all(
+      DEFAULT_NEWS.map(async ({ key, source: allowedSources }) => {
+        const url = `https://news.google.com/rss/search?q=${encodeURIComponent(
+          key,
+        )}&hl=th&gl=TH&ceid=TH:th`;
+
+        const res = await fetch(url, {
+          headers: { "User-Agent": "Mozilla/5.0" },
+          next: { revalidate: 300 },
+        });
+
+        if (!res.ok) return [];
+
+        const xml = await res.text();
+        const parsed = parseRSS(xml);
+
+        return parsed
+          .filter((item) => {
+            // ถ้าไม่มี allowedSources หรือ array ว่าง → ไม่กรอง
+            if (!allowedSources.length) return true;
+            // กรองเฉพาะข่าวที่ source ตรงกับที่ระบุ
+            return (
+              item.source !== undefined &&
+              allowedSources.some(
+                (s) => item.source!.toLowerCase() === s.toLowerCase(),
+              )
+            );
+          })
+          .map((item) => ({ ...item, symbol: key }));
+      }),
+    );
+
+    defaultResponses.forEach((arr) => allNews.push(...arr));
+
+    /* =======================
+       Fetch user symbols (ไม่มี source filter)
+    ======================= */
+    const userResponses = await Promise.all(
+      userSymbols.map(async (symbol) => {
         const url = `https://news.google.com/rss/search?q=${encodeURIComponent(
           symbol,
         )}&hl=th&gl=TH&ceid=TH:th`;
@@ -172,14 +212,11 @@ export async function GET(req: NextRequest) {
         const xml = await res.text();
         const parsed = parseRSS(xml);
 
-        return parsed.map((item) => ({
-          ...item,
-          symbol,
-        }));
+        return parsed.map((item) => ({ ...item, symbol }));
       }),
     );
 
-    responses.forEach((arr) => allNews.push(...arr));
+    userResponses.forEach((arr) => allNews.push(...arr));
 
     /* =======================
        DEDUPE

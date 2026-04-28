@@ -309,7 +309,7 @@ export default function GoogleNewsPanel({ assets }: { assets: Asset[] }) {
 
       {/* Loading more */}
       {loadingMore && (
-        <div className="py-6 flex justify-center">
+        <div className="pt-[100px]">
           <CommonLoading isFullScreen={false} />
         </div>
       )}
