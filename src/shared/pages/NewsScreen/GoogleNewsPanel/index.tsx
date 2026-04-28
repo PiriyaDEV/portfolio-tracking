@@ -109,10 +109,15 @@ function TickerAvatar({ ticker }: { ticker: string }) {
   );
 }
 
+type Props = {
+  assets: Asset[];
+  detectNewsType: any;
+};
+
 /* =======================
    Component
 ======================= */
-export default function GoogleNewsPanel({ assets }: { assets: Asset[] }) {
+export default function GoogleNewsPanel({ assets, detectNewsType }: Props) {
   const [news, setNews] = useState<GoogleNewsItem[]>([]);
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
@@ -256,21 +261,42 @@ export default function GoogleNewsPanel({ assets }: { assets: Asset[] }) {
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-3">
                       <div className="relative shrink-0">
-                        <TickerAvatar ticker={item.symbol} />
+                        {/* ใช้ newsType เหมือน Telegram card */}
+                        {(() => {
+                          const newsType = detectNewsType(
+                            item.title,
+                            item.symbol,
+                          );
+                          return (
+                            <>
+                              <img
+                                src={newsType.image}
+                                alt="author"
+                                className="w-10 h-10 rounded-full object-cover ring-2 ring-accent-yellow/50"
+                              />
+                              {newsType.emoji && (
+                                <span className="absolute -right-1 -bottom-1 text-base leading-none">
+                                  {newsType.emoji}
+                                </span>
+                              )}
+                            </>
+                          );
+                        })()}
                       </div>
 
                       <div className="flex flex-col gap-0.5">
                         <div className="flex items-center gap-1.5">
-                          <span className="text-[13px] font-semibold text-white/90 leading-tight">
-                            {isMarketOverview ? "ข่าวอเมริกา" : item.symbol}
-                          </span>
-                          {isMarketOverview && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 font-semibold">
-                              ภาพรวมตลาด
-                            </span>
-                          )}
+                          {(() => {
+                            const newsType = detectNewsType(item.title, item.symbol);
+                            return (
+                              <>
+                                <span className="text-[13px] font-semibold text-white/90 leading-tight">
+                                  {newsType.name}
+                                </span>
+                              </>
+                            );
+                          })()}
                         </div>
-
                         <span className="text-[11px] text-white/35">
                           {formatDateTime(item.pubDate)} น.
                         </span>

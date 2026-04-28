@@ -189,34 +189,45 @@ export const NEWS_CONFIG = [
   {
     key: "thaiusinvest",
     name: "แอ๊ดอั้ม",
-    image: "https://yt3.googleusercontent.com/2mOv094mTt_NYLhBQ3LQhI4DR_j2dtA7psR0ZfP2xDWToQr9n25aZP6H0O7_7uCA8awEFnQC9w=s160-c-k-c0x00ffffff-no-rj",
+    image:
+      "https://yt3.googleusercontent.com/2mOv094mTt_NYLhBQ3LQhI4DR_j2dtA7psR0ZfP2xDWToQr9n25aZP6H0O7_7uCA8awEFnQC9w=s160-c-k-c0x00ffffff-no-rj",
     emoji: "🐷",
     keywords: ["แอ๊ดอั้ม"],
+  },
+  {
+    key: "line today",
+    name: "LINE TODAY",
+    image:
+      "data:image/png;base64,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",
+    emoji: "📰",
+    keywords: ["LINE TODAY"],
   },
 ];
 
 // Default author (ถ้าไม่เจอ keyword ไหนเลย)
 export const DEFAULT_AUTHOR = {
-  key: "default",
-  name: "จาง (วงใน)",
+  key: "us",
+  name: "ข่าวหุ้นอเมริกา",
   image:
-    "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRn7p7pMMHspGbtZwGm6GWDBcXC8LkX73h1iGalFYgv-mf6F-L9",
+    "https://upload.wikimedia.org/wikipedia/en/archive/a/a4/20151118161037%21Flag_of_the_United_States.svg",
   emoji: "🇺🇸",
-  keywords: [],
+  keywords: [""],
 };
 
 export const CHANNEL_DEFAULT_AUTHOR: Record<string, typeof DEFAULT_AUTHOR> = {
   usstockthailand1: {
     key: "default",
     name: "จาง (วงใน)",
-    image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRn7p7pMMHspGbtZwGm6GWDBcXC8LkX73h1iGalFYgv-mf6F-L9",
+    image:
+      "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRn7p7pMMHspGbtZwGm6GWDBcXC8LkX73h1iGalFYgv-mf6F-L9",
     emoji: "🇺🇸",
     keywords: [],
   },
   wethaiinvestbot: {
     key: "thaiusinvest",
     name: "แอ๊ดอั้ม",
-    image: "https://yt3.googleusercontent.com/2mOv094mTt_NYLhBQ3LQhI4DR_j2dtA7psR0ZfP2xDWToQr9n25aZP6H0O7_7uCA8awEFnQC9w=s160-c-k-c0x00ffffff-no-rj",
+    image:
+      "https://yt3.googleusercontent.com/2mOv094mTt_NYLhBQ3LQhI4DR_j2dtA7psR0ZfP2xDWToQr9n25aZP6H0O7_7uCA8awEFnQC9w=s160-c-k-c0x00ffffff-no-rj",
     emoji: "🐷",
     keywords: [],
   },

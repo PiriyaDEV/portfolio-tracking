@@ -126,14 +126,20 @@ export default function NewsScreen({ assets = [] }: Props) {
   /* =======================
      Helpers
   ======================= */
+
   function getTickerFromText(text?: string): string | null {
+    const EXCLUDED = new Set(["IPO", "USD", "CEO"]);
     if (!text) return null;
+
     const first = text.slice(0, 40);
-    const match = first.match(/\b[A-Z]{3,5}\b/);
-    return match ? match[0] : null;
+    const matches = first.match(/\b[A-Z]{3,5}\b/g);
+
+    if (!matches) return null;
+
+    return matches.find((t) => !EXCLUDED.has(t)) || null;
   }
 
-  function detectNewsType(text?: string) {
+  function detectNewsType(text?: string, defaultTicker?: string) {
     if (!text) return DEFAULT_AUTHOR;
     const lower = text.normalize("NFC").toLowerCase();
 
@@ -165,14 +171,14 @@ export default function NewsScreen({ assets = [] }: Props) {
 
     if (matchedConfig) return matchedConfig;
 
-    const ticker = getTickerFromText(text);
-    if (ticker) {
+    if (defaultTicker) {
+      console.log('de', defaultTicker)
       const token = process.env.NEXT_PUBLIC_LOGOKIT_TOKEN;
       return {
         key: "ticker",
-        name: ticker,
+        name: defaultTicker,
         image: token
-          ? `https://img.logokit.com/ticker/${ticker}?token=${token}`
+          ? `https://img.logokit.com/ticker/${defaultTicker}?token=${token}`
           : DEFAULT_AUTHOR.image,
         emoji: null,
         keywords: [],
@@ -537,7 +543,9 @@ export default function NewsScreen({ assets = [] }: Props) {
       {/* ======================= CONTENT ======================= */}
       <div className="space-y-3 pt-[98px] pb-6">
         {/* ── Google News Panel ── */}
-        {isGoogleTab && <GoogleNewsPanel assets={assets} />}
+        {isGoogleTab && (
+          <GoogleNewsPanel assets={assets} detectNewsType={detectNewsType} />
+        )}
 
         {/* ── Telegram Feed ── */}
         {!isGoogleTab && (
