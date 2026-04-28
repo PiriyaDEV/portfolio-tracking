@@ -9,6 +9,13 @@ type NewsItem = {
 };
 
 /* =======================
+   Helper: detect Thai source
+======================= */
+function isThaiText(text: string): boolean {
+  return /[\u0E00-\u0E7F]/.test(text);
+}
+
+/* =======================
    RSS Parser
 ======================= */
 function parseRSS(xml: string): Omit<NewsItem, "symbol">[] {
@@ -212,7 +219,9 @@ export async function GET(req: NextRequest) {
         const xml = await res.text();
         const parsed = parseRSS(xml);
 
-        return parsed.map((item) => ({ ...item, symbol }));
+        return parsed
+          .filter((item) => !(item.source && isThaiText(item.source)))
+          .map((item) => ({ ...item, symbol }));
       }),
     );
 

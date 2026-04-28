@@ -11,7 +11,7 @@ import {
 } from "./config.constants";
 import { GraphModal } from "../AnalystScreen/components/GraphPrice/components/GraphModal";
 import { useMarketStore } from "@/store/useMarketStore";
-import GoogleNewsPanel from "./GoogleNewsPanel";
+import GoogleNewsPanel, { type GoogleNewsPanelRef } from "./GoogleNewsPanel";
 
 /* =======================
    Types
@@ -109,6 +109,9 @@ export default function NewsScreen({ assets = [] }: Props) {
   const cacheRef = useRef<Record<string, ChannelCache>>({});
   const { currencyRate } = useMarketStore();
 
+  // ref to control GoogleNewsPanel refresh
+  const googleNewsPanelRef = useRef<GoogleNewsPanelRef>(null);
+
   const [messages, setMessages] = useState<TelegramMessage[]>([]);
   const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -172,7 +175,6 @@ export default function NewsScreen({ assets = [] }: Props) {
     if (matchedConfig) return matchedConfig;
 
     if (defaultTicker) {
-      console.log('de', defaultTicker)
       const token = process.env.NEXT_PUBLIC_LOGOKIT_TOKEN;
       return {
         key: "ticker",
@@ -281,6 +283,17 @@ export default function NewsScreen({ assets = [] }: Props) {
       setOffset(0);
       setHasMore(true);
       setLoading(true);
+    }
+  };
+
+  /* =======================
+     Refresh handler (unified)
+  ======================= */
+  const handleRefresh = () => {
+    if (isGoogleTab) {
+      googleNewsPanelRef.current?.refresh();
+    } else {
+      fetchNews(true);
     }
   };
 
@@ -479,18 +492,17 @@ export default function NewsScreen({ assets = [] }: Props) {
             )}
           </div>
 
-          {!isGoogleTab && (
-            <button
-              onClick={() => fetchNews(true)}
-              disabled={refreshing}
-              aria-label="Refresh"
-              className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 transition disabled:opacity-40"
-            >
-              <RefreshIcon
-                className={`text-white/80 text-xl ${refreshing ? "animate-spin" : ""}`}
-              />
-            </button>
-          )}
+          {/* Refresh button — shown on all tabs */}
+          <button
+            onClick={handleRefresh}
+            disabled={!isGoogleTab && refreshing}
+            aria-label="Refresh"
+            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 transition disabled:opacity-40"
+          >
+            <RefreshIcon
+              className={`text-white/80 text-xl ${refreshing ? "animate-spin" : ""}`}
+            />
+          </button>
         </div>
 
         {/* Channel tab pills */}
@@ -544,7 +556,11 @@ export default function NewsScreen({ assets = [] }: Props) {
       <div className="space-y-3 pt-[98px] pb-6">
         {/* ── Google News Panel ── */}
         {isGoogleTab && (
-          <GoogleNewsPanel assets={assets} detectNewsType={detectNewsType} />
+          <GoogleNewsPanel
+            ref={googleNewsPanelRef}
+            assets={assets}
+            detectNewsType={detectNewsType}
+          />
         )}
 
         {/* ── Telegram Feed ── */}
@@ -626,7 +642,7 @@ export default function NewsScreen({ assets = [] }: Props) {
                           </div>
                         </div>
                         {isNew && (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-gradient-to-r from-red-500 to-pink-500 text-white text-[10px] font-bold rounded-full shadow-sm animate-pulse shrink-0">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-gradient-to-r from-red-500 to-pink-500 !text-white text-[10px] font-bold rounded-full shadow-sm animate-pulse shrink-0">
                             🔥 ใหม่
                           </span>
                         )}
