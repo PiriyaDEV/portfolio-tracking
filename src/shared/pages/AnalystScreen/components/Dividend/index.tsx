@@ -4,6 +4,7 @@ import { getLogo, getName } from "@/app/lib/utils";
 import { useState } from "react";
 import { GraphModal } from "../GraphPrice/components/GraphModal";
 import { useMarketStore } from "@/store/useMarketStore";
+import DividendCalculatorTab from "./DividendCalculatorTab";
 
 type Currency = "THB" | "USD";
 
@@ -31,6 +32,7 @@ type SortKey =
   | "dividendYieldPercent"
   | "annualDividendBase";
 type SortDir = "asc" | "desc";
+type TabId = "my_stocks" | "calculator";
 
 /* =======================
    Helpers
@@ -84,10 +86,53 @@ function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
 }
 
 /* =======================
-   Component
+   Tab Pills
 ======================= */
 
-export default function DividendSummary({ data }: DividendSummaryProps) {
+const TABS: { id: TabId; emoji: string; label: string }[] = [
+  { id: "my_stocks", emoji: "📊", label: "หุ้นของฉัน" },
+  { id: "calculator", emoji: "🧮", label: "คำนวณปันผล" },
+];
+
+function TabPills({
+  active,
+  onChange,
+}: {
+  active: TabId;
+  onChange: (id: TabId) => void;
+}) {
+  return (
+    <div className="flex items-center gap-2 overflow-x-auto scrollbar-none">
+      {TABS.map((tab) => {
+        const isActive = tab.id === active;
+        return (
+          <button
+            key={tab.id}
+            onClick={() => onChange(tab.id)}
+            className={`
+              flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[12px] font-medium
+              whitespace-nowrap shrink-0 transition-all duration-200
+              ${
+                isActive
+                  ? "bg-yellow-400 text-black shadow-[0_0_12px_rgba(255,200,0,0.35)]"
+                  : "bg-white/[0.07] text-white/60 hover:bg-white/[0.12] hover:text-white/90"
+              }
+            `}
+          >
+            <span>{tab.emoji}</span>
+            <span>{tab.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/* =======================
+   My Stocks Tab
+======================= */
+
+function MyStocksTab({ data }: Pick<DividendSummaryProps, "data">) {
   const [sortKey, setSortKey] = useState<SortKey>("annualDividendBase");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
@@ -95,7 +140,7 @@ export default function DividendSummary({ data }: DividendSummaryProps) {
 
   if (!data) {
     return (
-      <div className="mt-[80px] mx-4 bg-white/[0.03] border border-white/[0.07] text-gray-500 p-6 rounded-2xl text-center">
+      <div className="mt-6 mx-4 bg-white/[0.03] border border-white/[0.07] text-gray-500 p-6 rounded-2xl text-center">
         <div className="text-4xl mb-2">🏦</div>
         <p>ไม่มีข้อมูลเงินปันผล</p>
       </div>
@@ -138,7 +183,6 @@ export default function DividendSummary({ data }: DividendSummaryProps) {
     return 0;
   });
 
-  // Yield top-3 for medals (always by yield desc, independent of sort)
   const yieldRanks = [...entries]
     .filter(([, d]) => d.dividendYieldPercent != null)
     .sort(
@@ -149,7 +193,6 @@ export default function DividendSummary({ data }: DividendSummaryProps) {
     .slice(0, 3)
     .map(([symbol]) => symbol);
 
-  // Annual top-3 for medals
   const annualRanks = [...entries]
     .filter(([, d]) => d.annualDividendBase != null)
     .sort(
@@ -170,7 +213,7 @@ export default function DividendSummary({ data }: DividendSummaryProps) {
     "px-3 py-3 align-middle text-[11px] font-semibold tracking-wider uppercase cursor-pointer select-none";
 
   return (
-    <div className="mt-[80px] pb-[100px] flex flex-col gap-0">
+    <div className="pb-[100px] flex flex-col gap-0">
       {selectedSymbol && (
         <GraphModal
           symbol={selectedSymbol}
@@ -179,14 +222,14 @@ export default function DividendSummary({ data }: DividendSummaryProps) {
         />
       )}
 
-      {/* ── Header ── */}
+      {/* Header */}
       <div className="mb-3">
         <h2 className="text-base font-bold text-white flex items-center gap-2">
           📊 สรุปเงินปันผลรายปี
         </h2>
       </div>
 
-      {/* ── Table card ── */}
+      {/* Table card */}
       <div
         className="rounded-2xl overflow-hidden border border-white/[0.07]"
         style={{ background: "rgba(255,255,255,0.025)" }}
@@ -272,7 +315,6 @@ export default function DividendSummary({ data }: DividendSummaryProps) {
                       : "transparent",
                   }}
                 >
-                  {/* Symbol + logo + name */}
                   <td className="px-3 py-3 align-middle">
                     <div
                       className="flex items-center gap-2"
@@ -307,7 +349,6 @@ export default function DividendSummary({ data }: DividendSummaryProps) {
                     </div>
                   </td>
 
-                  {/* Dividend per share */}
                   <td className="px-2 py-3 text-gray-400 align-middle text-[12px]">
                     {formatCurrency(d.dividendPerShare, d.originalCurrency)}
                     <span className="text-gray-600 ml-0.5 text-[10px]">
@@ -315,7 +356,6 @@ export default function DividendSummary({ data }: DividendSummaryProps) {
                     </span>
                   </td>
 
-                  {/* Yield */}
                   <td className="px-2 py-3 text-right align-middle">
                     <span className="inline-flex items-center gap-1 justify-end">
                       {yieldEmoji && (
@@ -330,7 +370,6 @@ export default function DividendSummary({ data }: DividendSummaryProps) {
                     </span>
                   </td>
 
-                  {/* Annual dividend */}
                   <td className="px-4 py-3 text-right align-middle">
                     <span className="font-bold text-[13px] text-gray-100">
                       {formatCurrency(d.annualDividendBase, baseCurrency)}
@@ -343,7 +382,7 @@ export default function DividendSummary({ data }: DividendSummaryProps) {
         </table>
       </div>
 
-      {/* ── Fixed summary bar ── */}
+      {/* Fixed summary bar */}
       <div
         className="fixed bottom-[70px] left-1/2 -translate-x-1/2 max-w-[450px] w-full z-[98] px-4 py-4"
         style={{
@@ -365,6 +404,34 @@ export default function DividendSummary({ data }: DividendSummaryProps) {
             <span className="text-[11px] text-gray-500">บาท/ปี</span>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/* =======================
+   Root Component
+======================= */
+
+export default function DividendSummary({ data }: DividendSummaryProps) {
+  const [activeTab, setActiveTab] = useState<TabId>("my_stocks");
+
+  return (
+    <div className="flex flex-col">
+      {/* Sticky tab pills — sits just below whatever fixed header you have */}
+      <div className="fixed top-[160px] left-1/2 -translate-x-1/2 max-w-[450px] w-full z-[99]">
+        <div className="flex items-center justify-between px-4 py-2.5 bg-black-lighter border-b border-white/[0.06] border-b border-yellow-400/[0.5]">
+          <TabPills active={activeTab} onChange={setActiveTab} />
+        </div>
+      </div>
+
+      {/* Tab content — padding handled inside each tab */}
+      <div className="mt-[140px]">
+        {activeTab === "my_stocks" ? (
+          <MyStocksTab data={data} />
+        ) : (
+          <DividendCalculatorTab />
+        )}
       </div>
     </div>
   );
