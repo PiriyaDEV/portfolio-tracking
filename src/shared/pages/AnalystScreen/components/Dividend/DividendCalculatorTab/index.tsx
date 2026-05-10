@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { getLogo, getName } from "@/app/lib/utils";
 import StockSearchSelect from "@/shared/pages/ViewScreen/components/StockSearchSelect";
+import { FaTrashCan } from "react-icons/fa6";
 
 /* =======================
    Types
@@ -35,7 +36,16 @@ type StockEntry = {
   result: CalcResult | null;
   loading: boolean;
   error: string | null;
-  collapsed: boolean; // NEW
+  collapsed: boolean;
+};
+
+// Shape stored in column N
+type SavedDividendEntry = {
+  symbol: string;
+  investmentAmount: number;
+  costPerShare: number | null;
+  useCurrentPrice: boolean;
+  savedAt: string;
 };
 
 /* =======================
@@ -106,7 +116,24 @@ const newEntry = (): StockEntry => ({
   result: null,
   loading: false,
   error: null,
-  collapsed: false, // NEW
+  collapsed: false,
+});
+
+// Build a StockEntry from a saved record (no result yet — will recalculate)
+const entryFromSaved = (saved: SavedDividendEntry): StockEntry => ({
+  id: String(++idCounter),
+  symbol: saved.symbol,
+  shortName: null,
+  originalCurrency: null,
+  currentPrice: null,
+  priceLoading: false,
+  investmentAmount: String(saved.investmentAmount),
+  costPerShare: saved.costPerShare != null ? String(saved.costPerShare) : "",
+  useCurrentPrice: saved.useCurrentPrice,
+  result: null,
+  loading: false,
+  error: null,
+  collapsed: false,
 });
 
 /* =======================
@@ -128,13 +155,103 @@ function Chevron({ open }: { open: boolean }) {
 }
 
 /* =======================
+   Sheet helpers
+======================= */
+
+function saveDividendToSheet(userId: string, entries: StockEntry[]): void {
+  const toSave: SavedDividendEntry[] = entries
+    .filter((e) => e.symbol && e.result)
+    .map((e) => ({
+      symbol: e.symbol!,
+      investmentAmount: parseFloat(e.investmentAmount.replace(/,/g, "")),
+      costPerShare: e.useCurrentPrice
+        ? null
+        : parseFloat(e.costPerShare.replace(/,/g, "")),
+      useCurrentPrice: e.useCurrentPrice,
+      savedAt: new Date().toISOString(),
+    }));
+
+  if (toSave.length === 0) return;
+
+  fetch("/api/dividend-calculator/save", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId, entries: toSave }),
+  }).catch((err) => console.error("saveDividendToSheet error:", err));
+}
+
+async function loadDividendFromSheet(
+  userId: string,
+): Promise<SavedDividendEntry[]> {
+  const res = await fetch(
+    `/api/dividend-calculator/save?userId=${encodeURIComponent(userId)}`,
+  );
+  if (!res.ok) return [];
+  const data = await res.json();
+  return Array.isArray(data.entries) ? data.entries : [];
+}
+
+/* =======================
    Main Component
 ======================= */
 
-export default function DividendCalculatorTab() {
+export default function DividendCalculatorTab({ userId }: { userId: string }) {
   const [entries, setEntries] = useState<StockEntry[]>([newEntry()]);
   const [usW8Ben, setUsW8Ben] = useState(true);
-  const [summaryCollapsed, setSummaryCollapsed] = useState(false); // NEW
+  const [summaryCollapsed, setSummaryCollapsed] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
+
+  // ── Load saved entries on mount, then auto-calculate each one ──────────────
+  useEffect(() => {
+    if (!userId) {
+      setInitialLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    async function hydrate() {
+      try {
+        const saved = await loadDividendFromSheet(userId);
+
+        if (cancelled) return;
+
+        if (saved.length === 0) {
+          setInitialLoading(false);
+          return;
+        }
+
+        // Build entries from saved data
+        const restored = saved.map(entryFromSaved);
+
+        // Calculate all before rendering
+        const hydrated = await Promise.all(
+          restored.map(async (entry) => {
+            const calculated = await recalculateEntry(entry);
+
+            return {
+              ...entry,
+              ...calculated,
+            };
+          }),
+        );
+
+        if (cancelled) return;
+
+        // Render only once
+        setEntries(hydrated);
+        setInitialLoading(false);
+      } catch {
+        if (!cancelled) setInitialLoading(false);
+      }
+    }
+
+    hydrate();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
 
   const update = useCallback(
     (id: string, patch: Partial<StockEntry>) =>
@@ -222,12 +339,21 @@ export default function DividendCalculatorTab() {
       });
       if (!res.ok) throw new Error("เกิดข้อผิดพลาด");
       const data: CalcResult = await res.json();
-      // Auto-collapse the card after successful calculation for better UX
-      update(entry.id, {
-        result: data,
-        currentPrice: data.currentPrice,
-        loading: false,
-        collapsed: false,
+
+      setEntries((prev) => {
+        const next = prev.map((e) =>
+          e.id === entry.id
+            ? {
+                ...e,
+                result: data,
+                currentPrice: data.currentPrice,
+                loading: false,
+                collapsed: false,
+              }
+            : e,
+        );
+        if (userId) saveDividendToSheet(userId, next);
+        return next;
       });
     } catch (err: any) {
       update(entry.id, { error: err.message, loading: false });
@@ -246,6 +372,31 @@ export default function DividendCalculatorTab() {
   const hasUsStock = entries.some(
     (e) => e.result?.originalCurrency === "USD" || e.originalCurrency === "USD",
   );
+
+  // ── Loading skeleton while hydrating ──────────────────────────────────────
+  if (initialLoading) {
+    return (
+      <div className="flex flex-col gap-4 px-0 pb-[200px]">
+        <div className="px-1 mb-1">
+          <h2 className="text-base font-bold text-white flex items-center gap-2">
+            🧮 คำนวณเงินปันผล
+          </h2>
+          <p className="text-[12px] text-gray-500 mt-0.5">
+            ใส่หุ้นและจำนวนเงินลงทุนเพื่อดูปันผลที่คาดว่าจะได้รับต่อปี
+          </p>
+        </div>
+        <div className="flex flex-col gap-3">
+          {[1, 2].map((i) => (
+            <div
+              key={i}
+              className="rounded-2xl border border-white/[0.07] h-16 animate-pulse"
+              style={{ background: "rgba(255,255,255,0.025)" }}
+            />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-4 px-0 pb-[200px]">
@@ -324,18 +475,14 @@ export default function DividendCalculatorTab() {
             className="rounded-2xl border border-yellow-500/25 overflow-hidden shadow-[0_0_8px_rgba(234,179,8,0.35)]"
             style={{ background: "rgba(100,50,0,0.9)" }}
           >
-            {/* Toggle bar — always visible */}
             <button
               onClick={() => setSummaryCollapsed((v) => !v)}
               className="flex items-center justify-between w-full px-5 py-3"
             >
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] text-gray-500 font-semibold tracking-wider uppercase">
-                  สรุปรวม
-                </span>
-              </div>
+              <span className="text-[11px] text-gray-500 font-semibold tracking-wider uppercase">
+                สรุปรวม
+              </span>
               <div className="flex items-center gap-3">
-                {/* Always show the key number in the toggle bar */}
                 <div className="flex items-baseline gap-1">
                   <span className="text-[18px] font-black text-emerald-400">
                     {fmt(totalMonthly)}
@@ -346,7 +493,6 @@ export default function DividendCalculatorTab() {
               </div>
             </button>
 
-            {/* Collapsible body */}
             {!summaryCollapsed && (
               <>
                 <div className="flex items-center justify-between px-5 py-3 border-t border-yellow-500/15">
@@ -398,6 +544,122 @@ export default function DividendCalculatorTab() {
 }
 
 /* =======================
+   recalculate — shared between manual calculate() and hydrate auto-calc
+   Updates setEntries directly so it works outside the component closure too
+======================= */
+
+async function recalculateEntry(
+  entry: StockEntry,
+): Promise<Partial<StockEntry>> {
+  if (!entry.symbol || !entry.investmentAmount) {
+    return {};
+  }
+
+  const investmentAmount = parseFloat(entry.investmentAmount.replace(/,/g, ""));
+
+  const costPerShare = entry.useCurrentPrice
+    ? undefined
+    : parseFloat(entry.costPerShare.replace(/,/g, ""));
+
+  if (isNaN(investmentAmount) || investmentAmount <= 0) {
+    return {};
+  }
+
+  if (!entry.useCurrentPrice && (isNaN(costPerShare!) || costPerShare! <= 0)) {
+    return {};
+  }
+
+  try {
+    const res = await fetch("/api/dividend-calculator", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        symbol: entry.symbol,
+        investmentAmount,
+        costPerShare,
+        useCurrentPrice: entry.useCurrentPrice,
+      }),
+    });
+
+    if (!res.ok) throw new Error();
+
+    const data: CalcResult = await res.json();
+
+    return {
+      result: data,
+      currentPrice: data.currentPrice,
+      shortName: data.shortName,
+      originalCurrency: data.originalCurrency,
+      loading: false,
+      collapsed: false,
+    };
+  } catch {
+    return {
+      loading: false,
+    };
+  }
+}
+
+async function recalculate(
+  entry: StockEntry,
+  setEntries: React.Dispatch<React.SetStateAction<StockEntry[]>>,
+): Promise<void> {
+  if (!entry.symbol || !entry.investmentAmount) return;
+
+  const investmentAmount = parseFloat(entry.investmentAmount.replace(/,/g, ""));
+  const costPerShare = entry.useCurrentPrice
+    ? undefined
+    : parseFloat(entry.costPerShare.replace(/,/g, ""));
+
+  if (isNaN(investmentAmount) || investmentAmount <= 0) return;
+  if (!entry.useCurrentPrice && (isNaN(costPerShare!) || costPerShare! <= 0))
+    return;
+
+  setEntries((prev) =>
+    prev.map((e) =>
+      e.id === entry.id ? { ...e, loading: true, error: null } : e,
+    ),
+  );
+
+  try {
+    const res = await fetch("/api/dividend-calculator", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        symbol: entry.symbol,
+        investmentAmount,
+        costPerShare,
+        useCurrentPrice: entry.useCurrentPrice,
+      }),
+    });
+    if (!res.ok) throw new Error();
+    const data: CalcResult = await res.json();
+
+    setEntries((prev) =>
+      prev.map((e) =>
+        e.id === entry.id
+          ? {
+              ...e,
+              result: data,
+              currentPrice: data.currentPrice,
+              shortName: data.shortName,
+              originalCurrency: data.originalCurrency,
+              loading: false,
+              collapsed: false, // collapse after auto-calc on restore
+            }
+          : e,
+      ),
+    );
+  } catch {
+    setEntries((prev) =>
+      prev.map((e) => (e.id === entry.id ? { ...e, loading: false } : e)),
+    );
+  }
+}
+
+/* =======================
    Entry Card
 ======================= */
 
@@ -433,7 +695,7 @@ function EntryCard({
       className="rounded-2xl border border-white/[0.07] overflow-hidden"
       style={{ background: "rgba(255,255,255,0.025)" }}
     >
-      {/* Card header — always visible, tappable to collapse */}
+      {/* Card header */}
       <button
         onClick={onToggleCollapse}
         className="flex items-center justify-between w-full px-4 py-2.5 border-b border-white/[0.05]"
@@ -443,7 +705,6 @@ function EntryCard({
           <span className="text-[11px] text-gray-600 font-semibold tracking-wider uppercase shrink-0">
             หุ้นที่ {index + 1}
           </span>
-          {/* Mini summary shown when collapsed and result exists */}
           {entry.collapsed && entry.symbol && (
             <div className="flex items-center gap-1.5 min-w-0">
               {entry.originalCurrency && (
@@ -458,13 +719,34 @@ function EntryCard({
                 </span>
               )}
               <div
-                className={`w-[15px] h-[15px] rounded-full bg-cover bg-center border border-gray-600 ${getLogo(entry.symbol) ? "" : "bg-white"}`}
+                className={`w-[15px] h-[15px] rounded-full bg-cover bg-center border border-gray-600 shrink-0 ${getLogo(entry.symbol) ? "" : "bg-white"}`}
                 style={{ backgroundImage: `url(${getLogo(entry.symbol)})` }}
               />
               <span className="text-[12px] text-gray-300 font-medium truncate">
                 {displayName}
               </span>
-              {tax && (
+              {entry.loading && (
+                <svg
+                  className="animate-spin w-3 h-3 text-gray-600 shrink-0"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8v8H4z"
+                  />
+                </svg>
+              )}
+              {tax && !entry.loading && (
                 <>
                   <span className="text-gray-700 text-[10px] shrink-0">·</span>
                   <span className="text-emerald-400 text-[12px] font-bold shrink-0">
@@ -476,16 +758,16 @@ function EntryCard({
           )}
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-4 shrink-0">
           {canRemove && (
             <span
               onClick={(e) => {
                 e.stopPropagation();
                 onRemove();
               }}
-              className="text-gray-600 hover:text-red-400 transition-colors text-[18px] leading-none"
+              className="!text-red-400 transition-colors text-[18px] leading-none"
             >
-              ×
+              <FaTrashCan className="text-[11px]" />
             </span>
           )}
           <Chevron open={!entry.collapsed} />
@@ -495,7 +777,7 @@ function EntryCard({
       {/* Collapsible body */}
       {!entry.collapsed && (
         <div className="p-4 flex flex-col gap-3">
-          {/* Stock search / selected display */}
+          {/* Stock search */}
           <div>
             <label className="text-[11px] text-gray-500 font-medium mb-1.5 block">
               🔍 เลือกหุ้น
@@ -571,7 +853,7 @@ function EntryCard({
                       originalCurrency: null,
                       result: null,
                       error: null,
-                      investmentAmount: ""
+                      investmentAmount: "",
                     })
                   }
                   className="text-yellow-400 text-[12px] shrink-0 ml-2"
@@ -647,31 +929,29 @@ function EntryCard({
               </label>
             </div>
 
-            <div className="relative">
-              <input
-                type="number"
-                inputMode="decimal"
-                value={entry.useCurrentPrice ? "" : entry.costPerShare}
-                onChange={(e) =>
-                  onUpdate({ costPerShare: e.target.value, result: null })
-                }
-                disabled={entry.useCurrentPrice}
-                placeholder={
-                  entry.useCurrentPrice
-                    ? entry.priceLoading
-                      ? "กำลังดึงราคา..."
-                      : entry.currentPrice != null
-                        ? `ราคาตลาด ${fmt(entry.currentPrice)} ${entry.originalCurrency ?? ""}`
-                        : "ดึงราคาปัจจุบันอัตโนมัติ"
-                    : "เช่น 150.00"
-                }
-                className={`w-full border rounded-xl px-3 py-2.5 text-[14px] transition-colors focus:outline-none ${
-                  entry.useCurrentPrice
-                    ? "bg-white/[0.02] border-white/[0.04] text-gray-700 cursor-not-allowed placeholder-gray-600"
-                    : "bg-white/[0.05] border-white/[0.07] text-white placeholder-gray-700 focus:border-yellow-500/50"
-                }`}
-              />
-            </div>
+            <input
+              type="number"
+              inputMode="decimal"
+              value={entry.useCurrentPrice ? "" : entry.costPerShare}
+              onChange={(e) =>
+                onUpdate({ costPerShare: e.target.value, result: null })
+              }
+              disabled={entry.useCurrentPrice}
+              placeholder={
+                entry.useCurrentPrice
+                  ? entry.priceLoading
+                    ? "กำลังดึงราคา..."
+                    : entry.currentPrice != null
+                      ? `ราคาตลาด ${fmt(entry.currentPrice)} ${entry.originalCurrency ?? ""}`
+                      : "ดึงราคาปัจจุบันอัตโนมัติ"
+                  : "เช่น 150.00"
+              }
+              className={`w-full border rounded-xl px-3 py-2.5 text-[14px] transition-colors focus:outline-none ${
+                entry.useCurrentPrice
+                  ? "bg-white/[0.02] border-white/[0.04] text-gray-700 cursor-not-allowed placeholder-gray-600"
+                  : "bg-white/[0.05] border-white/[0.07] text-white placeholder-gray-700 focus:border-yellow-500/50"
+              }`}
+            />
           </div>
 
           {entry.error && (
@@ -752,7 +1032,6 @@ function ResultCard({
       className="rounded-xl border border-yellow-500/20 overflow-hidden mt-1"
       style={{ background: "rgba(245,158,11,0.03)" }}
     >
-      {/* Row 1: Price + shares */}
       <div
         className="flex items-stretch border-b border-white/[0.05]"
         style={{ background: "rgba(255,255,255,0.02)" }}
@@ -792,7 +1071,6 @@ function ResultCard({
         </div>
       </div>
 
-      {/* Row 2: Dividend + Yield */}
       <div className="flex items-stretch border-b border-white/[0.05]">
         <div className="flex-1 px-3 py-3">
           <p className="text-[10px] text-gray-600 mb-0.5">ปันผล/หุ้น (TTM)</p>
@@ -816,7 +1094,6 @@ function ResultCard({
         </div>
       </div>
 
-      {/* Row 3: Tax */}
       <div className="px-3 py-3 border-b border-white/[0.05]">
         <div className="flex items-center justify-between mb-2">
           <p className="text-[11px] text-gray-500 font-medium">
@@ -853,7 +1130,6 @@ function ResultCard({
         </p>
       </div>
 
-      {/* Row 4: Net */}
       <div style={{ background: "rgba(245,158,11,0.06)" }}>
         <div className="flex items-center justify-between px-4 pt-3 pb-1.5">
           <span className="text-[12px] text-gray-400 font-medium">

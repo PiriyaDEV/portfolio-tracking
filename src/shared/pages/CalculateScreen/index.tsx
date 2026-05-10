@@ -28,9 +28,10 @@ export type Asset = {
 // ─── Only assets is passed as prop — everything else comes from store ────────
 type CalculatorScreenProps = {
   assets: Asset[];
+  userId: string;
 };
 
-export default function CalculateScreen({ assets }: CalculatorScreenProps) {
+export default function CalculateScreen({ assets, userId }: CalculatorScreenProps) {
   // ─── Pull market data from shared store ──────────────────────────────────
   const { prices, currencyRate, dividend, advancedLevels } = useMarketStore();
 
@@ -183,7 +184,7 @@ export default function CalculateScreen({ assets }: CalculatorScreenProps) {
   return (
     <div className="p-4 w-full pb-[100px]">
       {/* Tab bar */}
-      <div className="fixed top-[67px] left-1/2 -translate-x-1/2 max-w-[450px] w-full bg-black/90 backdrop-blur-md py-3 px-5 px-1 border-b border-white/[0.06] z-[99]">
+      <div className="fixed top-[67px] left-1/2 -translate-x-1/2 max-w-[450px] w-full bg-black py-3 px-5 px-1 border-b border-white/[0.06] z-[99]">
         <div className="flex justify-start gap-[35px]">
           {tabs.map((tab) => {
             const isActive = activeTab === tab.key;
@@ -324,7 +325,7 @@ export default function CalculateScreen({ assets }: CalculatorScreenProps) {
       )}
 
       {/* Dividend tab */}
-      {activeTab === "dividend" && <DividendSummary data={dividend} />}
+      {activeTab === "dividend" && <DividendSummary data={dividend} userId={userId}/>}
 
       {/* Before / After cards */}
       {(activeTab === "calculator" || activeTab === "estimate") && (

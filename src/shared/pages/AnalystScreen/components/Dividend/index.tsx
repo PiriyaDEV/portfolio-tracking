@@ -24,6 +24,7 @@ type DividendSummaryProps = {
     totalAnnualDividend: number | null;
     perAsset: Record<string, DividendAsset> | null;
   };
+  userId: string;
 };
 
 type SortKey =
@@ -413,7 +414,7 @@ function MyStocksTab({ data }: Pick<DividendSummaryProps, "data">) {
    Root Component
 ======================= */
 
-export default function DividendSummary({ data }: DividendSummaryProps) {
+export default function DividendSummary({ data, userId }: DividendSummaryProps) {
   const [activeTab, setActiveTab] = useState<TabId>("my_stocks");
 
   return (
@@ -430,7 +431,7 @@ export default function DividendSummary({ data }: DividendSummaryProps) {
         {activeTab === "my_stocks" ? (
           <MyStocksTab data={data} />
         ) : (
-          <DividendCalculatorTab />
+          <DividendCalculatorTab userId={userId}/>
         )}
       </div>
     </div>

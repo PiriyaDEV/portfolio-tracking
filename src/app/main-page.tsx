@@ -664,7 +664,7 @@ export default function MainApp({
         {currentPage === "market" && (
           <AnalystScreen assets={assets} wishlist={wishlist} userId={userId} />
         )}
-        {currentPage === "calculator" && <CalculateScreen assets={assets} />}
+        {currentPage === "calculator" && <CalculateScreen assets={assets} userId={userId}/>}
 
         {currentPage === "portfolio" && (
           <div className="mt-[90px] mb-[80px] w-full">
