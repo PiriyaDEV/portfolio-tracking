@@ -27,14 +27,15 @@ type StockEntry = {
   symbol: string | null;
   shortName: string | null;
   originalCurrency: "THB" | "USD" | null;
-  currentPrice: number | null; // fetched immediately after select
-  priceLoading: boolean; // spinner while fetching price
+  currentPrice: number | null;
+  priceLoading: boolean;
   investmentAmount: string;
   costPerShare: string;
   useCurrentPrice: boolean;
   result: CalcResult | null;
   loading: boolean;
   error: string | null;
+  collapsed: boolean; // NEW
 };
 
 /* =======================
@@ -105,7 +106,26 @@ const newEntry = (): StockEntry => ({
   result: null,
   loading: false,
   error: null,
+  collapsed: false, // NEW
 });
+
+/* =======================
+   Chevron SVG
+======================= */
+
+function Chevron({ open }: { open: boolean }) {
+  return (
+    <svg
+      className={`w-4 h-4 text-yellow-400 transition-transform duration-200 ${open ? "" : "-rotate-90"}`}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    >
+      <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
 
 /* =======================
    Main Component
@@ -114,6 +134,7 @@ const newEntry = (): StockEntry => ({
 export default function DividendCalculatorTab() {
   const [entries, setEntries] = useState<StockEntry[]>([newEntry()]);
   const [usW8Ben, setUsW8Ben] = useState(true);
+  const [summaryCollapsed, setSummaryCollapsed] = useState(false); // NEW
 
   const update = useCallback(
     (id: string, patch: Partial<StockEntry>) =>
@@ -127,10 +148,13 @@ export default function DividendCalculatorTab() {
   const removeEntry = (id: string) =>
     setEntries((prev) => prev.filter((e) => e.id !== id));
 
-  // Called right after user picks a stock from the search dropdown
+  const toggleCollapse = (id: string) =>
+    setEntries((prev) =>
+      prev.map((e) => (e.id === id ? { ...e, collapsed: !e.collapsed } : e)),
+    );
+
   const handleSymbolSelect = useCallback(
     async (id: string, symbol: string) => {
-      // Immediately show symbol with spinner
       update(id, {
         symbol,
         shortName: null,
@@ -198,10 +222,12 @@ export default function DividendCalculatorTab() {
       });
       if (!res.ok) throw new Error("เกิดข้อผิดพลาด");
       const data: CalcResult = await res.json();
+      // Auto-collapse the card after successful calculation for better UX
       update(entry.id, {
         result: data,
         currentPrice: data.currentPrice,
         loading: false,
+        collapsed: false,
       });
     } catch (err: any) {
       update(entry.id, { error: err.message, loading: false });
@@ -222,7 +248,7 @@ export default function DividendCalculatorTab() {
   );
 
   return (
-    <div className="flex flex-col gap-4 px-0 pb-[150px]">
+    <div className="flex flex-col gap-4 px-0 pb-[200px]">
       {/* Header */}
       <div className="px-1 mb-1">
         <h2 className="text-base font-bold text-white flex items-center gap-2">
@@ -271,6 +297,7 @@ export default function DividendCalculatorTab() {
             onUpdate={(patch) => update(entry.id, patch)}
             onRemove={() => removeEntry(entry.id)}
             onCalculate={() => calculate(entry)}
+            onToggleCollapse={() => toggleCollapse(entry.id)}
           />
         ))}
       </div>
@@ -287,7 +314,7 @@ export default function DividendCalculatorTab() {
       {/* Fixed bottom summary */}
       {hasResult && (
         <div
-          className="fixed bottom-[70px] left-1/2 -translate-x-1/2 max-w-[450px] w-full z-[98] px-4 py-4"
+          className="fixed bottom-[70px] left-1/2 -translate-x-1/2 max-w-[450px] w-full z-[98] p-2"
           style={{
             backdropFilter: "blur(20px)",
             borderTop: "1px solid rgba(245,158,11,0.2)",
@@ -297,45 +324,72 @@ export default function DividendCalculatorTab() {
             className="rounded-2xl border border-yellow-500/25 overflow-hidden shadow-[0_0_8px_rgba(234,179,8,0.35)]"
             style={{ background: "rgba(100,50,0,0.9)" }}
           >
-            <div className="flex items-center justify-between px-5 py-3 border-b border-yellow-500/15">
+            {/* Toggle bar — always visible */}
+            <button
+              onClick={() => setSummaryCollapsed((v) => !v)}
+              className="flex items-center justify-between w-full px-5 py-3"
+            >
               <div className="flex items-center gap-2">
-                <span className="text-lg">📅</span>
-                <div>
-                  <p className="text-[11px] text-gray-400 leading-none">
-                    เฉลี่ย/เดือน
-                  </p>
-                  <p className="text-[10px] text-gray-600">(หลังภาษี)</p>
-                </div>
-              </div>
-              <div className="flex items-baseline gap-1">
-                <span className="text-[24px] font-black text-emerald-400">
-                  {fmt(totalMonthly)}
+                <span className="text-[11px] text-gray-500 font-semibold tracking-wider uppercase">
+                  สรุปรวม
                 </span>
-                <span className="text-[11px] text-gray-500">บาท</span>
               </div>
-            </div>
-            <div className="flex items-center justify-between gap-2 px-5 py-2.5">
-              <div className="text-center">
-                <p className="text-[10px] text-gray-600">ก่อนภาษี/ปี</p>
-                <p className="text-[13px] font-bold text-gray-300">
-                  {fmt(totalGross)}
-                </p>
+              <div className="flex items-center gap-3">
+                {/* Always show the key number in the toggle bar */}
+                <div className="flex items-baseline gap-1">
+                  <span className="text-[18px] font-black text-emerald-400">
+                    {fmt(totalMonthly)}
+                  </span>
+                  <span className="text-[11px] text-gray-500">บาท/เดือน</span>
+                </div>
+                <Chevron open={!summaryCollapsed} />
               </div>
-              <div className="text-gray-700 text-lg">→</div>
-              <div className="text-center">
-                <p className="text-[10px] text-gray-600">ภาษีรวม</p>
-                <p className="text-[13px] font-bold text-red-400">
-                  −{fmt(totalTax)}
-                </p>
-              </div>
-              <div className="text-gray-700 text-lg">→</div>
-              <div className="text-center">
-                <p className="text-[10px] text-gray-600">สุทธิ/ปี</p>
-                <p className="text-[13px] font-bold text-yellow-400">
-                  {fmt(totalNet)}
-                </p>
-              </div>
-            </div>
+            </button>
+
+            {/* Collapsible body */}
+            {!summaryCollapsed && (
+              <>
+                <div className="flex items-center justify-between px-5 py-3 border-t border-yellow-500/15">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">📅</span>
+                    <div>
+                      <p className="text-[11px] text-gray-400 leading-none">
+                        เฉลี่ย/เดือน
+                      </p>
+                      <p className="text-[10px] text-gray-600">(หลังภาษี)</p>
+                    </div>
+                  </div>
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-[24px] font-black text-emerald-400">
+                      {fmt(totalMonthly)}
+                    </span>
+                    <span className="text-[11px] text-gray-500">บาท</span>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between gap-2 px-5 py-2.5 border-t border-yellow-500/10">
+                  <div className="text-center">
+                    <p className="text-[10px] text-gray-600">ก่อนภาษี/ปี</p>
+                    <p className="text-[13px] font-bold text-gray-300">
+                      {fmt(totalGross)}
+                    </p>
+                  </div>
+                  <div className="text-yellow-400 text-lg">→</div>
+                  <div className="text-center">
+                    <p className="text-[10px] text-gray-600">ภาษีรวม</p>
+                    <p className="text-[13px] font-bold text-red-400">
+                      −{fmt(totalTax)}
+                    </p>
+                  </div>
+                  <div className="text-yellow-400 text-lg">→</div>
+                  <div className="text-center">
+                    <p className="text-[10px] text-gray-600">สุทธิ/ปี</p>
+                    <p className="text-[13px] font-bold text-yellow-400">
+                      {fmt(totalNet)}
+                    </p>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -356,6 +410,7 @@ function EntryCard({
   onUpdate,
   onRemove,
   onCalculate,
+  onToggleCollapse,
 }: {
   entry: StockEntry;
   index: number;
@@ -365,261 +420,315 @@ function EntryCard({
   onUpdate: (patch: Partial<StockEntry>) => void;
   onRemove: () => void;
   onCalculate: () => void;
+  onToggleCollapse: () => void;
 }) {
   const displayName = entry.symbol
     ? (getName?.(entry.symbol) ?? entry.symbol)
     : null;
+
+  const tax = entry.result ? calcTax(entry.result, usW8Ben) : null;
 
   return (
     <div
       className="rounded-2xl border border-white/[0.07] overflow-hidden"
       style={{ background: "rgba(255,255,255,0.025)" }}
     >
-      <div
-        className="flex items-center justify-between px-4 py-2.5 border-b border-white/[0.05]"
+      {/* Card header — always visible, tappable to collapse */}
+      <button
+        onClick={onToggleCollapse}
+        className="flex items-center justify-between w-full px-4 py-2.5 border-b border-white/[0.05]"
         style={{ background: "rgba(255,255,255,0.02)" }}
       >
-        <span className="text-[11px] text-gray-600 font-semibold tracking-wider uppercase">
-          หุ้นที่ {index + 1}
-        </span>
-        {canRemove && (
-          <button
-            onClick={onRemove}
-            className="text-gray-600 hover:text-red-400 transition-colors text-[18px] leading-none"
-          >
-            ×
-          </button>
-        )}
-      </div>
-
-      <div className="p-4 flex flex-col gap-3">
-        {/* Stock search / selected display */}
-        <div>
-          <label className="text-[11px] text-gray-500 font-medium mb-1.5 block">
-            🔍 เลือกหุ้น
-          </label>
-          {entry.symbol ? (
-            <div className="flex items-center justify-between bg-white/[0.05] rounded-xl px-3 py-2.5 border border-white/[0.07]">
-              <div className="flex items-center gap-2.5">
-                <div
-                  className={`w-[32px] h-[32px] rounded-full bg-cover bg-center border border-gray-600 shrink-0 ${getLogo(entry.symbol) ? "" : "bg-white/10"}`}
-                  style={{ backgroundImage: `url(${getLogo(entry.symbol)})` }}
-                />
-                <div className="min-w-0">
-                  <div className="text-white font-bold text-[14px] leading-tight">
-                    {displayName}
-                  </div>
-                  {/* shortName or loading */}
-                  {entry.priceLoading ? (
-                    <div className="flex items-center gap-1 mt-0.5">
-                      <svg
-                        className="animate-spin w-3 h-3 text-gray-600"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                      >
-                        <circle
-                          className="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                        />
-                        <path
-                          className="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8v8H4z"
-                        />
-                      </svg>
-                      <span className="text-[11px] text-gray-600">
-                        กำลังดึงราคา...
-                      </span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                      {entry.shortName && (
-                        <span className="text-gray-500 text-[11px] truncate max-w-[130px]">
-                          {entry.shortName}
-                        </span>
-                      )}
-                      {entry.currentPrice != null && (
-                        <>
-                          {entry.shortName && (
-                            <span className="text-gray-700 text-[10px]">·</span>
-                          )}
-                          <span className="text-yellow-400 font-bold text-[12px]">
-                            {fmt(entry.currentPrice)}
-                          </span>
-                          <span className="text-gray-600 text-[10px]">
-                            {entry.originalCurrency}
-                          </span>
-                        </>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-              <button
-                onClick={() =>
-                  onUpdate({
-                    symbol: null,
-                    shortName: null,
-                    currentPrice: null,
-                    originalCurrency: null,
-                    result: null,
-                    error: null,
-                  })
-                }
-                className="text-yellow-400 text-[12px] shrink-0 ml-2"
-              >
-                เปลี่ยน
-              </button>
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-[11px] text-gray-600 font-semibold tracking-wider uppercase shrink-0">
+            หุ้นที่ {index + 1}
+          </span>
+          {/* Mini summary shown when collapsed and result exists */}
+          {entry.collapsed && entry.symbol && (
+            <div className="flex items-center gap-1.5 min-w-0">
+              {entry.originalCurrency && (
+                <span
+                  className={`text-[9px] px-1.5 py-0.5 rounded font-semibold shrink-0 ${
+                    entry.originalCurrency === "THB"
+                      ? "bg-green-500/15 text-green-400"
+                      : "bg-blue-500/15 text-blue-400"
+                  }`}
+                >
+                  {entry.originalCurrency}
+                </span>
+              )}
+              <div
+                className={`w-[15px] h-[15px] rounded-full bg-cover bg-center border border-gray-600 ${getLogo(entry.symbol) ? "" : "bg-white"}`}
+                style={{ backgroundImage: `url(${getLogo(entry.symbol)})` }}
+              />
+              <span className="text-[12px] text-gray-300 font-medium truncate">
+                {displayName}
+              </span>
+              {tax && (
+                <>
+                  <span className="text-gray-700 text-[10px] shrink-0">·</span>
+                  <span className="text-emerald-400 text-[12px] font-bold shrink-0">
+                    {fmt(tax.netMonthlyTHB)} บาท/เดือน
+                  </span>
+                </>
+              )}
             </div>
-          ) : (
-            <StockSearchSelect
-              onSelect={onSymbolSelect}
-              placeholder="ค้นหาหุ้น เช่น AAPL, PTT"
-            />
           )}
         </div>
 
-        {/* Investment amount */}
-        <div>
-          <label className="text-[11px] text-gray-500 font-medium mb-1.5 block">
-            💵 จำนวนเงินลงทุน (บาท)
-          </label>
-          <input
-            type="number"
-            inputMode="decimal"
-            value={entry.investmentAmount}
-            onChange={(e) =>
-              onUpdate({ investmentAmount: e.target.value, result: null })
-            }
-            placeholder="เช่น 100000"
-            className="w-full bg-white/[0.05] border border-white/[0.07] rounded-xl px-3 py-2.5 text-white text-[14px] placeholder-gray-700 focus:outline-none focus:border-yellow-500/50 transition-colors"
-          />
+        <div className="flex items-center gap-2 shrink-0">
+          {canRemove && (
+            <span
+              onClick={(e) => {
+                e.stopPropagation();
+                onRemove();
+              }}
+              className="text-gray-600 hover:text-red-400 transition-colors text-[18px] leading-none"
+            >
+              ×
+            </span>
+          )}
+          <Chevron open={!entry.collapsed} />
         </div>
+      </button>
 
-        {/* Cost per share */}
-        <div>
-          <div className="flex items-center justify-between mb-1.5">
-            <label className="text-[11px] text-gray-500 font-medium">
-              📌 ต้นทุนต่อหุ้น
+      {/* Collapsible body */}
+      {!entry.collapsed && (
+        <div className="p-4 flex flex-col gap-3">
+          {/* Stock search / selected display */}
+          <div>
+            <label className="text-[11px] text-gray-500 font-medium mb-1.5 block">
+              🔍 เลือกหุ้น
             </label>
-            <label className="flex items-center gap-1.5 cursor-pointer select-none">
-              <div
-                onClick={() =>
-                  onUpdate({
-                    useCurrentPrice: !entry.useCurrentPrice,
-                    result: null,
-                    error: null,
-                  })
-                }
-                className={`w-4 h-4 rounded border flex items-center justify-center transition-all duration-150 ${
-                  entry.useCurrentPrice
-                    ? "bg-yellow-500 border-yellow-500"
-                    : "bg-transparent border-gray-600"
-                }`}
-              >
-                {entry.useCurrentPrice && (
-                  <svg
-                    className="w-2.5 h-2.5 text-black"
-                    viewBox="0 0 10 10"
-                    fill="none"
-                  >
-                    <path
-                      d="M1.5 5L4 7.5L8.5 2.5"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                )}
+            {entry.symbol ? (
+              <div className="flex items-center justify-between bg-white/[0.05] rounded-xl px-3 py-2.5 border border-white/[0.07]">
+                <div className="flex items-center gap-2.5">
+                  <div
+                    className={`w-[32px] h-[32px] rounded-full bg-cover bg-center border border-gray-600 shrink-0 ${getLogo(entry.symbol) ? "" : "bg-white/10"}`}
+                    style={{ backgroundImage: `url(${getLogo(entry.symbol)})` }}
+                  />
+                  <div className="min-w-0">
+                    <div className="text-white font-bold text-[14px] leading-tight">
+                      {displayName}
+                    </div>
+                    {entry.priceLoading ? (
+                      <div className="flex items-center gap-1 mt-0.5">
+                        <svg
+                          className="animate-spin w-3 h-3 text-gray-600"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          />
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8v8H4z"
+                          />
+                        </svg>
+                        <span className="text-[11px] text-gray-600">
+                          กำลังดึงราคา...
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                        {entry.shortName && (
+                          <span className="text-gray-500 text-[11px] truncate max-w-[130px]">
+                            {entry.shortName}
+                          </span>
+                        )}
+                        {entry.currentPrice != null && (
+                          <>
+                            {entry.shortName && (
+                              <span className="text-gray-700 text-[10px]">
+                                ·
+                              </span>
+                            )}
+                            <span className="text-yellow-400 font-bold text-[12px]">
+                              {fmt(entry.currentPrice)}
+                            </span>
+                            <span className="text-gray-600 text-[10px]">
+                              {entry.originalCurrency}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <button
+                  onClick={() =>
+                    onUpdate({
+                      symbol: null,
+                      shortName: null,
+                      currentPrice: null,
+                      originalCurrency: null,
+                      result: null,
+                      error: null,
+                      investmentAmount: ""
+                    })
+                  }
+                  className="text-yellow-400 text-[12px] shrink-0 ml-2"
+                >
+                  เปลี่ยน
+                </button>
               </div>
-              <span className="text-[11px] text-gray-500">ใช้ราคาปัจจุบัน</span>
-            </label>
+            ) : (
+              <StockSearchSelect
+                onSelect={onSymbolSelect}
+                placeholder="ค้นหาหุ้น เช่น AAPL, PTT"
+              />
+            )}
           </div>
 
-          <div className="relative">
+          {/* Investment amount */}
+          <div>
+            <label className="text-[11px] text-gray-500 font-medium mb-1.5 block">
+              💵 จำนวนเงินลงทุน (บาท)
+            </label>
             <input
               type="number"
               inputMode="decimal"
-              value={entry.useCurrentPrice ? "" : entry.costPerShare}
+              value={entry.investmentAmount}
               onChange={(e) =>
-                onUpdate({ costPerShare: e.target.value, result: null })
+                onUpdate({ investmentAmount: e.target.value, result: null })
               }
-              disabled={entry.useCurrentPrice}
-              placeholder={
-                entry.useCurrentPrice
-                  ? entry.priceLoading
-                    ? "กำลังดึงราคา..."
-                    : entry.currentPrice != null
-                      ? `ราคาตลาด ${fmt(entry.currentPrice)} ${entry.originalCurrency ?? ""}`
-                      : "ดึงราคาปัจจุบันอัตโนมัติ"
-                  : "เช่น 150.00"
-              }
-              className={`w-full border rounded-xl px-3 py-2.5 text-[14px] transition-colors focus:outline-none ${
-                entry.useCurrentPrice
-                  ? "bg-white/[0.02] border-white/[0.04] text-gray-700 cursor-not-allowed placeholder-gray-600"
-                  : "bg-white/[0.05] border-white/[0.07] text-white placeholder-gray-700 focus:border-yellow-500/50"
-              }`}
+              placeholder="เช่น 100000"
+              className="w-full bg-white/[0.05] border border-white/[0.07] rounded-xl px-3 py-2.5 text-white text-[14px] placeholder-gray-700 focus:outline-none focus:border-yellow-500/50 transition-colors"
             />
           </div>
-        </div>
 
-        {entry.error && (
-          <p className="text-red-400 text-[12px]">⚠️ {entry.error}</p>
-        )}
+          {/* Cost per share */}
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-[11px] text-gray-500 font-medium">
+                📌 ต้นทุนต่อหุ้น
+              </label>
+              <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                <div
+                  onClick={() =>
+                    onUpdate({
+                      useCurrentPrice: !entry.useCurrentPrice,
+                      result: null,
+                      error: null,
+                    })
+                  }
+                  className={`w-4 h-4 rounded border flex items-center justify-center transition-all duration-150 ${
+                    entry.useCurrentPrice
+                      ? "bg-yellow-500 border-yellow-500"
+                      : "bg-transparent border-gray-600"
+                  }`}
+                >
+                  {entry.useCurrentPrice && (
+                    <svg
+                      className="w-2.5 h-2.5 text-black"
+                      viewBox="0 0 10 10"
+                      fill="none"
+                    >
+                      <path
+                        d="M1.5 5L4 7.5L8.5 2.5"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  )}
+                </div>
+                <span className="text-[11px] text-gray-500">
+                  ใช้ราคาปัจจุบัน
+                </span>
+              </label>
+            </div>
 
-        {/* Calculate button */}
-        <button
-          onClick={onCalculate}
-          disabled={
-            entry.loading ||
-            entry.priceLoading ||
-            !entry.symbol ||
-            !entry.investmentAmount
-          }
-          className={`w-full py-3 rounded-xl font-bold text-[14px] transition-all duration-200 ${
-            entry.loading ||
-            entry.priceLoading ||
-            !entry.symbol ||
-            !entry.investmentAmount
-              ? "bg-white/[0.05] text-gray-700 cursor-not-allowed"
-              : "bg-yellow-500 text-black shadow-[0_0_12px_rgba(234,179,8,0.3)] hover:bg-yellow-400 active:scale-[0.98]"
-          }`}
-        >
-          {entry.loading ? (
-            <span className="flex items-center justify-center gap-2">
-              <svg
-                className="animate-spin w-4 h-4"
-                viewBox="0 0 24 24"
-                fill="none"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                />
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8v8H4z"
-                />
-              </svg>
-              กำลังคำนวณ...
-            </span>
-          ) : (
-            "คำนวณ"
+            <div className="relative">
+              <input
+                type="number"
+                inputMode="decimal"
+                value={entry.useCurrentPrice ? "" : entry.costPerShare}
+                onChange={(e) =>
+                  onUpdate({ costPerShare: e.target.value, result: null })
+                }
+                disabled={entry.useCurrentPrice}
+                placeholder={
+                  entry.useCurrentPrice
+                    ? entry.priceLoading
+                      ? "กำลังดึงราคา..."
+                      : entry.currentPrice != null
+                        ? `ราคาตลาด ${fmt(entry.currentPrice)} ${entry.originalCurrency ?? ""}`
+                        : "ดึงราคาปัจจุบันอัตโนมัติ"
+                    : "เช่น 150.00"
+                }
+                className={`w-full border rounded-xl px-3 py-2.5 text-[14px] transition-colors focus:outline-none ${
+                  entry.useCurrentPrice
+                    ? "bg-white/[0.02] border-white/[0.04] text-gray-700 cursor-not-allowed placeholder-gray-600"
+                    : "bg-white/[0.05] border-white/[0.07] text-white placeholder-gray-700 focus:border-yellow-500/50"
+                }`}
+              />
+            </div>
+          </div>
+
+          {entry.error && (
+            <p className="text-red-400 text-[12px]">⚠️ {entry.error}</p>
           )}
-        </button>
 
-        {entry.result && <ResultCard result={entry.result} usW8Ben={usW8Ben} />}
-      </div>
+          {/* Calculate button */}
+          <button
+            onClick={onCalculate}
+            disabled={
+              entry.loading ||
+              entry.priceLoading ||
+              !entry.symbol ||
+              !entry.investmentAmount
+            }
+            className={`w-full py-3 rounded-xl font-bold text-[14px] transition-all duration-200 ${
+              entry.loading ||
+              entry.priceLoading ||
+              !entry.symbol ||
+              !entry.investmentAmount
+                ? "bg-white/[0.05] text-gray-700 cursor-not-allowed"
+                : "bg-yellow-500 text-black shadow-[0_0_12px_rgba(234,179,8,0.3)] hover:bg-yellow-400 active:scale-[0.98]"
+            }`}
+          >
+            {entry.loading ? (
+              <span className="flex items-center justify-center gap-2">
+                <svg
+                  className="animate-spin w-4 h-4"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8v8H4z"
+                  />
+                </svg>
+                กำลังคำนวณ...
+              </span>
+            ) : (
+              "คำนวณ"
+            )}
+          </button>
+
+          {entry.result && (
+            <ResultCard result={entry.result} usW8Ben={usW8Ben} />
+          )}
+        </div>
+      )}
     </div>
   );
 }
