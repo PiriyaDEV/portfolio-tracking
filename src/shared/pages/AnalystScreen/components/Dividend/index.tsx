@@ -4,7 +4,7 @@ import { getLogo, getName } from "@/app/lib/utils";
 import { useState } from "react";
 import { GraphModal } from "../GraphPrice/components/GraphModal";
 import { useMarketStore } from "@/store/useMarketStore";
-import DividendCalculatorTab from "./DividendCalculatorTab";
+import DividendCalculatorTab, { type Asset } from "./DividendCalculatorTab";
 
 type Currency = "THB" | "USD";
 
@@ -25,6 +25,7 @@ type DividendSummaryProps = {
     perAsset: Record<string, DividendAsset> | null;
   };
   userId: string;
+  assets?: Asset[];
 };
 
 type SortKey =
@@ -165,7 +166,7 @@ function W8BenToggle({
           </svg>
         )}
       </span>
-      🇹🇭 กรอกภาษี W-8BEN
+      W-8BEN
     </button>
   );
 }
@@ -600,6 +601,7 @@ function MyStocksTab({
 export default function DividendSummary({
   data,
   userId,
+  assets = [],
 }: DividendSummaryProps) {
   const [activeTab, setActiveTab] = useState<TabId>("my_stocks");
   const [usW8Ben, setUsW8Ben] = useState(true);
@@ -648,11 +650,15 @@ export default function DividendSummary({
       </div>
 
       {/* Tab content */}
-      <div className="mt-[140px] mb-[30px]">
+      <div className="mt-[140px]">
         {activeTab === "my_stocks" ? (
           <MyStocksTab data={data} usW8Ben={usW8Ben} />
         ) : (
-          <DividendCalculatorTab userId={userId} usW8Ben={usW8Ben} />
+          <DividendCalculatorTab
+            userId={userId}
+            usW8Ben={usW8Ben}
+            assets={assets}
+          />
         )}
       </div>
 

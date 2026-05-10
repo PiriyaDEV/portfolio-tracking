@@ -31,7 +31,10 @@ type CalculatorScreenProps = {
   userId: string;
 };
 
-export default function CalculateScreen({ assets, userId }: CalculatorScreenProps) {
+export default function CalculateScreen({
+  assets,
+  userId,
+}: CalculatorScreenProps) {
   // ─── Pull market data from shared store ──────────────────────────────────
   const { prices, currencyRate, dividend, advancedLevels } = useMarketStore();
 
@@ -325,7 +328,9 @@ export default function CalculateScreen({ assets, userId }: CalculatorScreenProp
       )}
 
       {/* Dividend tab */}
-      {activeTab === "dividend" && <DividendSummary data={dividend} userId={userId}/>}
+      {activeTab === "dividend" && (
+        <DividendSummary data={dividend} userId={userId} assets={assets} />
+      )}
 
       {/* Before / After cards */}
       {(activeTab === "calculator" || activeTab === "estimate") && (

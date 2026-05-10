@@ -39,6 +39,12 @@ type StockEntry = {
   collapsed: boolean;
 };
 
+export type Asset = {
+  symbol: string;
+  quantity: number;
+  costPerShare: number;
+};
+
 // Shape stored in column N
 type SavedDividendEntry = {
   symbol: string;
@@ -258,9 +264,11 @@ async function recalculateEntry(
 export default function DividendCalculatorTab({
   userId,
   usW8Ben,
+  assets = [],
 }: {
   userId: string;
   usW8Ben: boolean;
+  assets?: Asset[];
 }) {
   const [entries, setEntries] = useState<StockEntry[]>([newEntry()]);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
@@ -467,6 +475,7 @@ export default function DividendCalculatorTab({
             index={idx}
             canRemove={entries.length > 1}
             usW8Ben={usW8Ben}
+            assets={assets}
             onSymbolSelect={(symbol) => handleSymbolSelect(entry.id, symbol)}
             onUpdate={(patch) => update(entry.id, patch)}
             onRemove={() => setDeleteTargetId(entry.id)}
@@ -649,6 +658,7 @@ function EntryCard({
   index,
   canRemove,
   usW8Ben,
+  assets,
   onSymbolSelect,
   onUpdate,
   onRemove,
@@ -659,6 +669,7 @@ function EntryCard({
   index: number;
   canRemove: boolean;
   usW8Ben: boolean;
+  assets: Asset[];
   onSymbolSelect: (symbol: string) => void;
   onUpdate: (patch: Partial<StockEntry>) => void;
   onRemove: () => void;
@@ -998,7 +1009,13 @@ function EntryCard({
           </button>
 
           {entry.result && (
-            <ResultCard result={entry.result} usW8Ben={usW8Ben} />
+            <ResultCard
+              result={entry.result}
+              usW8Ben={usW8Ben}
+              portfolioAsset={
+                assets.find((a) => a.symbol === entry.symbol) ?? null
+              }
+            />
           )}
         </div>
       )}
@@ -1013,12 +1030,28 @@ function EntryCard({
 function ResultCard({
   result,
   usW8Ben,
+  portfolioAsset,
 }: {
   result: CalcResult;
   usW8Ben: boolean;
+  portfolioAsset: Asset | null;
 }) {
   const tax = calcTax(result, usW8Ben);
   const isThai = result.originalCurrency === "THB";
+
+  // Portfolio gap calculation
+  const targetShares = result.shares ?? 0;
+  const heldShares = portfolioAsset?.quantity ?? 0;
+  const gapShares = Math.max(0, targetShares - heldShares);
+  const pricePerShare = result.currentPrice ?? 0;
+  // For USD stocks, convert gap cost to THB
+  const gapCostRaw = gapShares * pricePerShare;
+  const gapCostTHB =
+    result.originalCurrency === "USD"
+      ? gapCostRaw * (result.usdThbRate ?? 1)
+      : gapCostRaw;
+  const hasPortfolioData = portfolioAsset !== null;
+  const alreadyEnough = hasPortfolioData && heldShares >= targetShares;
 
   return (
     <div
@@ -1146,6 +1179,121 @@ function ResultCard({
             <span className="text-[11px] text-gray-600">บาท/เดือน</span>
           </div>
         </div>
+      </div>
+
+      {/* Portfolio gap section */}
+      <div
+        className="border-t border-white/[0.06]"
+        style={{
+          background: alreadyEnough
+            ? "rgba(16,185,129,0.06)"
+            : "rgba(99,102,241,0.05)",
+        }}
+      >
+        <div className="px-3 pt-3 pb-1">
+          <p className="text-[11px] font-semibold text-gray-500 flex items-center gap-1.5">
+            🗂️ เทียบกับ Portfolio
+          </p>
+        </div>
+
+        {alreadyEnough ? (
+          // ── Already holds enough ──────────────────────────────────────────
+          <div className="px-3 pb-3 flex items-center gap-2">
+            <span className="text-emerald-400 text-lg">✅</span>
+            <div>
+              <p className="text-[13px] font-bold text-emerald-400">
+                ถืออยู่แล้ว {fmt(heldShares, 0)} หุ้น
+              </p>
+              <p className="text-[11px] text-gray-600">
+                เป้า {fmt(targetShares, 0)} หุ้น — ครบแล้ว!
+              </p>
+            </div>
+          </div>
+        ) : (
+          // ── Gap breakdown ─────────────────────────────────────────────────
+          <div className="px-3 pb-3 flex flex-col gap-2">
+            {/* Progress bar */}
+            {hasPortfolioData && targetShares > 0 && (
+              <div className="flex items-center gap-2">
+                <div className="flex-1 h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-emerald-500 transition-all duration-500"
+                    style={{
+                      width: `${Math.min(100, (heldShares / targetShares) * 100).toFixed(1)}%`,
+                    }}
+                  />
+                </div>
+                <span className="text-[10px] text-gray-600 shrink-0">
+                  {((heldShares / targetShares) * 100).toFixed(0)}%
+                </span>
+              </div>
+            )}
+
+            <div className="flex items-stretch gap-2">
+              {/* Held */}
+              <div
+                className="flex-1 rounded-xl px-3 py-2 flex flex-col"
+                style={{ background: "rgba(255,255,255,0.04)" }}
+              >
+                <p className="text-[10px] text-gray-600 mb-0.5">ถืออยู่</p>
+                <div className="flex items-baseline gap-0.5">
+                  <span className="text-[16px] font-black text-gray-200">
+                    {hasPortfolioData ? fmt(heldShares, 0) : "—"}
+                  </span>
+                  <span className="text-[10px] text-gray-600 ml-0.5">หุ้น</span>
+                </div>
+              </div>
+
+              <div className="flex items-center text-gray-700 text-sm font-bold">
+                /
+              </div>
+
+              {/* Target */}
+              <div
+                className="flex-1 rounded-xl px-3 py-2 flex flex-col"
+                style={{ background: "rgba(255,255,255,0.04)" }}
+              >
+                <p className="text-[10px] text-gray-600 mb-0.5">เป้าหมาย</p>
+                <div className="flex items-baseline gap-0.5">
+                  <span className="text-[16px] font-black text-gray-200">
+                    {fmt(targetShares, 0)}
+                  </span>
+                  <span className="text-[10px] text-gray-600 ml-0.5">หุ้น</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Gap highlight */}
+            <div
+              className="rounded-xl px-3 py-2.5 flex items-center justify-between border border-indigo-500/20"
+              style={{ background: "rgba(99,102,241,0.08)" }}
+            >
+              <div>
+                <p className="text-[10px] text-gray-500">ซื้อเพิ่มอีก</p>
+                <div className="flex items-baseline gap-1 mt-0.5">
+                  <span className="text-[18px] font-black text-indigo-300">
+                    {fmt(gapShares, 0)}
+                  </span>
+                  <span className="text-[11px] text-gray-500">หุ้น</span>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-[10px] text-gray-500">ประมาณ</p>
+                <div className="flex items-baseline gap-1 mt-0.5 justify-end">
+                  <span className="text-[16px] font-black text-indigo-300">
+                    {fmt(gapCostTHB, 0)}
+                  </span>
+                  <span className="text-[11px] text-gray-500">บาท</span>
+                </div>
+                {result.originalCurrency === "USD" && (
+                  <p className="text-[10px] text-gray-700 mt-0.5">
+                    ≈ {fmt(gapCostRaw, 0)} USD
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
