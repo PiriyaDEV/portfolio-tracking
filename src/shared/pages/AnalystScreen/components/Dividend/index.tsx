@@ -36,6 +36,28 @@ type SortDir = "asc" | "desc";
 type TabId = "my_stocks" | "calculator";
 
 /* =======================
+   Tax Logic (shared)
+======================= */
+
+const TAX_RATES = { TH: 0.1, US_W8: 0.15, US_NO_W8: 0.3 };
+
+function calcTaxRate(currency: Currency, usW8Ben: boolean): number {
+  if (currency === "THB") return TAX_RATES.TH;
+  return usW8Ben ? TAX_RATES.US_W8 : TAX_RATES.US_NO_W8;
+}
+
+function applyTax(
+  grossTHB: number | null,
+  currency: Currency,
+  usW8Ben: boolean,
+): { net: number | null; tax: number | null; rate: number } {
+  const rate = calcTaxRate(currency, usW8Ben);
+  if (grossTHB == null) return { net: null, tax: null, rate };
+  const tax = grossTHB * rate;
+  return { net: grossTHB - tax, tax, rate };
+}
+
+/* =======================
    Helpers
 ======================= */
 
@@ -87,6 +109,68 @@ function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
 }
 
 /* =======================
+   Chevron
+======================= */
+
+function Chevron({ open }: { open: boolean }) {
+  return (
+    <svg
+      className={`w-4 h-4 text-yellow-400 transition-transform duration-200 ${open ? "" : "-rotate-90"}`}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    >
+      <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+/* =======================
+   W-8BEN Toggle (inline compact)
+======================= */
+
+function W8BenToggle({
+  value,
+  onChange,
+}: {
+  value: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <button
+      onClick={() => onChange(!value)}
+      className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-semibold transition-all duration-200 whitespace-nowrap shrink-0 border ${
+        value
+          ? "bg-blue-500/20 border-blue-500/40 text-blue-300"
+          : "bg-white/[0.05] border-white/[0.08] text-gray-600"
+      }`}
+    >
+      <span
+        className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center transition-colors ${
+          value
+            ? "border-blue-400 bg-blue-400"
+            : "border-gray-600 bg-transparent"
+        }`}
+      >
+        {value && (
+          <svg className="w-2 h-2 text-black" viewBox="0 0 8 8" fill="none">
+            <path
+              d="M1 4l2 2 4-4"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        )}
+      </span>
+      🇹🇭 กรอกภาษี W-8BEN
+    </button>
+  );
+}
+
+/* =======================
    Tab Pills
 ======================= */
 
@@ -98,33 +182,139 @@ const TABS: { id: TabId; emoji: string; label: string }[] = [
 function TabPills({
   active,
   onChange,
+  usW8Ben,
+  onW8BenChange,
 }: {
   active: TabId;
   onChange: (id: TabId) => void;
+  usW8Ben: boolean;
+  onW8BenChange: (v: boolean) => void;
 }) {
   return (
-    <div className="flex items-center gap-2 overflow-x-auto scrollbar-none">
-      {TABS.map((tab) => {
-        const isActive = tab.id === active;
-        return (
-          <button
-            key={tab.id}
-            onClick={() => onChange(tab.id)}
-            className={`
-              flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[12px] font-medium
-              whitespace-nowrap shrink-0 transition-all duration-200
-              ${
-                isActive
-                  ? "bg-yellow-400 text-black shadow-[0_0_12px_rgba(255,200,0,0.35)]"
-                  : "bg-white/[0.07] text-white/60 hover:bg-white/[0.12] hover:text-white/90"
-              }
-            `}
-          >
-            <span>{tab.emoji}</span>
-            <span>{tab.label}</span>
-          </button>
-        );
-      })}
+    <div className="flex items-center justify-between gap-2 w-full">
+      <div className="flex items-center gap-2 overflow-x-auto scrollbar-none">
+        {TABS.map((tab) => {
+          const isActive = tab.id === active;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => onChange(tab.id)}
+              className={`
+                flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[12px] font-medium
+                whitespace-nowrap shrink-0 transition-all duration-200
+                ${
+                  isActive
+                    ? "bg-yellow-400 text-black shadow-[0_0_12px_rgba(255,200,0,0.35)]"
+                    : "bg-white/[0.07] text-white/60 hover:bg-white/[0.12] hover:text-white/90"
+                }
+              `}
+            >
+              <span>{tab.emoji}</span>
+              <span>{tab.label}</span>
+            </button>
+          );
+        })}
+      </div>
+      {/* W-8BEN always visible, right-aligned */}
+      <W8BenToggle value={usW8Ben} onChange={onW8BenChange} />
+    </div>
+  );
+}
+
+/* =======================
+   Shared Summary Footer
+======================= */
+
+function SummaryFooter({
+  totalGross,
+  totalTax,
+  totalNet,
+  baseCurrency,
+}: {
+  totalGross: number | null;
+  totalTax: number | null;
+  totalNet: number | null;
+  baseCurrency: Currency;
+}) {
+  const [collapsed, setCollapsed] = useState(false);
+  const totalMonthly = totalNet != null ? totalNet / 12 : null;
+
+  if (totalNet == null) return null;
+
+  return (
+    <div
+      className="fixed bottom-[70px] left-1/2 -translate-x-1/2 max-w-[450px] w-full z-[98] p-2"
+      style={{
+        backdropFilter: "blur(20px)",
+        borderTop: "1px solid rgba(245,158,11,0.2)",
+      }}
+    >
+      <div
+        className="rounded-2xl border border-yellow-500/25 overflow-hidden shadow-[0_0_8px_rgba(234,179,8,0.35)]"
+        style={{ background: "rgba(100,50,0,0.9)" }}
+      >
+        <button
+          onClick={() => setCollapsed((v) => !v)}
+          className="flex items-center justify-between w-full px-5 py-3"
+        >
+          <span className="text-[11px] text-gray-500 font-semibold tracking-wider uppercase">
+            💰 เงินปันผลรวม (หลังภาษี)
+          </span>
+          <div className="flex items-center gap-3">
+            <div className="flex items-baseline gap-1">
+              <span className="text-[18px] font-black text-emerald-400">
+                {formatCurrency(totalMonthly, baseCurrency)}
+              </span>
+              <span className="text-[11px] text-gray-500">บาท/เดือน</span>
+            </div>
+            <Chevron open={!collapsed} />
+          </div>
+        </button>
+
+        {!collapsed && (
+          <>
+            <div className="flex items-center justify-between px-5 py-3 border-t border-yellow-500/15">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">📅</span>
+                <div>
+                  <p className="text-[11px] text-gray-400 leading-none">
+                    เฉลี่ย/เดือน
+                  </p>
+                  <p className="text-[10px] text-gray-600">(หลังภาษี)</p>
+                </div>
+              </div>
+              <div className="flex items-baseline gap-1">
+                <span className="text-[24px] font-black text-emerald-400">
+                  {formatCurrency(totalMonthly, baseCurrency)}
+                </span>
+                <span className="text-[11px] text-gray-500">บาท</span>
+              </div>
+            </div>
+            <div className="flex items-center justify-between gap-2 px-5 py-2.5 border-t border-yellow-500/10">
+              <div className="text-center">
+                <p className="text-[10px] text-gray-600">ก่อนภาษี/ปี</p>
+                <p className="text-[13px] font-bold text-gray-300">
+                  {formatCurrency(totalGross, baseCurrency)}
+                </p>
+              </div>
+              <div className="text-yellow-400 text-lg">→</div>
+              <div className="text-center">
+                <p className="text-[10px] text-gray-600">ภาษีรวม</p>
+                <p className="text-[13px] font-bold text-red-400">
+                  −{formatCurrency(totalTax, baseCurrency)}
+                </p>
+              </div>
+              <div className="text-yellow-400 text-lg">→</div>
+              <div className="text-center">
+                <p className="text-[10px] text-gray-600">สุทธิ/ปี</p>
+                <p className="text-[13px] font-bold text-yellow-400">
+                  {formatCurrency(totalNet, baseCurrency)}
+                </p>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }
@@ -133,7 +323,10 @@ function TabPills({
    My Stocks Tab
 ======================= */
 
-function MyStocksTab({ data }: Pick<DividendSummaryProps, "data">) {
+function MyStocksTab({
+  data,
+  usW8Ben,
+}: Pick<DividendSummaryProps, "data"> & { usW8Ben: boolean }) {
   const [sortKey, setSortKey] = useState<SortKey>("annualDividendBase");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
@@ -148,7 +341,7 @@ function MyStocksTab({ data }: Pick<DividendSummaryProps, "data">) {
     );
   }
 
-  const { baseCurrency, totalAnnualDividend, perAsset } = data;
+  const { baseCurrency, perAsset } = data;
 
   const entries = Object.entries(perAsset ?? {}).filter(
     ([, d]) =>
@@ -214,7 +407,7 @@ function MyStocksTab({ data }: Pick<DividendSummaryProps, "data">) {
     "px-3 py-3 align-middle text-[11px] font-semibold tracking-wider uppercase cursor-pointer select-none";
 
   return (
-    <div className="pb-[100px] flex flex-col gap-0">
+    <div className="pb-[160px] flex flex-col gap-0">
       {selectedSymbol && (
         <GraphModal
           symbol={selectedSymbol}
@@ -266,7 +459,7 @@ function MyStocksTab({ data }: Pick<DividendSummaryProps, "data">) {
                 className={`${thClass} text-right`}
                 onClick={() => handleSort("annualDividendBase")}
               >
-                ต่อปี ({baseCurrency})
+                สุทธิ/ปี
                 <SortIcon
                   active={sortKey === "annualDividendBase"}
                   dir={sortDir}
@@ -304,6 +497,13 @@ function MyStocksTab({ data }: Pick<DividendSummaryProps, "data">) {
               const isTopAnnual = annualRankIdx === 0;
               const displayName = getName ? getName(symbol) : symbol;
               const shortName = d.shortName ?? "";
+
+              // Apply tax to annualDividendBase
+              const { net: netAnnual } = applyTax(
+                d.annualDividendBase,
+                d.originalCurrency,
+                usW8Ben,
+              );
 
               return (
                 <tr
@@ -372,39 +572,22 @@ function MyStocksTab({ data }: Pick<DividendSummaryProps, "data">) {
                   </td>
 
                   <td className="px-4 py-3 text-right align-middle">
-                    <span className="font-bold text-[13px] text-gray-100">
-                      {formatCurrency(d.annualDividendBase, baseCurrency)}
+                    <span className="font-bold text-[13px] text-emerald-400">
+                      {formatCurrency(netAnnual, baseCurrency)}
                     </span>
+                    <div className="text-[10px] text-gray-600 mt-0.5">
+                      {formatCurrency(
+                        netAnnual != null ? netAnnual / 12 : null,
+                        baseCurrency,
+                      )}
+                      /เดือน
+                    </div>
                   </td>
                 </tr>
               );
             })}
           </tbody>
         </table>
-      </div>
-
-      {/* Fixed summary bar */}
-      <div
-        className="fixed bottom-[70px] left-1/2 -translate-x-1/2 max-w-[450px] w-full z-[98] px-4 py-4"
-        style={{
-          backdropFilter: "blur(20px)",
-          borderTop: "1px solid rgba(245,158,11,0.2)",
-        }}
-      >
-        <div className="flex shadow-[0_0_6px_rgba(234,179,8,0.55)] bg-yellow-600 items-center justify-between px-5 py-3.5 rounded-2xl border border-yellow-500/25">
-          <div className="flex items-center gap-2">
-            <span className="text-xl">💰</span>
-            <span className="text-sm text-gray-400 font-medium">
-              เงินปันผลรวมต่อปี
-            </span>
-          </div>
-          <div className="flex items-baseline gap-1.5">
-            <span className="text-2xl font-black" style={{ color: "#fbbf24" }}>
-              {formatCurrency(totalAnnualDividend, baseCurrency)}
-            </span>
-            <span className="text-[11px] text-gray-500">บาท/ปี</span>
-          </div>
-        </div>
       </div>
     </div>
   );
@@ -414,26 +597,74 @@ function MyStocksTab({ data }: Pick<DividendSummaryProps, "data">) {
    Root Component
 ======================= */
 
-export default function DividendSummary({ data, userId }: DividendSummaryProps) {
+export default function DividendSummary({
+  data,
+  userId,
+}: DividendSummaryProps) {
   const [activeTab, setActiveTab] = useState<TabId>("my_stocks");
+  const [usW8Ben, setUsW8Ben] = useState(true);
+
+  // Compute totals for my_stocks footer
+  const myStocksTotals = (() => {
+    if (!data?.perAsset) return null;
+    const baseCurrency = data.baseCurrency;
+    let totalGross = 0;
+    let totalTax = 0;
+    let hasAny = false;
+
+    Object.values(data.perAsset).forEach((d) => {
+      if (d.annualDividendBase == null) return;
+      hasAny = true;
+      const { net, tax } = applyTax(
+        d.annualDividendBase,
+        d.originalCurrency,
+        usW8Ben,
+      );
+      totalGross += d.annualDividendBase;
+      totalTax += tax ?? 0;
+    });
+
+    if (!hasAny) return null;
+    return {
+      baseCurrency,
+      totalGross,
+      totalTax,
+      totalNet: totalGross - totalTax,
+    };
+  })();
 
   return (
     <div className="flex flex-col">
-      {/* Sticky tab pills — sits just below whatever fixed header you have */}
+      {/* Sticky tab pills with W-8BEN */}
       <div className="fixed top-[160px] left-1/2 -translate-x-1/2 max-w-[450px] w-full z-[99]">
         <div className="flex items-center justify-between px-4 py-2.5 bg-black-lighter border-b border-white/[0.06] border-b border-yellow-400/[0.5]">
-          <TabPills active={activeTab} onChange={setActiveTab} />
+          <TabPills
+            active={activeTab}
+            onChange={setActiveTab}
+            usW8Ben={usW8Ben}
+            onW8BenChange={setUsW8Ben}
+          />
         </div>
       </div>
 
-      {/* Tab content — padding handled inside each tab */}
-      <div className="mt-[140px]">
+      {/* Tab content */}
+      <div className="mt-[140px] mb-[30px]">
         {activeTab === "my_stocks" ? (
-          <MyStocksTab data={data} />
+          <MyStocksTab data={data} usW8Ben={usW8Ben} />
         ) : (
-          <DividendCalculatorTab userId={userId}/>
+          <DividendCalculatorTab userId={userId} usW8Ben={usW8Ben} />
         )}
       </div>
+
+      {/* Shared footer */}
+      {activeTab === "my_stocks" && myStocksTotals && (
+        <SummaryFooter
+          totalGross={myStocksTotals.totalGross}
+          totalTax={myStocksTotals.totalTax}
+          totalNet={myStocksTotals.totalNet}
+          baseCurrency={myStocksTotals.baseCurrency}
+        />
+      )}
     </div>
   );
 }

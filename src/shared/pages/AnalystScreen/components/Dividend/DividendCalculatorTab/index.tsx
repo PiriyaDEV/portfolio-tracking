@@ -192,16 +192,79 @@ async function loadDividendFromSheet(
 }
 
 /* =======================
-   Main Component
+   recalculate — shared between manual calculate() and hydrate auto-calc
 ======================= */
 
-export default function DividendCalculatorTab({ userId }: { userId: string }) {
-  const [entries, setEntries] = useState<StockEntry[]>([newEntry()]);
-  const [usW8Ben, setUsW8Ben] = useState(true);
-  const [summaryCollapsed, setSummaryCollapsed] = useState(false);
-  const [initialLoading, setInitialLoading] = useState(true);
+async function recalculateEntry(
+  entry: StockEntry,
+): Promise<Partial<StockEntry>> {
+  if (!entry.symbol || !entry.investmentAmount) {
+    return {};
+  }
 
+  const investmentAmount = parseFloat(entry.investmentAmount.replace(/,/g, ""));
+
+  const costPerShare = entry.useCurrentPrice
+    ? undefined
+    : parseFloat(entry.costPerShare.replace(/,/g, ""));
+
+  if (isNaN(investmentAmount) || investmentAmount <= 0) {
+    return {};
+  }
+
+  if (!entry.useCurrentPrice && (isNaN(costPerShare!) || costPerShare! <= 0)) {
+    return {};
+  }
+
+  try {
+    const res = await fetch("/api/dividend-calculator", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        symbol: entry.symbol,
+        investmentAmount,
+        costPerShare,
+        useCurrentPrice: entry.useCurrentPrice,
+      }),
+    });
+
+    if (!res.ok) throw new Error();
+
+    const data: CalcResult = await res.json();
+
+    return {
+      result: data,
+      currentPrice: data.currentPrice,
+      shortName: data.shortName,
+      originalCurrency: data.originalCurrency,
+      loading: false,
+      collapsed: false,
+    };
+  } catch {
+    return {
+      loading: false,
+    };
+  }
+}
+
+/* =======================
+   Main Component
+   usW8Ben is now a prop — managed by DividendSummary (shared with MyStocks)
+   Footer summary is also rendered by DividendSummary
+======================= */
+
+export default function DividendCalculatorTab({
+  userId,
+  usW8Ben,
+}: {
+  userId: string;
+  usW8Ben: boolean;
+}) {
+  const [entries, setEntries] = useState<StockEntry[]>([newEntry()]);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const [initialLoading, setInitialLoading] = useState(true);
 
   // ── Load saved entries on mount, then auto-calculate each one ──────────────
   useEffect(() => {
@@ -223,24 +286,17 @@ export default function DividendCalculatorTab({ userId }: { userId: string }) {
           return;
         }
 
-        // Build entries from saved data
         const restored = saved.map(entryFromSaved);
 
-        // Calculate all before rendering
         const hydrated = await Promise.all(
           restored.map(async (entry) => {
             const calculated = await recalculateEntry(entry);
-
-            return {
-              ...entry,
-              ...calculated,
-            };
+            return { ...entry, ...calculated };
           }),
         );
 
         if (cancelled) return;
 
-        // Render only once
         setEntries(hydrated);
         setInitialLoading(false);
       } catch {
@@ -362,20 +418,7 @@ export default function DividendCalculatorTab({ userId }: { userId: string }) {
     }
   };
 
-  const resultsWithTax = entries
-    .filter((e) => e.result?.annualDividendTHB != null)
-    .map((e) => calcTax(e.result!, usW8Ben));
-
-  const totalGross = resultsWithTax.reduce((s, r) => s + r.grossAnnualTHB, 0);
-  const totalTax = resultsWithTax.reduce((s, r) => s + r.withholdingTax, 0);
-  const totalNet = resultsWithTax.reduce((s, r) => s + r.netAnnualTHB, 0);
-  const totalMonthly = totalNet / 12;
-  const hasResult = entries.some((e) => e.result != null);
-  const hasUsStock = entries.some(
-    (e) => e.result?.originalCurrency === "USD" || e.originalCurrency === "USD",
-  );
-
-  // ── Loading skeleton while hydrating ──────────────────────────────────────
+  // ── Loading skeleton ───────────────────────────────────────────────────────
   if (initialLoading) {
     return (
       <div className="flex flex-col gap-4 px-0 pb-[200px]">
@@ -400,6 +443,9 @@ export default function DividendCalculatorTab({ userId }: { userId: string }) {
     );
   }
 
+  // Totals for the shared footer (passed up via render — footer rendered by DividendSummary)
+  // NOTE: footer is now owned by DividendSummary. This component just renders entries.
+
   return (
     <div className="flex flex-col gap-4 px-0 pb-[200px]">
       {/* Header */}
@@ -411,31 +457,6 @@ export default function DividendCalculatorTab({ userId }: { userId: string }) {
           ใส่หุ้นและจำนวนเงินลงทุนเพื่อดูปันผลที่คาดว่าจะได้รับต่อปี
         </p>
       </div>
-
-      {/* W-8BEN toggle */}
-      {hasUsStock && (
-        <div
-          className="flex items-center justify-between px-4 py-3 rounded-xl border border-blue-500/20"
-          style={{ background: "rgba(59,130,246,0.05)" }}
-        >
-          <div>
-            <p className="text-[13px] text-gray-300 font-medium">
-              ยื่นแบบฟอร์ม W-8BEN
-            </p>
-            <p className="text-[11px] text-gray-600 mt-0.5">
-              ลดภาษีปันผล US จาก 30% → 15%
-            </p>
-          </div>
-          <div
-            onClick={() => setUsW8Ben((v) => !v)}
-            className={`relative w-11 h-6 rounded-full cursor-pointer transition-colors duration-200 ${usW8Ben ? "bg-blue-500" : "bg-gray-700"}`}
-          >
-            <div
-              className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 ${usW8Ben ? "translate-x-5" : "translate-x-0.5"}`}
-            />
-          </div>
-        </div>
-      )}
 
       {/* Entries */}
       <div className="flex flex-col gap-3">
@@ -464,83 +485,8 @@ export default function DividendCalculatorTab({ userId }: { userId: string }) {
         <span>เพิ่มหุ้น</span>
       </button>
 
-      {/* Fixed bottom summary */}
-      {hasResult && (
-        <div
-          className="fixed bottom-[70px] left-1/2 -translate-x-1/2 max-w-[450px] w-full z-[98] p-2"
-          style={{
-            backdropFilter: "blur(20px)",
-            borderTop: "1px solid rgba(245,158,11,0.2)",
-          }}
-        >
-          <div
-            className="rounded-2xl border border-yellow-500/25 overflow-hidden shadow-[0_0_8px_rgba(234,179,8,0.35)]"
-            style={{ background: "rgba(100,50,0,0.9)" }}
-          >
-            <button
-              onClick={() => setSummaryCollapsed((v) => !v)}
-              className="flex items-center justify-between w-full px-5 py-3"
-            >
-              <span className="text-[11px] text-gray-500 font-semibold tracking-wider uppercase">
-                สรุปรวม
-              </span>
-              <div className="flex items-center gap-3">
-                <div className="flex items-baseline gap-1">
-                  <span className="text-[18px] font-black text-emerald-400">
-                    {fmt(totalMonthly)}
-                  </span>
-                  <span className="text-[11px] text-gray-500">บาท/เดือน</span>
-                </div>
-                <Chevron open={!summaryCollapsed} />
-              </div>
-            </button>
-
-            {!summaryCollapsed && (
-              <>
-                <div className="flex items-center justify-between px-5 py-3 border-t border-yellow-500/15">
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg">📅</span>
-                    <div>
-                      <p className="text-[11px] text-gray-400 leading-none">
-                        เฉลี่ย/เดือน
-                      </p>
-                      <p className="text-[10px] text-gray-600">(หลังภาษี)</p>
-                    </div>
-                  </div>
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-[24px] font-black text-emerald-400">
-                      {fmt(totalMonthly)}
-                    </span>
-                    <span className="text-[11px] text-gray-500">บาท</span>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between gap-2 px-5 py-2.5 border-t border-yellow-500/10">
-                  <div className="text-center">
-                    <p className="text-[10px] text-gray-600">ก่อนภาษี/ปี</p>
-                    <p className="text-[13px] font-bold text-gray-300">
-                      {fmt(totalGross)}
-                    </p>
-                  </div>
-                  <div className="text-yellow-400 text-lg">→</div>
-                  <div className="text-center">
-                    <p className="text-[10px] text-gray-600">ภาษีรวม</p>
-                    <p className="text-[13px] font-bold text-red-400">
-                      −{fmt(totalTax)}
-                    </p>
-                  </div>
-                  <div className="text-yellow-400 text-lg">→</div>
-                  <div className="text-center">
-                    <p className="text-[10px] text-gray-600">สุทธิ/ปี</p>
-                    <p className="text-[13px] font-bold text-yellow-400">
-                      {fmt(totalNet)}
-                    </p>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
+      {/* Calculator footer — rendered via CalcFooterData callback to parent */}
+      <CalcSummaryFooterPortal entries={entries} usW8Ben={usW8Ben} />
 
       {deleteTargetId && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
@@ -548,11 +494,9 @@ export default function DividendCalculatorTab({ userId }: { userId: string }) {
             <h3 className="text-white font-bold text-[16px]">
               ลบหุ้นรายการนี้?
             </h3>
-
             <p className="text-gray-500 text-[13px] mt-2 leading-relaxed">
               หากลบแล้วข้อมูลการคำนวณของหุ้นรายการนี้จะหายไป
             </p>
-
             <div className="flex gap-2 mt-5">
               <button
                 onClick={() => setDeleteTargetId(null)}
@@ -560,7 +504,6 @@ export default function DividendCalculatorTab({ userId }: { userId: string }) {
               >
                 ยกเลิก
               </button>
-
               <button
                 onClick={() => {
                   removeEntry(deleteTargetId);
@@ -579,62 +522,122 @@ export default function DividendCalculatorTab({ userId }: { userId: string }) {
 }
 
 /* =======================
-   recalculate — shared between manual calculate() and hydrate auto-calc
-   Updates setEntries directly so it works outside the component closure too
+   Calc Summary Footer (inline — for calculator tab only)
+   Uses same visual as SummaryFooter in DividendSummary
 ======================= */
 
-async function recalculateEntry(
-  entry: StockEntry,
-): Promise<Partial<StockEntry>> {
-  if (!entry.symbol || !entry.investmentAmount) {
-    return {};
-  }
+function CalcSummaryFooterPortal({
+  entries,
+  usW8Ben,
+}: {
+  entries: StockEntry[];
+  usW8Ben: boolean;
+}) {
+  const [collapsed, setCollapsed] = useState(false);
 
-  const investmentAmount = parseFloat(entry.investmentAmount.replace(/,/g, ""));
+  const resultsWithTax = entries
+    .filter((e) => e.result?.annualDividendTHB != null)
+    .map((e) => calcTax(e.result!, usW8Ben));
 
-  const costPerShare = entry.useCurrentPrice
-    ? undefined
-    : parseFloat(entry.costPerShare.replace(/,/g, ""));
+  const totalGross = resultsWithTax.reduce((s, r) => s + r.grossAnnualTHB, 0);
+  const totalTax = resultsWithTax.reduce((s, r) => s + r.withholdingTax, 0);
+  const totalNet = resultsWithTax.reduce((s, r) => s + r.netAnnualTHB, 0);
+  const totalMonthly = totalNet / 12;
+  const hasResult = entries.some((e) => e.result != null);
 
-  if (isNaN(investmentAmount) || investmentAmount <= 0) {
-    return {};
-  }
+  if (!hasResult) return null;
 
-  if (!entry.useCurrentPrice && (isNaN(costPerShare!) || costPerShare! <= 0)) {
-    return {};
-  }
+  const fmt2 = (v: number) =>
+    new Intl.NumberFormat("th-TH", { maximumFractionDigits: 2 }).format(v);
 
-  try {
-    const res = await fetch("/api/dividend-calculator", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        symbol: entry.symbol,
-        investmentAmount,
-        costPerShare,
-        useCurrentPrice: entry.useCurrentPrice,
-      }),
-    });
+  return (
+    <div
+      className="fixed bottom-[70px] left-1/2 -translate-x-1/2 max-w-[450px] w-full z-[98] p-2"
+      style={{
+        backdropFilter: "blur(20px)",
+        borderTop: "1px solid rgba(245,158,11,0.2)",
+      }}
+    >
+      <div
+        className="rounded-2xl border border-yellow-500/25 overflow-hidden shadow-[0_0_8px_rgba(234,179,8,0.35)]"
+        style={{ background: "rgba(100,50,0,0.9)" }}
+      >
+        <button
+          onClick={() => setCollapsed((v) => !v)}
+          className="flex items-center justify-between w-full px-5 py-3"
+        >
+          <span className="text-[11px] text-gray-500 font-semibold tracking-wider uppercase">
+            💰 เงินปันผลรวม (หลังภาษี)
+          </span>
+          <div className="flex items-center gap-3">
+            <div className="flex items-baseline gap-1">
+              <span className="text-[18px] font-black text-emerald-400">
+                {fmt2(totalMonthly)}
+              </span>
+              <span className="text-[11px] text-gray-500">บาท/เดือน</span>
+            </div>
+            <svg
+              className={`w-4 h-4 text-yellow-400 transition-transform duration-200 ${collapsed ? "-rotate-90" : ""}`}
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path
+                d="M6 9l6 6 6-6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </div>
+        </button>
 
-    if (!res.ok) throw new Error();
-
-    const data: CalcResult = await res.json();
-
-    return {
-      result: data,
-      currentPrice: data.currentPrice,
-      shortName: data.shortName,
-      originalCurrency: data.originalCurrency,
-      loading: false,
-      collapsed: false,
-    };
-  } catch {
-    return {
-      loading: false,
-    };
-  }
+        {!collapsed && (
+          <>
+            <div className="flex items-center justify-between px-5 py-3 border-t border-yellow-500/15">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">📅</span>
+                <div>
+                  <p className="text-[11px] text-gray-400 leading-none">
+                    เฉลี่ย/เดือน
+                  </p>
+                  <p className="text-[10px] text-gray-600">(หลังภาษี)</p>
+                </div>
+              </div>
+              <div className="flex items-baseline gap-1">
+                <span className="text-[24px] font-black text-emerald-400">
+                  {fmt2(totalMonthly)}
+                </span>
+                <span className="text-[11px] text-gray-500">บาท</span>
+              </div>
+            </div>
+            <div className="flex items-center justify-between gap-2 px-5 py-2.5 border-t border-yellow-500/10">
+              <div className="text-center">
+                <p className="text-[10px] text-gray-600">ก่อนภาษี/ปี</p>
+                <p className="text-[13px] font-bold text-gray-300">
+                  {fmt2(totalGross)}
+                </p>
+              </div>
+              <div className="text-yellow-400 text-lg">→</div>
+              <div className="text-center">
+                <p className="text-[10px] text-gray-600">ภาษีรวม</p>
+                <p className="text-[13px] font-bold text-red-400">
+                  −{fmt2(totalTax)}
+                </p>
+              </div>
+              <div className="text-yellow-400 text-lg">→</div>
+              <div className="text-center">
+                <p className="text-[10px] text-gray-600">สุทธิ/ปี</p>
+                <p className="text-[13px] font-bold text-yellow-400">
+                  {fmt2(totalNet)}
+                </p>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
 }
 
 /* =======================
@@ -748,7 +751,19 @@ function EntryCard({
               <FaTrashCan className="text-[11px]" />
             </span>
           )}
-          <Chevron open={!entry.collapsed} />
+          <svg
+            className={`w-4 h-4 text-yellow-400 transition-transform duration-200 ${entry.collapsed ? "-rotate-90" : ""}`}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <path
+              d="M6 9l6 6 6-6"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
         </div>
       </button>
 
