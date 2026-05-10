@@ -56,6 +56,33 @@ async function fetchShortName(symbol: string): Promise<string | null> {
   }
 }
 
+// GET /api/dividend-calculator?symbol=AAPL
+// Lightweight — fetches only currentPrice + shortName + currency, called right after stock select
+export async function GET(req: NextRequest) {
+  try {
+    const symbol = req.nextUrl.searchParams.get("symbol");
+    if (!symbol)
+      return NextResponse.json({ error: "Missing symbol" }, { status: 400 });
+
+    const isThai = isThaiStock(symbol);
+    const originalCurrency = isThai ? "THB" : "USD";
+
+    const [currentPrice, shortName] = await Promise.all([
+      fetchCurrentPrice(symbol),
+      fetchShortName(symbol),
+    ]);
+
+    return NextResponse.json({
+      symbol,
+      shortName,
+      currentPrice,
+      originalCurrency,
+    });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const {
