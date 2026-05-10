@@ -201,6 +201,8 @@ export default function DividendCalculatorTab({ userId }: { userId: string }) {
   const [summaryCollapsed, setSummaryCollapsed] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
 
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+
   // ── Load saved entries on mount, then auto-calculate each one ──────────────
   useEffect(() => {
     if (!userId) {
@@ -446,7 +448,7 @@ export default function DividendCalculatorTab({ userId }: { userId: string }) {
             usW8Ben={usW8Ben}
             onSymbolSelect={(symbol) => handleSymbolSelect(entry.id, symbol)}
             onUpdate={(patch) => update(entry.id, patch)}
-            onRemove={() => removeEntry(entry.id)}
+            onRemove={() => setDeleteTargetId(entry.id)}
             onCalculate={() => calculate(entry)}
             onToggleCollapse={() => toggleCollapse(entry.id)}
           />
@@ -539,6 +541,39 @@ export default function DividendCalculatorTab({ userId }: { userId: string }) {
           </div>
         </div>
       )}
+
+      {deleteTargetId && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+          <div className="w-full max-w-[320px] rounded-2xl border border-white/[0.08] bg-[#111] p-5">
+            <h3 className="text-white font-bold text-[16px]">
+              ลบหุ้นรายการนี้?
+            </h3>
+
+            <p className="text-gray-500 text-[13px] mt-2 leading-relaxed">
+              หากลบแล้วข้อมูลการคำนวณของหุ้นรายการนี้จะหายไป
+            </p>
+
+            <div className="flex gap-2 mt-5">
+              <button
+                onClick={() => setDeleteTargetId(null)}
+                className="flex-1 py-2.5 rounded-xl bg-white/[0.05] text-gray-300 text-[13px]"
+              >
+                ยกเลิก
+              </button>
+
+              <button
+                onClick={() => {
+                  removeEntry(deleteTargetId);
+                  setDeleteTargetId(null);
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-red-500 text-white text-[13px] font-semibold"
+              >
+                ลบ
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -599,63 +634,6 @@ async function recalculateEntry(
     return {
       loading: false,
     };
-  }
-}
-
-async function recalculate(
-  entry: StockEntry,
-  setEntries: React.Dispatch<React.SetStateAction<StockEntry[]>>,
-): Promise<void> {
-  if (!entry.symbol || !entry.investmentAmount) return;
-
-  const investmentAmount = parseFloat(entry.investmentAmount.replace(/,/g, ""));
-  const costPerShare = entry.useCurrentPrice
-    ? undefined
-    : parseFloat(entry.costPerShare.replace(/,/g, ""));
-
-  if (isNaN(investmentAmount) || investmentAmount <= 0) return;
-  if (!entry.useCurrentPrice && (isNaN(costPerShare!) || costPerShare! <= 0))
-    return;
-
-  setEntries((prev) =>
-    prev.map((e) =>
-      e.id === entry.id ? { ...e, loading: true, error: null } : e,
-    ),
-  );
-
-  try {
-    const res = await fetch("/api/dividend-calculator", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        symbol: entry.symbol,
-        investmentAmount,
-        costPerShare,
-        useCurrentPrice: entry.useCurrentPrice,
-      }),
-    });
-    if (!res.ok) throw new Error();
-    const data: CalcResult = await res.json();
-
-    setEntries((prev) =>
-      prev.map((e) =>
-        e.id === entry.id
-          ? {
-              ...e,
-              result: data,
-              currentPrice: data.currentPrice,
-              shortName: data.shortName,
-              originalCurrency: data.originalCurrency,
-              loading: false,
-              collapsed: false, // collapse after auto-calc on restore
-            }
-          : e,
-      ),
-    );
-  } catch {
-    setEntries((prev) =>
-      prev.map((e) => (e.id === entry.id ? { ...e, loading: false } : e)),
-    );
   }
 }
 
