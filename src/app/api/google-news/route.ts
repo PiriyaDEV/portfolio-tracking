@@ -100,21 +100,16 @@ function jaccardSimilarity(a: Set<string>, b: Set<string>): number {
   return intersection / union;
 }
 
-const SIMILARITY_THRESHOLD = 0.6; // ปรับได้: ต่ำ = กรองเข้มขึ้น, สูง = กรองหลวมลง
-const TIME_WINDOW_MS = 24 * 60 * 60 * 1000; // 24 ชั่วโมง
+// AFTER — remove the time window entirely
+const SIMILARITY_THRESHOLD = 0.6;
 
 function dedupeNews(items: NewsItem[]): NewsItem[] {
   const kept: NewsItem[] = [];
 
   for (const candidate of items) {
     const candidateWords = titleWords(candidate.title);
-    const candidateTime = safeTime(candidate.pubDate);
 
     const isDuplicate = kept.some((existing) => {
-      // ข้ามถ้า pubDate ห่างกันเกิน window
-      const timeDiff = Math.abs(candidateTime - safeTime(existing.pubDate));
-      if (timeDiff > TIME_WINDOW_MS) return false;
-
       const similarity = jaccardSimilarity(
         candidateWords,
         titleWords(existing.title),
@@ -122,9 +117,7 @@ function dedupeNews(items: NewsItem[]): NewsItem[] {
       return similarity >= SIMILARITY_THRESHOLD;
     });
 
-    if (!isDuplicate) {
-      kept.push(candidate);
-    }
+    if (!isDuplicate) kept.push(candidate);
   }
 
   return kept;

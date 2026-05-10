@@ -159,6 +159,14 @@ const GoogleNewsPanel = forwardRef<GoogleNewsPanelRef, Props>(
 
     const observerRef = useRef<HTMLDivElement>(null);
 
+    function clientDedupe(
+      existing: GoogleNewsItem[],
+      incoming: GoogleNewsItem[],
+    ): GoogleNewsItem[] {
+      const seen = new Set(existing.map((n) => n.link));
+      return incoming.filter((n) => !seen.has(n.link));
+    }
+
     /* =======================
        Fetch
     ======================= */
@@ -183,7 +191,8 @@ const GoogleNewsPanel = forwardRef<GoogleNewsPanelRef, Props>(
           setNews(data.news ?? []);
           setOffset(10);
         } else {
-          setNews((prev) => [...prev, ...(data.news ?? [])]);
+          setNews((prev) => [...prev, ...clientDedupe(prev, data.news ?? [])]);
+
           setOffset((prev) => prev + 10);
         }
 
