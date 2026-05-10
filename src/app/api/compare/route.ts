@@ -6,6 +6,7 @@ import {
   fetchPreviousClose,
   ChartPoint,
 } from "@/app/lib/yahoo.helpers";
+import { getAdvancedLevels } from "../stock/support.function";
 
 /* =======================
    Types
@@ -17,7 +18,7 @@ interface Asset {
   costPerShare: number;
 }
 
-type Range = "1d" | "5d" | "1m" | "3m"  | "6m" | "1y";
+type Range = "1d" | "5d" | "1m" | "3m" | "6m" | "1y";
 
 /* =======================
    Currency helpers
@@ -113,34 +114,39 @@ export async function POST(req: NextRequest) {
 
     const usdThbRate = await fetchUSDTHBRate();
 
-    /* ── 1D: intraday vs previous close ── */
+    /* ── 1D: use getAdvancedLevels (same as main screen) to get intraday data ── */
     if (range === "1d") {
-      const [[spPrevClose, ...assetPrevCloses], [spChart, ...assetCharts]] =
-        await Promise.all([
-          Promise.all([
-            fetchPreviousClose("^GSPC"),
-            ...assets.map((a) => fetchPreviousClose(a.symbol)),
-          ]),
-          Promise.all([
-            fetchChart("^GSPC", "1d", "1m"),
-            ...assets.map((a) => fetchChart(a.symbol, "1d", "1m")),
-          ]),
-        ]);
+      // getAdvancedLevels already fetches 1d/1m filtered to trading hours,
+      // handles futures (GC=F) and other symbols correctly — same as main screen.
+      const [spLevels, ...assetLevels] = await Promise.all([
+        getAdvancedLevels("^GSPC"),
+        ...assets.map((a) => getAdvancedLevels(a.symbol)),
+      ]);
 
-      const basePortfolio = assetPrevCloses.reduce((sum, price, i) => {
+      // previousClose is the baseline for each asset
+      const basePortfolio = assetLevels.reduce((sum, levels, i) => {
+        const prevClose = levels.previousClose ?? levels.currentPrice ?? 0;
         return (
-          sum + toUSD(price, assets[i].symbol, usdThbRate) * assets[i].quantity
+          sum +
+          toUSD(prevClose, assets[i].symbol, usdThbRate) * assets[i].quantity
         );
       }, 0);
 
-      // Market closed
-      if (spChart.length <= 1) {
+      const spPrevClose = spLevels.previousClose ?? spLevels.currentPrice ?? 0;
+
+      // Build aligned time series from graphData returned by getAdvancedLevels.
+      // Each asset's graphData is already filtered to trading hours.
+      // We align by matching timestamps that exist in ALL series.
+      const spGraphData = spLevels.graphData; // { time, price }[]
+
+      if (spGraphData.length === 0) {
+        // Market closed / no intraday data yet
         return NextResponse.json({
           range,
           base: { portfolio: basePortfolio, sp500: spPrevClose },
           data: [
             {
-              time: spChart[0]?.time ?? Math.floor(Date.now() / 1000),
+              time: Math.floor(Date.now() / 1000),
               portfolioValue: basePortfolio,
               sp500Value: spPrevClose,
             },
@@ -148,24 +154,66 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      // Market open — first point is prev-close baseline, rest are live
-      const data = [
+      // Build sorted arrays for each asset for forward-fill lookup.
+      // Futures like GC=F trade different session hours than equities, so exact
+      // timestamp matches with ^GSPC are rare — forward-fill uses the last known
+      // price at or before each SP500 tick instead of skipping the tick entirely.
+      const assetSortedData = assetLevels.map((levels) =>
+        [...levels.graphData].sort((a, b) => a.time - b.time),
+      );
+
+      function getPriceAtOrBefore(
+        sorted: { time: number; price: number }[],
+        t: number,
+        fallback: number,
+      ): number {
+        let result = fallback;
+        for (const pt of sorted) {
+          if (pt.time <= t) result = pt.price;
+          else break;
+        }
+        return result;
+      }
+
+      // Use SP500 timestamps as the spine; forward-fill missing asset prices
+      const data: {
+        time: number;
+        portfolioValue: number;
+        sp500Value: number;
+      }[] = [];
+
+      for (const spPt of spGraphData) {
+        const t = spPt.time;
+
+        const portfolioValue = assets.reduce((sum, asset, i) => {
+          const fallback =
+            assetLevels[i].previousClose ?? assetLevels[i].currentPrice ?? 0;
+          const price = getPriceAtOrBefore(assetSortedData[i], t, fallback);
+          return sum + toUSD(price, asset.symbol, usdThbRate) * asset.quantity;
+        }, 0);
+
+        data.push({ time: t, portfolioValue, sp500Value: spPt.price });
+      }
+
+      // Prepend prev-close baseline as t=0 anchor (same pattern as before)
+      const firstTime = spGraphData[0]?.time ?? Math.floor(Date.now() / 1000);
+      const fullData = [
         {
-          time: spChart[0].time,
+          time: firstTime,
           portfolioValue: basePortfolio,
           sp500Value: spPrevClose,
         },
-        ...buildDataPoints(spChart, assetCharts, assets, usdThbRate, 1),
+        ...data,
       ];
 
       return NextResponse.json({
         range,
         base: { portfolio: basePortfolio, sp500: spPrevClose },
-        data,
+        data: fullData,
       });
     }
 
-    /* ── 5D / 1M / 6M / 1Y: historical ── */
+    /* ── 5D / 1M / 3M / 6M / 1Y: historical ── */
     const cfg = RANGE_CONFIG[range];
 
     const [spChart, ...assetCharts] = await Promise.all([

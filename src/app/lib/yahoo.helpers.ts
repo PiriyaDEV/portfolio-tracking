@@ -53,7 +53,12 @@ export async function fetchYahooChart(
   const quote = result?.indicators?.quote?.[0];
   const closes: (number | null)[] | undefined = quote?.close;
 
-  if (!timestamps || !closes) throw new Error(`Invalid Yahoo data: ${symbol}`);
+  // Futures (e.g. GC=F) on short intraday ranges can legitimately return no
+  // timestamps yet (pre-market / session gap). Return empty data instead of
+  // throwing so callers can decide how to handle sparse data gracefully.
+  if (!timestamps || !closes) {
+    return { meta: result?.meta ?? null, data: [], highs: [], lows: [] };
+  }
 
   const data: ChartPoint[] = timestamps.map((t, i) => ({
     time: t,
