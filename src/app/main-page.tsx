@@ -863,7 +863,6 @@ export default function MainApp({
                             value={percentChange}
                             decimals={2}
                             suffix="%"
-                            masked={isNumbersHidden}
                             className={getProfitColor(percentChange)}
                           />
                         </span>

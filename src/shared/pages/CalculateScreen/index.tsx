@@ -7,6 +7,7 @@ import {
   FaCalculator,
   FaBullseye,
   FaCoins,
+  FaBinoculars,
 } from "react-icons/fa6";
 import {
   fNumber,
@@ -18,6 +19,7 @@ import {
 import DividendSummary from "../AnalystScreen/components/Dividend";
 import StockSelect from "@/shared/components/common/StockSelect";
 import { useMarketStore } from "@/store/useMarketStore";
+import PredictScreen from "./components/PredictScreen";
 
 export type Asset = {
   symbol: string;
@@ -58,7 +60,7 @@ export default function CalculateScreen({
   };
 
   const [activeTab, setActiveTab] = useState<
-    "calculator" | "estimate" | "dividend"
+    "calculator" | "estimate" | "dividend" | "predict"
   >("calculator");
 
   const [afterData, setAfterData] = useState<{
@@ -182,6 +184,7 @@ export default function CalculateScreen({
     { key: "calculator", label: "คำนวณต้นทุน", icon: <FaCalculator /> },
     { key: "estimate", label: "คำนวณเป้าหมาย", icon: <FaBullseye /> },
     { key: "dividend", label: "ปันผล", icon: <FaCoins /> },
+    { key: "predict", label: "คาดการณ์", icon: <FaBinoculars /> },
   ];
 
   return (
@@ -331,6 +334,8 @@ export default function CalculateScreen({
       {activeTab === "dividend" && (
         <DividendSummary data={dividend} userId={userId} assets={assets} />
       )}
+
+      {activeTab === "predict" && <PredictScreen assets={assets} />}
 
       {/* Before / After cards */}
       {(activeTab === "calculator" || activeTab === "estimate") && (
