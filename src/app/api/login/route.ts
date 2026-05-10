@@ -62,10 +62,10 @@ export async function POST(req: Request) {
     const spreadsheetId = process.env.GOOGLE_SHEET_ID!;
     const sheets = getGoogleSheets();
 
-    // Fetch columns A–L (indices 0–11)
+    // Fetch columns A–M (indices 0–11)
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId,
-      range: "Sheet1!A:L",
+      range: "Sheet1!A:M",
     });
 
     const rows = response.data.values;
@@ -90,6 +90,15 @@ export async function POST(req: Request) {
     }
 
     const userRow = dataRows[userRowIndex];
+
+    const userStatus = userRow[12]?.toString().trim() ?? "0";
+
+    if (userStatus === "0") {
+      return new Response(
+        JSON.stringify({ error: "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง" }),
+        { status: 401, headers: { "Content-Type": "application/json" } },
+      );
+    }
 
     // Validate password — column L (index 11), stored encrypted
     const storedEncrypted = userRow[11] ?? "";

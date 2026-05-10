@@ -90,11 +90,12 @@ export async function POST(req: Request) {
       "", // J  (9)
       username, // K  (10) username — login lookup key
       encrypt(password), // L  (11) password encrypted
+      "1"
     ];
 
     await sheets.spreadsheets.values.append({
       spreadsheetId,
-      range: "Sheet1!A:L",
+      range: "Sheet1!A:M",
       valueInputOption: "RAW",
       insertDataOption: "INSERT_ROWS",
       requestBody: { values: [newRow] },
