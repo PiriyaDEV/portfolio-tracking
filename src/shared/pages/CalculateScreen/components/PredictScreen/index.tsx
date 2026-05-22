@@ -42,6 +42,7 @@ export default function PredictScreen({ assets }: PredictScreenProps) {
   const [annualRate, setAnnualRate] = useState(8);
   const [useCurrentRate, setUseCurrentRate] = useState(true);
   const [monthlyDeposit, setMonthlyDeposit] = useState<string>("");
+  const [cashAmount, setCashAmount] = useState<string>("");
 
   const portfolio = useMemo(() => {
     let totalCostThb = 0;
@@ -67,6 +68,7 @@ export default function PredictScreen({ assets }: PredictScreenProps) {
     : annualRate;
 
   const deposit = parseFloat(monthlyDeposit) || 0;
+  const cash = parseFloat(cashAmount) || 0;
 
   // year 0 = current, year 1..N = projections
   // Monthly DCA compounding: FV = PV*(1+mr)^n + PMT*[((1+mr)^n - 1)/mr]
@@ -75,18 +77,19 @@ export default function PredictScreen({ assets }: PredictScreenProps) {
     const monthlyR = Math.pow(1 + annualR, 1 / 12) - 1;
     return Array.from({ length: years + 1 }, (_, y) => {
       const n = y * 12;
-      const baseGrowth = portfolio.totalMarketThb * Math.pow(1 + monthlyR, n);
+      const baseGrowth =
+        (portfolio.totalMarketThb + cash) * Math.pow(1 + monthlyR, n);
       const dcaGrowth =
         deposit > 0 && monthlyR !== 0
           ? deposit * ((Math.pow(1 + monthlyR, n) - 1) / monthlyR)
           : deposit * n;
       const val = baseGrowth + dcaGrowth;
-      const totalDeposited = portfolio.totalCostThb + deposit * n;
+      const totalDeposited = portfolio.totalCostThb + cash + deposit * n;
       const profit = val - totalDeposited;
       const totalPct = totalDeposited > 0 ? (profit / totalDeposited) * 100 : 0;
       return { y, val, profit, totalPct, totalDeposited };
     });
-  }, [effectiveRate, years, portfolio, deposit]);
+  }, [effectiveRate, years, portfolio, deposit, cash]);
 
   const final = rows[rows.length - 1];
   const rateColor = effectiveRate >= 0 ? "text-green-400" : "text-red-400";
@@ -128,6 +131,10 @@ export default function PredictScreen({ assets }: PredictScreenProps) {
       if (typeof parsed.monthlyDeposit === "string") {
         setMonthlyDeposit(parsed.monthlyDeposit);
       }
+
+      if (typeof parsed.cashAmount === "string") {
+        setCashAmount(parsed.cashAmount);
+      }
     } catch (err) {
       console.error("Failed to load predict settings", err);
     }
@@ -142,9 +149,10 @@ export default function PredictScreen({ assets }: PredictScreenProps) {
         annualRate,
         useCurrentRate,
         monthlyDeposit,
+        cashAmount,
       }),
     );
-  }, [years, annualRate, useCurrentRate, monthlyDeposit]);
+  }, [years, annualRate, useCurrentRate, monthlyDeposit, cashAmount]);
 
   return (
     <div className="p-4 w-full pb-[100px]">
@@ -320,6 +328,42 @@ export default function PredictScreen({ assets }: PredictScreenProps) {
               </p>
             )}
           </div>
+
+          <div className="h-px bg-white/[0.06]" />
+
+          {/* Cash amount */}
+          <div>
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm text-gray-400">💵 เงินสด</span>
+              {cash > 0 && (
+                <span className="text-[11px] text-gray-500">
+                  {fmtShort(cash)} THB
+                </span>
+              )}
+            </div>
+            <div className="relative">
+              <input
+                type="number"
+                min={0}
+                step={1000}
+                placeholder="0 บาท (ไม่มีก็ได้)"
+                value={cashAmount}
+                onChange={(e) => setCashAmount(e.target.value)}
+                className="w-full p-2 pr-14 rounded-lg bg-black-lighter2 border border-white/10 text-white outline-none focus:border-yellow-500/40 transition-colors placeholder:text-gray-600 text-sm"
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-gray-500 pointer-events-none">
+                THB
+              </span>
+            </div>
+            {cash > 0 && (
+              <p className="text-[11px] text-gray-600 mt-1.5">
+                นำเงินสดรวมเข้าพอร์ตเป็น{" "}
+                <span className="text-gray-400">
+                  {fNumber(portfolio.totalMarketThb + cash)} THB
+                </span>
+              </p>
+            )}
+          </div>
         </div>
       </div>
 
@@ -370,21 +414,29 @@ export default function PredictScreen({ assets }: PredictScreenProps) {
           </div>
         </div>
 
-        {/* Deposit breakdown (only shown when deposit > 0) */}
-        {deposit > 0 && (
+        {/* Deposit / cash breakdown */}
+        {(deposit > 0 || cash > 0) && (
           <div className="bg-black-lighter px-4 pb-3">
             <div className="border-t border-white/[0.05] pt-2.5 flex justify-between text-[11px] text-gray-500">
-              <span>ต้นทุนรวม (รวมเติม)</span>
+              <span>ต้นทุนรวม (รวมทั้งหมด)</span>
               <span className="text-gray-400">
                 {fNumber(final.totalDeposited)} THB
               </span>
             </div>
-            <div className="flex justify-between text-[11px] text-gray-500 mt-1">
-              <span>เงินที่เติมเพิ่มทั้งหมด</span>
-              <span className="text-blue-400">
-                +{fNumber(deposit * 12 * years)} THB
-              </span>
-            </div>
+            {deposit > 0 && (
+              <div className="flex justify-between text-[11px] text-gray-500 mt-1">
+                <span>เงินที่เติมเพิ่มทั้งหมด</span>
+                <span className="text-blue-400">
+                  +{fNumber(deposit * 12 * years)} THB
+                </span>
+              </div>
+            )}
+            {cash > 0 && (
+              <div className="flex justify-between text-[11px] text-gray-500 mt-1">
+                <span>เงินสดที่นำเข้าพอร์ต</span>
+                <span className="text-blue-400">+{fNumber(cash)} THB</span>
+              </div>
+            )}
           </div>
         )}
 
