@@ -102,7 +102,39 @@ export async function getAdvancedLevels(
       .map((p) => p.close)
       .filter((v): v is number => v != null);
 
-    if (closes.length < 10) return INITIAL_LEVELS(symbol);
+    // ─── Parse recent (1m candles) early so we can use it as fallback ────────
+    const { meta: metaEarly, data: recentDataEarly } = chartRecent;
+    const recentClosesEarly = recentDataEarly
+      .map((p) => p.close)
+      .filter((v): v is number => v != null);
+    const currentPriceEarly =
+      metaEarly?.regularMarketPrice ?? recentClosesEarly.at(-1);
+    const previousCloseEarly =
+      metaEarly?.chartPreviousClose || metaEarly?.previousClose || prevClose;
+
+    // If 3mo data is too sparse (e.g. newly listed / low-volume ETF), return a
+    // minimal result with real price data so the stock still appears in the UI.
+    if (closes.length < 10) {
+      if (!currentPriceEarly && !previousCloseEarly) return INITIAL_LEVELS(symbol);
+
+      const inHoursFallback = recentDataEarly.filter(
+        (p): p is { time: number; close: number } =>
+          p.close != null && isInUSTradingHoursTH(p.time),
+      );
+      const graphDataFallback = inHoursFallback.map((p) => ({
+        time: p.time,
+        price: p.close,
+      }));
+
+      return {
+        ...INITIAL_LEVELS(symbol),
+        shortName: metaEarly?.shortName || metaEarly?.symbol || symbol,
+        currentPrice: Number((currentPriceEarly ?? 0).toFixed(2)),
+        previousClose: Number((previousCloseEarly ?? 0).toFixed(2)),
+        graphData: graphDataFallback,
+        graphBase: graphDataFallback[0]?.price ?? null,
+      };
+    }
 
     // FIX: stableEnd replaces stableCloses = closes.slice(0, -1).
     // Passing an end index to calcEMA avoids copying the entire closes array

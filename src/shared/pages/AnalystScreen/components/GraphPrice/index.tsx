@@ -502,9 +502,10 @@ export function GraphPrice({ assets, market }: Props) {
         sortedAssets.map((asset, index) => {
           const symbol = asset.symbol;
           const graph = graphs[symbol];
-          if (!graph || graph.data.length <= 1) return null;
+          if (!graph) return null;
 
           const { data } = graph;
+          const hasGraphData = data.length > 1;
           const currentPrice = prices?.[symbol];
           const prevPrice = previousPrice?.[symbol];
 
@@ -549,35 +550,41 @@ export function GraphPrice({ assets, market }: Props) {
                         : "bg-gradient-to-b from-gray-400/20 to-transparent"
                   }`}
                 >
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart
-                      data={data}
-                      margin={{ top: 2, right: 2, bottom: 2, left: 2 }}
-                    >
-                      <YAxis
-                        hide
-                        domain={[
-                          (min: number) => min * 0.995,
-                          (max: number) => max * 1.005,
-                        ]}
-                      />
-                      <ReferenceLine
-                        y={prevPrice ?? 0}
-                        stroke="#777"
-                        strokeDasharray="3 3"
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="price"
-                        stroke={color}
-                        strokeWidth={1}
-                        dot={false}
-                        activeDot={false}
-                        isAnimationActive={false}
-                        strokeLinecap="round"
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
+                  {hasGraphData ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart
+                        data={data}
+                        margin={{ top: 2, right: 2, bottom: 2, left: 2 }}
+                      >
+                        <YAxis
+                          hide
+                          domain={[
+                            (min: number) => min * 0.995,
+                            (max: number) => max * 1.005,
+                          ]}
+                        />
+                        <ReferenceLine
+                          y={prevPrice ?? 0}
+                          stroke="#777"
+                          strokeDasharray="3 3"
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="price"
+                          stroke={color}
+                          strokeWidth={1}
+                          dot={false}
+                          activeDot={false}
+                          isAnimationActive={false}
+                          strokeLinecap="round"
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="w-full flex items-center justify-center h-full">
+                      <span className="text-[10px] text-gray-600">—</span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Profit + pre/post */}

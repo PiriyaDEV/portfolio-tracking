@@ -169,6 +169,9 @@ export const DEFAULT_OIL_LOGO =
 export const DEFAULT_SET_LOGO =
   "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRe8tM3-t2BDnm-9vKA-mN5yEQci4cOHUBGrw&s";
 
+export const DEFAULT_SPCX_LOGO =
+  "https://www.logo.wine/a/logo/SpaceX/SpaceX-White-Dark-Background-Logo.wine.svg";
+
 export function getLogo(symbol: string): string {
   if (!symbol) return DEFAULT_STOCK_LOGO;
 
@@ -194,6 +197,9 @@ export function getLogo(symbol: string): string {
 
     case "TISCO-PVD":
       return DEFAULT_PVD_LOGO;
+
+    case "SPCX":
+      return DEFAULT_SPCX_LOGO;
   }
 
   const ticker = symbol.includes(":") ? symbol.split(":")[1] : symbol;
