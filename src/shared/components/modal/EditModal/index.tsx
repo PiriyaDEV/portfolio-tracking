@@ -38,8 +38,11 @@ const ASSET_TYPES: {
 // Symbols that use THB direct input
 const THB_INPUT_SYMBOLS = ["PVD-THB", "CASH-THB", "TISCO-PVD", "THB=X"];
 
-// Raw string values for numeric inputs (to preserve "0.000..." while typing)
-type RawValues = Record<number, { quantity?: string; costPerShare?: string; thbAmount?: string }>;
+// Raw string values for numeric inputs
+type RawValues = Record<
+  number,
+  { quantity?: string; costPerShare?: string; thbAmount?: string }
+>;
 
 const EditModal = ({
   editAssets,
@@ -59,9 +62,10 @@ const EditModal = ({
   currencyRate?: number;
 }) => {
   const [isSaving, setIsSaving] = useState(false);
+  // Track which asset type the user selected for each card index
   const [assetTypes, setAssetTypes] = useState<Record<number, AssetType>>({});
+  // Track which cards are "new" (need type selection first)
   const [newCardIndices, setNewCardIndices] = useState<Set<number>>(new Set());
-  // Store raw string values so "0.000001" isn't eaten by || "" coercion
   const [rawValues, setRawValues] = useState<RawValues>({});
   const [confirmDeleteIndex, setConfirmDeleteIndex] = useState<number | null>(
     null,
@@ -72,17 +76,27 @@ const EditModal = ({
     field: keyof Asset,
     value: string | number,
   ) => {
-    const updated = [...editAssets];
-    updated[index] = { ...updated[index], [field]: value };
-    setEditAssets(updated);
+    setEditAssets((prev) => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      return updated;
+    });
+  };
+
+  // Determine if a card uses THB input mode
+  // - For existing assets: check symbol directly
+  // - For new cards: check the selected assetType
+  const isTHBInputCard = (index: number, symbol: string): boolean => {
+    if (THB_INPUT_SYMBOLS.includes(symbol)) return true;
+    const type = assetTypes[index];
+    return type === "PVD" || type === "CASH";
   };
 
   const hasIncompleteCards = newCardIndices.size > 0;
 
-  const hasInvalidAssets = editAssets.some((a) => {
+  const hasInvalidAssets = editAssets.some((a, i) => {
     if (!a.symbol?.trim()) return true;
-    // THB input assets: only need thbAmount (stored in rawValues) or quantity > 0
-    if (THB_INPUT_SYMBOLS.includes(a.symbol)) {
+    if (isTHBInputCard(i, a.symbol)) {
       return !a.quantity || a.quantity <= 0;
     }
     return !a.quantity || !a.costPerShare;
@@ -121,24 +135,43 @@ const EditModal = ({
       delete next[confirmDeleteIndex];
       return next;
     });
+    setNewCardIndices((prev) => {
+      const next = new Set(prev);
+      next.delete(confirmDeleteIndex);
+      return next;
+    });
     setConfirmDeleteIndex(null);
   };
 
   const handleSelectAssetType = (cardIndex: number, type: AssetType) => {
-    setAssetTypes((prev) => ({ ...prev, [cardIndex]: type }));
     const config = ASSET_TYPES.find((t) => t.value === type)!;
+
+    // Update the selected type
+    setAssetTypes((prev) => ({ ...prev, [cardIndex]: type }));
+
     if (config.forcedSymbol) {
+      // Set symbol immediately
       updateAsset(cardIndex, "symbol", config.forcedSymbol);
-      // For THB input types, set costPerShare = 1 immediately
+
       if (config.isTHBInput) {
+        // For THB types: set costPerShare = 1 and remove from newCardIndices
+        // so the THB input field shows up
         updateAsset(cardIndex, "costPerShare", 1);
+        setNewCardIndices((prev) => {
+          const next = new Set(prev);
+          next.delete(cardIndex);
+          return next;
+        });
+      } else {
+        // For GOLD/BTC: remove from newCardIndices to show quantity/cost fields
+        setNewCardIndices((prev) => {
+          const next = new Set(prev);
+          next.delete(cardIndex);
+          return next;
+        });
       }
-      setNewCardIndices((prev) => {
-        const next = new Set(prev);
-        next.delete(cardIndex);
-        return next;
-      });
     }
+    // For US/TH: keep in newCardIndices until user picks a symbol via search
   };
 
   const handleSymbolSearch = (cardIndex: number, symbol: string) => {
@@ -151,15 +184,12 @@ const EditModal = ({
   };
 
   const handleQuantityChange = (index: number, raw: string) => {
-    // Always store the raw string so leading zeros / "0.000..." are preserved
     setRawValues((prev) => ({
       ...prev,
       [index]: { ...prev[index], quantity: raw },
     }));
     const num = parseFloat(raw);
-    if (!isNaN(num)) {
-      updateAsset(index, "quantity", num);
-    }
+    if (!isNaN(num)) updateAsset(index, "quantity", num);
   };
 
   const handleCostPerShareChange = (index: number, raw: string) => {
@@ -168,13 +198,10 @@ const EditModal = ({
       [index]: { ...prev[index], costPerShare: raw },
     }));
     const num = parseFloat(raw);
-    if (!isNaN(num)) {
-      updateAsset(index, "costPerShare", num);
-    }
+    if (!isNaN(num)) updateAsset(index, "costPerShare", num);
   };
 
-  // Handle THB amount input for CASH-THB / PVD-THB
-  // quantity = thbAmount / currencyRate, costPerShare = 1
+  // THB amount → quantity = thbAmount / currencyRate, costPerShare = 1
   const handleThbAmountChange = (index: number, raw: string) => {
     setRawValues((prev) => ({
       ...prev,
@@ -183,13 +210,11 @@ const EditModal = ({
     const thbAmount = parseFloat(raw);
     if (!isNaN(thbAmount) && thbAmount > 0) {
       const rate = currencyRate && currencyRate > 0 ? currencyRate : 1;
-      const quantity = thbAmount / rate;
-      updateAsset(index, "quantity", quantity);
+      updateAsset(index, "quantity", thbAmount / rate);
       updateAsset(index, "costPerShare", 1);
     }
   };
 
-  // Derive displayed THB amount from stored quantity * currencyRate
   const getThbAmountDisplay = (index: number, asset: Asset): string => {
     if (rawValues[index]?.thbAmount !== undefined) {
       return rawValues[index].thbAmount!;
@@ -247,9 +272,9 @@ const EditModal = ({
               ? ASSET_TYPES.find((t) => t.value === selectedType)
               : null;
 
-            const isTHBAsset = THB_INPUT_SYMBOLS.includes(asset.symbol);
+            // Use both symbol AND selected type to determine THB mode
+            const isTHBAsset = isTHBInputCard(index, asset.symbol);
 
-            // Use rawValues while the user is typing; fall back to asset value
             const quantityDisplay =
               rawValues[index]?.quantity !== undefined
                 ? rawValues[index].quantity
@@ -310,7 +335,7 @@ const EditModal = ({
                   </button>
                 </div>
 
-                {/* New card: show type chips first */}
+                {/* New card: show type selection chips */}
                 {isNew && (
                   <div className="space-y-2">
                     <p className="text-xs text-gray-500">
@@ -343,6 +368,7 @@ const EditModal = ({
                       })}
                     </div>
 
+                    {/* US/TH: show stock search */}
                     {selectedType &&
                       (selectedType === "US" || selectedType === "TH") && (
                         <div className="pt-1">
@@ -366,9 +392,10 @@ const EditModal = ({
                   </div>
                 )}
 
-                {/* Fields — show once symbol is set */}
+                {/* Fields — show once symbol is confirmed (not new) */}
                 {!isNew && (
                   <div className="space-y-2">
+                    {/* Hide symbol field for THB assets */}
                     {!isTHBAsset && (
                       <FieldGroup label="Symbol" emoji="🔤">
                         <input
@@ -389,7 +416,7 @@ const EditModal = ({
                     )}
 
                     {isTHBAsset ? (
-                      /* THB direct input for CASH-THB / PVD-THB */
+                      /* THB direct input — user types baht amount only */
                       <div className="space-y-1">
                         <FieldGroup label="จำนวนเงิน (บาท)" emoji="🪙">
                           <input
@@ -402,13 +429,16 @@ const EditModal = ({
                             }
                             placeholder="เช่น 100000"
                             disabled={isSaving}
+                            autoFocus
                           />
                         </FieldGroup>
                         <p className="text-[10px] text-gray-600 px-1">
-                          ระบบจะคำนวณ: จำนวนหน่วย = เงินบาท ÷ อัตราแลกเปลี่ยน USD/THB
+                          ระบบจะคำนวณ: จำนวนหน่วย = เงินบาท ÷ อัตราแลกเปลี่ยน
+                          USD/THB
                         </p>
                       </div>
                     ) : (
+                      /* Normal assets: quantity + cost per share */
                       <div className="grid grid-cols-2 gap-2">
                         <FieldGroup label="จำนวนหุ้น" emoji="📦">
                           <input
@@ -500,17 +530,13 @@ const EditModal = ({
       {/* Confirm Delete Modal */}
       {confirmDeleteIndex !== null && (
         <div className="fixed inset-0 flex items-center justify-center !z-[110] p-4">
-          {/* Backdrop — closes on click */}
           <div
             className="absolute inset-0 bg-black bg-opacity-60 backdrop-blur-sm"
             onClick={() => setConfirmDeleteIndex(null)}
           />
           <div className="relative bg-black-lighter rounded-2xl w-full max-w-[320px] border border-red-500 border-opacity-30 shadow-2xl overflow-hidden">
-            {/* Red top accent bar */}
             <div className="h-1 w-full bg-red-500 bg-opacity-60" />
-
             <div className="px-6 py-5 space-y-4">
-              {/* Icon + title */}
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-red-500 bg-opacity-10 border border-red-500 border-opacity-30 flex items-center justify-center text-lg shrink-0">
                   🗑️
@@ -524,17 +550,14 @@ const EditModal = ({
                   </p>
                 </div>
               </div>
-
-              {/* Body */}
               <p className="text-gray-300 text-sm leading-relaxed">
                 คุณต้องการลบ{" "}
                 <span className="text-accent-yellow font-bold tracking-wide">
-                  {getName(editAssets[confirmDeleteIndex]?.symbol) || "สินทรัพย์นี้"}
+                  {getName(editAssets[confirmDeleteIndex]?.symbol) ||
+                    "สินทรัพย์นี้"}
                 </span>{" "}
                 ออกจากพอร์ตหรือไม่?
               </p>
-
-              {/* Buttons */}
               <div className="flex gap-2 pt-1">
                 <button
                   onClick={() => setConfirmDeleteIndex(null)}
