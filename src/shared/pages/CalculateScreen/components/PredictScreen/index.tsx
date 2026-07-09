@@ -47,17 +47,26 @@ export default function PredictScreen({ assets }: PredictScreenProps) {
   const portfolio = useMemo(() => {
     let totalCostThb = 0;
     let totalMarketThb = 0;
-    assets
-      .filter((a) => !isCash(a.symbol))
-      .forEach((a) => {
-        const isThai = isThaiStock(a.symbol);
-        const price = prices[a.symbol] ?? 0;
+    let totalMarketThbForProfit = 0;
+
+    assets.forEach((a) => {
+      const isThai = isThaiStock(a.symbol);
+      const price = prices[a.symbol] ?? 0;
+      const market = a.quantity * price;
+      const marketThb = isThai ? market : market * currencyRate;
+
+      // รวมมูลค่าทุก asset (รวม cash/PVD)
+      totalMarketThb += marketThb;
+
+      // สำหรับคำนวณกำไร — exclude cash/PVD
+      if (!isCash(a.symbol)) {
         const cost = a.quantity * a.costPerShare;
-        const market = a.quantity * price;
         totalCostThb += isThai ? cost : cost * currencyRate;
-        totalMarketThb += isThai ? market : market * currencyRate;
-      });
-    const profitThb = totalMarketThb - totalCostThb;
+        totalMarketThbForProfit += marketThb;
+      }
+    });
+
+    const profitThb = totalMarketThbForProfit - totalCostThb;
     const profitPercent =
       totalCostThb > 0 ? (profitThb / totalCostThb) * 100 : 0;
     return { totalCostThb, totalMarketThb, profitThb, profitPercent };
