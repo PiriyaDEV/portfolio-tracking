@@ -177,6 +177,11 @@ export const DEFAULT_SPCX_LOGO =
 export function getLogo(symbol: string): string {
   if (!symbol) return DEFAULT_STOCK_LOGO;
 
+  // Cash/PVD assets — return empty string to use letter fallback
+  if (symbol === "PVD-THB" || symbol === "CASH-THB" || symbol === "TISCO-PVD") {
+    return "";
+  }
+
   // Special assets
   switch (symbol) {
     case "BTC-USD":
@@ -196,15 +201,6 @@ export function getLogo(symbol: string): string {
 
     case "^SET.BK":
       return DEFAULT_SET_LOGO;
-
-    case "TISCO-PVD":
-      return DEFAULT_PVD_LOGO;
-
-    case "PVD-THB":
-      return DEFAULT_PVD_LOGO;
-
-    case "CASH-THB":
-      return DEFAULT_CASH_LOGO;
 
     case "SPCX":
       return DEFAULT_SPCX_LOGO;
