@@ -32,9 +32,7 @@ async function retry<T>(
     return await fn();
   } catch (err) {
     if (retries <= 0) throw err;
-
     console.warn("Retrying API...", retries);
-
     await new Promise((r) => setTimeout(r, delay));
     return retry(fn, retries - 1, delay);
   }
@@ -174,7 +172,6 @@ export const useMarketStore = create<MarketState>((set, get) => ({
     }
   },
 
-  // FIX: silentRefresh now uses retry consistently, matching loadData behaviour.
   silentRefresh: async (assets) => {
     if (_isSilentRefreshing) return;
     _isSilentRefreshing = true;
@@ -185,7 +182,6 @@ export const useMarketStore = create<MarketState>((set, get) => ({
         retry(() => fetchFinancialData(assets)),
         retry(() => fetchFxRate()),
         retry(() => fetchMarket()),
-        // get().fetchMarketStatus(),
       ]);
       set({ formattedDate: buildFormattedDate() });
     } catch (err) {
@@ -202,10 +198,45 @@ export const useMarketStore = create<MarketState>((set, get) => ({
 const BATCH_SIZE = 5;
 const isMock = false;
 
+// Symbols that use THB=X price directly (not fetched from Yahoo Finance)
+const THB_PROXY_SYMBOLS = ["PVD-THB", "CASH-THB", "TISCO-PVD"];
+
 async function fetchFinancialData(assets: Asset[]) {
+  // Split assets: THB-proxy vs real Yahoo Finance symbols
+  const thbProxyAssets = assets.filter((a) =>
+    THB_PROXY_SYMBOLS.includes(a.symbol),
+  );
+  const realAssets = assets.filter(
+    (a) => !THB_PROXY_SYMBOLS.includes(a.symbol),
+  );
+
+  // Helper: inject THB=X price for proxy assets
+  const injectThbProxyPrices = () => {
+    if (thbProxyAssets.length === 0) return;
+    const { currencyRate } = useMarketStore.getState();
+    const rate = currencyRate > 0 ? currencyRate : 1;
+    const patch: Record<string, number> = {};
+    for (const a of thbProxyAssets) {
+      patch[a.symbol] = rate;
+    }
+    useMarketStore.setState((prev) => ({
+      prices: { ...prev.prices, ...patch },
+      previousPrice: { ...prev.previousPrice, ...patch },
+    }));
+  };
+
+  // If only THB-proxy assets, inject and return early
+  if (realAssets.length === 0) {
+    // Delay slightly to ensure fetchFxRate has completed
+    setTimeout(injectThbProxyPrices, 600);
+    useMarketStore.setState({ isFirstBatchLoaded: true, isLoading: false });
+    return;
+  }
+
+  // Fetch real assets in batches
   const batches: Asset[][] = [];
-  for (let i = 0; i < assets.length; i += BATCH_SIZE) {
-    batches.push(assets.slice(i, i + BATCH_SIZE));
+  for (let i = 0; i < realAssets.length; i += BATCH_SIZE) {
+    batches.push(realAssets.slice(i, i + BATCH_SIZE));
   }
 
   for (const [index, batch] of batches.entries()) {
@@ -251,11 +282,16 @@ async function fetchFinancialData(assets: Asset[]) {
 
       if (index === 0) {
         useMarketStore.setState({ isFirstBatchLoaded: true, isLoading: false });
+        // Inject THB-proxy prices after first batch so UI shows them quickly
+        injectThbProxyPrices();
       }
     } catch (err) {
       console.error("fetchFinancialData batch error:", err);
     }
   }
+
+  // Also inject after all batches done (in case currencyRate wasn't ready yet)
+  injectThbProxyPrices();
 }
 
 async function fetchFxRate() {
@@ -279,9 +315,6 @@ async function fetchMarket() {
     const json = await res.json();
     const marketData: MarketResponse = json.data;
 
-    // FIX: Compute price/previousPrice patches first, then merge everything
-    // into a single setState call — was previously two separate calls which
-    // triggered two Zustand re-renders on every refresh.
     const pricesPatch: Record<string, number | null> = {};
     const prevPatch: Record<string, number | null> = {};
 
@@ -297,12 +330,10 @@ async function fetchMarket() {
       pricesPatch[symbol] = price;
 
       if (pct != null) {
-        // prev = price / (1 + pct/100)
         prevPatch[symbol] = price / (1 + pct / 100);
       }
     }
 
-    // Single setState merges market data + injected prices in one render.
     useMarketStore.setState((prev) => ({
       market: marketData,
       prices: { ...prev.prices, ...pricesPatch },
