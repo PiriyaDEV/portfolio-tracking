@@ -386,6 +386,7 @@ export default function MainApp({
   };
 
   // ─── Save Assets ───────────────────────────────────────────────────────────
+  const THB_INPUT_SYMBOLS = ["PVD-THB", "CASH-THB"];
   const saveAssets = async () => {
     try {
       for (const a of editAssets) {
@@ -397,9 +398,12 @@ export default function MainApp({
           alert("กรุณากรอกจำนวนหุ้นที่มากกว่าหรือเท่ากับ 0");
           return;
         }
-        if (a.costPerShare == null || a.costPerShare <= 0) {
-          alert("กรุณากรอกต้นทุนต่อหุ้นที่มากกว่า 0");
-          return;
+        // THB input assets use costPerShare = 1, skip the > 0 check for them
+        if (!THB_INPUT_SYMBOLS.includes(a.symbol)) {
+          if (a.costPerShare == null || a.costPerShare <= 0) {
+            alert("กรุณากรอกต้นทุนต่อหุ้นที่มากกว่า 0");
+            return;
+          }
         }
       }
       const res = await fetch(`/api/user/${userColId}`, {
@@ -487,6 +491,7 @@ export default function MainApp({
             removeAsset={removeAsset}
             saveAssets={saveAssets}
             setIsEditOpen={setIsEditOpen}
+            currencyRate={currencyRate}
           />
         )}
         {isEditProfileOpen && (
@@ -511,6 +516,7 @@ export default function MainApp({
           saveAssets={saveAssets}
           setIsEditOpen={setIsEditOpen}
           EditModal={EditModal}
+          currencyRate={currencyRate}
         />
         <BottomNavbar
           currentPage={currentPage}
@@ -574,6 +580,7 @@ export default function MainApp({
           removeAsset={removeAsset}
           saveAssets={saveAssets}
           setIsEditOpen={setIsEditOpen}
+          currencyRate={currencyRate}
         />
       )}
       {isEditProfileOpen && (

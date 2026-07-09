@@ -152,7 +152,9 @@ export function fTon(number: string | number) {
 const DEFAULT_STOCK_LOGO =
   "https://png.pngtree.com/png-vector/20190331/ourmid/pngtree-growth-icon-vector--glyph-or-solid-style-icon-stock-png-image_876941.jpg";
 const DEFAULT_PVD_LOGO =
-  "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQiz97SSXXGQFeyG7trM62emx0p3HtM73cjPg&s";
+  "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTOjUfZwY9pF4_qk-a2QwuOyYkMiJm4qGrAnbhVXfckNP7-g8MzbmKCTaOn&s=10";
+const DEFAULT_CASH_LOGO =
+  "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRFQG3t_lWTMW78TLkMprzuX8NOhG_m-IfOKoTBV-WRqcRG4Oxwdhp9nfNa&s=10";
 
 export const DEFAULT_SP500_LOGO =
   "https://cdn-icons-png.flaticon.com/512/3909/3909383.png";
@@ -198,6 +200,12 @@ export function getLogo(symbol: string): string {
     case "TISCO-PVD":
       return DEFAULT_PVD_LOGO;
 
+    case "PVD-THB":
+      return DEFAULT_PVD_LOGO;
+
+    case "CASH-THB":
+      return DEFAULT_CASH_LOGO;
+
     case "SPCX":
       return DEFAULT_SPCX_LOGO;
   }
@@ -224,6 +232,10 @@ export function getName(symbol: string) {
       return "SET";
     case "TISCO-PVD":
       return "TISCO-PVD";
+    case "PVD-THB":
+      return "กองทุนสำรองฯ";
+    case "CASH-THB":
+      return "เงินสด";
     default:
       return symbol;
   }
@@ -237,11 +249,21 @@ export function getProfitColor(profit: number): string {
 
 // Helper function to check if stock is Thai
 export const isThaiStock = (symbol: string): boolean => {
-  return symbol.toUpperCase().endsWith(".BK") || symbol === "THB=X";
+  return (
+    symbol.toUpperCase().endsWith(".BK") ||
+    symbol === "THB=X" ||
+    symbol === "CASH-THB" ||
+    symbol === "PVD-THB"
+  );
 };
 
 export const isCash = (symbol: string): boolean => {
-  return symbol === "THB=X" || symbol === "TISCO-PVD";
+  return (
+    symbol === "THB=X" ||
+    symbol === "TISCO-PVD" ||
+    symbol === "CASH-THB" ||
+    symbol === "PVD-THB"
+  );
 };
 
 // ─── Encrypt Function ─────────────────────────────────────────────

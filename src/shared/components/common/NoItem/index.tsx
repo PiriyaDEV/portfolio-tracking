@@ -11,6 +11,7 @@ type NoItemProps = {
   saveAssets: () => Promise<void>;
   setIsEditOpen: React.Dispatch<React.SetStateAction<boolean>>;
   EditModal: React.FC<any>;
+  currencyRate?: number;
 };
 
 export const NoItem: React.FC<NoItemProps> = ({
@@ -23,6 +24,7 @@ export const NoItem: React.FC<NoItemProps> = ({
   saveAssets,
   setIsEditOpen,
   EditModal,
+  currencyRate,
 }) => {
   return (
     <div className="mt-[81px] mb-[172px]">
@@ -48,6 +50,7 @@ export const NoItem: React.FC<NoItemProps> = ({
           removeAsset={removeAsset}
           saveAssets={saveAssets}
           setIsEditOpen={setIsEditOpen}
+          currencyRate={currencyRate}
         />
       )}
     </div>

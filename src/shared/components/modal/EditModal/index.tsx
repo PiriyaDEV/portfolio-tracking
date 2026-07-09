@@ -5,7 +5,7 @@ import { getLogo, getName } from "@/app/lib/utils";
 import StockSearchSelect from "@/shared/pages/ViewScreen/components/StockSearchSelect";
 import { useState } from "react";
 
-type AssetType = "US" | "TH" | "GOLD" | "BTC";
+type AssetType = "US" | "TH" | "GOLD" | "BTC" | "PVD" | "CASH";
 
 const ASSET_TYPES: {
   value: AssetType;
@@ -13,15 +13,33 @@ const ASSET_TYPES: {
   emoji: string;
   exchange?: "US" | "BK";
   forcedSymbol?: string;
+  isTHBInput?: boolean;
 }[] = [
   { value: "US", label: "หุ้น US", emoji: "🇺🇸", exchange: "US" },
   { value: "TH", label: "หุ้นไทย", emoji: "🇹🇭", exchange: "BK" },
   { value: "GOLD", label: "ทอง", emoji: "🥇", forcedSymbol: "GC=F" },
   { value: "BTC", label: "Bitcoin", emoji: "₿", forcedSymbol: "BTC-USD" },
+  {
+    value: "PVD",
+    label: "กองทุนสำรองเลี้ยงชีพ",
+    emoji: "🏦",
+    forcedSymbol: "PVD-THB",
+    isTHBInput: true,
+  },
+  {
+    value: "CASH",
+    label: "เงินสด",
+    emoji: "💵",
+    forcedSymbol: "CASH-THB",
+    isTHBInput: true,
+  },
 ];
 
+// Symbols that use THB direct input
+const THB_INPUT_SYMBOLS = ["PVD-THB", "CASH-THB"];
+
 // Raw string values for numeric inputs (to preserve "0.000..." while typing)
-type RawValues = Record<number, { quantity?: string; costPerShare?: string }>;
+type RawValues = Record<number, { quantity?: string; costPerShare?: string; thbAmount?: string }>;
 
 const EditModal = ({
   editAssets,
@@ -30,6 +48,7 @@ const EditModal = ({
   removeAsset,
   saveAssets,
   setIsEditOpen,
+  currencyRate,
 }: {
   editAssets: Asset[];
   setEditAssets: React.Dispatch<React.SetStateAction<Asset[]>>;
@@ -37,6 +56,7 @@ const EditModal = ({
   removeAsset: (index: number) => void;
   saveAssets: () => Promise<void>;
   setIsEditOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  currencyRate?: number;
 }) => {
   const [isSaving, setIsSaving] = useState(false);
   const [assetTypes, setAssetTypes] = useState<Record<number, AssetType>>({});
@@ -59,9 +79,14 @@ const EditModal = ({
 
   const hasIncompleteCards = newCardIndices.size > 0;
 
-  const hasInvalidAssets = editAssets.some(
-    (a) => !a.symbol?.trim() || !a.quantity || !a.costPerShare,
-  );
+  const hasInvalidAssets = editAssets.some((a) => {
+    if (!a.symbol?.trim()) return true;
+    // THB input assets: only need thbAmount (stored in rawValues) or quantity > 0
+    if (THB_INPUT_SYMBOLS.includes(a.symbol)) {
+      return !a.quantity || a.quantity <= 0;
+    }
+    return !a.quantity || !a.costPerShare;
+  });
 
   const canSave = !isSaving && !hasIncompleteCards && !hasInvalidAssets;
 
@@ -104,6 +129,10 @@ const EditModal = ({
     const config = ASSET_TYPES.find((t) => t.value === type)!;
     if (config.forcedSymbol) {
       updateAsset(cardIndex, "symbol", config.forcedSymbol);
+      // For THB input types, set costPerShare = 1 immediately
+      if (config.isTHBInput) {
+        updateAsset(cardIndex, "costPerShare", 1);
+      }
       setNewCardIndices((prev) => {
         const next = new Set(prev);
         next.delete(cardIndex);
@@ -142,6 +171,34 @@ const EditModal = ({
     if (!isNaN(num)) {
       updateAsset(index, "costPerShare", num);
     }
+  };
+
+  // Handle THB amount input for CASH-THB / PVD-THB
+  // quantity = thbAmount / currencyRate, costPerShare = 1
+  const handleThbAmountChange = (index: number, raw: string) => {
+    setRawValues((prev) => ({
+      ...prev,
+      [index]: { ...prev[index], thbAmount: raw },
+    }));
+    const thbAmount = parseFloat(raw);
+    if (!isNaN(thbAmount) && thbAmount > 0) {
+      const rate = currencyRate && currencyRate > 0 ? currencyRate : 1;
+      const quantity = thbAmount / rate;
+      updateAsset(index, "quantity", quantity);
+      updateAsset(index, "costPerShare", 1);
+    }
+  };
+
+  // Derive displayed THB amount from stored quantity * currencyRate
+  const getThbAmountDisplay = (index: number, asset: Asset): string => {
+    if (rawValues[index]?.thbAmount !== undefined) {
+      return rawValues[index].thbAmount!;
+    }
+    if (asset.quantity && asset.quantity > 0) {
+      const rate = currencyRate && currencyRate > 0 ? currencyRate : 1;
+      return String(Math.round(asset.quantity * rate));
+    }
+    return "";
   };
 
   return (
@@ -190,6 +247,8 @@ const EditModal = ({
               ? ASSET_TYPES.find((t) => t.value === selectedType)
               : null;
 
+            const isTHBAsset = THB_INPUT_SYMBOLS.includes(asset.symbol);
+
             // Use rawValues while the user is typing; fall back to asset value
             const quantityDisplay =
               rawValues[index]?.quantity !== undefined
@@ -204,6 +263,8 @@ const EditModal = ({
                 : asset.costPerShare
                   ? String(asset.costPerShare)
                   : "";
+
+            const thbAmountDisplay = getThbAmountDisplay(index, asset);
 
             return (
               <div
@@ -321,39 +382,61 @@ const EditModal = ({
                           )
                         }
                         placeholder="เช่น AAPL"
-                        disabled={isSaving}
+                        disabled={isSaving || isTHBAsset}
                       />
                     </FieldGroup>
 
-                    <div className="grid grid-cols-2 gap-2">
-                      <FieldGroup label="จำนวนหุ้น" emoji="📦">
-                        <input
-                          type="number"
-                          step="any"
-                          className="w-full px-3 py-2 rounded-lg bg-black border border-accent-yellow border-opacity-30 text-white text-sm outline-none focus:border-opacity-70 transition-all placeholder-gray-600"
-                          value={quantityDisplay}
-                          onChange={(e) =>
-                            handleQuantityChange(index, e.target.value)
-                          }
-                          placeholder="0"
-                          disabled={isSaving}
-                        />
-                      </FieldGroup>
+                    {isTHBAsset ? (
+                      /* THB direct input for CASH-THB / PVD-THB */
+                      <div className="space-y-1">
+                        <FieldGroup label="จำนวนเงิน (บาท)" emoji="🪙">
+                          <input
+                            type="number"
+                            step="any"
+                            className="w-full px-3 py-2 rounded-lg bg-black border border-accent-yellow border-opacity-30 text-white text-sm outline-none focus:border-opacity-70 transition-all placeholder-gray-600"
+                            value={thbAmountDisplay}
+                            onChange={(e) =>
+                              handleThbAmountChange(index, e.target.value)
+                            }
+                            placeholder="เช่น 100000"
+                            disabled={isSaving}
+                          />
+                        </FieldGroup>
+                        <p className="text-[10px] text-gray-600 px-1">
+                          ระบบจะคำนวณ: จำนวนหน่วย = เงินบาท ÷ อัตราแลกเปลี่ยน USD/THB
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-2">
+                        <FieldGroup label="จำนวนหุ้น" emoji="📦">
+                          <input
+                            type="number"
+                            step="any"
+                            className="w-full px-3 py-2 rounded-lg bg-black border border-accent-yellow border-opacity-30 text-white text-sm outline-none focus:border-opacity-70 transition-all placeholder-gray-600"
+                            value={quantityDisplay}
+                            onChange={(e) =>
+                              handleQuantityChange(index, e.target.value)
+                            }
+                            placeholder="0"
+                            disabled={isSaving}
+                          />
+                        </FieldGroup>
 
-                      <FieldGroup label="ต้นทุน/หุ้น (USD)" emoji="💵">
-                        <input
-                          type="number"
-                          step="any"
-                          className="w-full px-3 py-2 rounded-lg bg-black border border-accent-yellow border-opacity-30 text-white text-sm outline-none focus:border-opacity-70 transition-all placeholder-gray-600"
-                          value={costDisplay}
-                          onChange={(e) =>
-                            handleCostPerShareChange(index, e.target.value)
-                          }
-                          placeholder="0.00"
-                          disabled={isSaving}
-                        />
-                      </FieldGroup>
-                    </div>
+                        <FieldGroup label="ต้นทุน/หุ้น (USD)" emoji="💵">
+                          <input
+                            type="number"
+                            step="any"
+                            className="w-full px-3 py-2 rounded-lg bg-black border border-accent-yellow border-opacity-30 text-white text-sm outline-none focus:border-opacity-70 transition-all placeholder-gray-600"
+                            value={costDisplay}
+                            onChange={(e) =>
+                              handleCostPerShareChange(index, e.target.value)
+                            }
+                            placeholder="0.00"
+                            disabled={isSaving}
+                          />
+                        </FieldGroup>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -444,7 +527,7 @@ const EditModal = ({
               <p className="text-gray-300 text-sm leading-relaxed">
                 คุณต้องการลบ{" "}
                 <span className="text-accent-yellow font-bold tracking-wide">
-                  {editAssets[confirmDeleteIndex]?.symbol || "สินทรัพย์นี้"}
+                  {getName(editAssets[confirmDeleteIndex]?.symbol) || "สินทรัพย์นี้"}
                 </span>{" "}
                 ออกจากพอร์ตหรือไม่?
               </p>
