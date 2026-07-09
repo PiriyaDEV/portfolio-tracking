@@ -41,7 +41,7 @@ export default function CalculateScreen({
   const { prices, currencyRate, dividend, advancedLevels } = useMarketStore();
 
   const [selectedSymbol, setSelectedSymbol] = useState<string>(
-    assets.length > 0 ? assets[0].symbol : "",
+    assets.find((a) => !isCash(a.symbol))?.symbol ?? "",
   );
   const [newInvestment, setNewInvestment] = useState<string>("");
   const [newPrice, setNewPrice] = useState<string>("");
