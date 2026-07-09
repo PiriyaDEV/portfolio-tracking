@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { isThaiStock } from "@/app/lib/utils";
+import { isCash, isThaiStock } from "@/app/lib/utils";
 import {
   FaArrowTrendUp as UpIcon,
   FaArrowTrendDown as DownIcon,
@@ -38,16 +38,28 @@ export default function FooterPortfolio({
 
   if (!assets) return null;
 
-  // ✅ Total cost (THB)
+  // ✅ Total cost (THB) — exclude cash/PVD assets (profit is always 0)
   const totalCostThb = useMemo(() => {
     return assets.reduce((sum, a) => {
+      if (isCash(a.symbol)) return sum; // skip cash assets
       const isThai = isThaiStock(a.symbol);
       const cost = a.quantity * a.costPerShare;
       return sum + (isThai ? cost : cost * currencyRate);
     }, 0);
   }, [assets, currencyRate]);
 
-  // ✅ Total market value (THB)
+  // ✅ Total market value (THB) — exclude cash/PVD assets from profit calc
+  const totalMarketThbForProfit = useMemo(() => {
+    return assets.reduce((sum, asset) => {
+      if (isCash(asset.symbol)) return sum; // skip cash assets
+      const isThai = isThaiStock(asset.symbol);
+      const currentPrice = prices[asset.symbol] ?? 0;
+      const value = currentPrice * asset.quantity;
+      return sum + (isThai ? value : value * currencyRate);
+    }, 0);
+  }, [assets, prices, currencyRate]);
+
+  // ✅ Total market value (THB) — all assets including cash (for display)
   const totalMarketThb = useMemo(() => {
     return assets.reduce((sum, asset) => {
       const isThai = isThaiStock(asset.symbol);
@@ -66,8 +78,8 @@ export default function FooterPortfolio({
     );
   }, [assets, prices, totalMarketThb, formattedDate]);
 
-  // ✅ Profit
-  const totalProfitThb = totalMarketThb - totalCostThb;
+  // ✅ Profit (exclude cash assets)
+  const totalProfitThb = totalMarketThbForProfit - totalCostThb;
   const totalProfitPercent =
     totalCostThb > 0 ? (totalProfitThb / totalCostThb) * 100 : 0;
 
