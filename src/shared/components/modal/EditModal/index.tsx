@@ -36,7 +36,7 @@ const ASSET_TYPES: {
 ];
 
 // Symbols that use THB direct input
-const THB_INPUT_SYMBOLS = ["PVD-THB", "CASH-THB"];
+const THB_INPUT_SYMBOLS = ["PVD-THB", "CASH-THB", "TISCO-PVD", "THB=X"];
 
 // Raw string values for numeric inputs (to preserve "0.000..." while typing)
 type RawValues = Record<number, { quantity?: string; costPerShare?: string; thbAmount?: string }>;
@@ -369,22 +369,24 @@ const EditModal = ({
                 {/* Fields — show once symbol is set */}
                 {!isNew && (
                   <div className="space-y-2">
-                    <FieldGroup label="Symbol" emoji="🔤">
-                      <input
-                        type="text"
-                        className="w-full px-3 py-2 rounded-lg bg-black border border-accent-yellow border-opacity-30 text-accent-yellow font-bold tracking-widest text-sm outline-none focus:border-opacity-70 transition-all placeholder-gray-600 uppercase"
-                        value={asset.symbol}
-                        onChange={(e) =>
-                          updateAsset(
-                            index,
-                            "symbol",
-                            e.target.value.toUpperCase(),
-                          )
-                        }
-                        placeholder="เช่น AAPL"
-                        disabled={isSaving || isTHBAsset}
-                      />
-                    </FieldGroup>
+                    {!isTHBAsset && (
+                      <FieldGroup label="Symbol" emoji="🔤">
+                        <input
+                          type="text"
+                          className="w-full px-3 py-2 rounded-lg bg-black border border-accent-yellow border-opacity-30 text-accent-yellow font-bold tracking-widest text-sm outline-none focus:border-opacity-70 transition-all placeholder-gray-600 uppercase"
+                          value={asset.symbol}
+                          onChange={(e) =>
+                            updateAsset(
+                              index,
+                              "symbol",
+                              e.target.value.toUpperCase(),
+                            )
+                          }
+                          placeholder="เช่น AAPL"
+                          disabled={isSaving}
+                        />
+                      </FieldGroup>
+                    )}
 
                     {isTHBAsset ? (
                       /* THB direct input for CASH-THB / PVD-THB */

@@ -386,7 +386,7 @@ export default function MainApp({
   };
 
   // ─── Save Assets ───────────────────────────────────────────────────────────
-  const THB_INPUT_SYMBOLS = ["PVD-THB", "CASH-THB"];
+  const THB_INPUT_SYMBOLS = ["PVD-THB", "CASH-THB", "TISCO-PVD", "THB=X"];
   const saveAssets = async () => {
     try {
       for (const a of editAssets) {
