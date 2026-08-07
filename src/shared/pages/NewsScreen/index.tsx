@@ -101,43 +101,6 @@ function DateChip({ label }: { label: string }) {
 }
 
 /* =======================
-   RecommendationPill Component
-======================= */
-function RecommendationPill({
-  type,
-  label
-}: {
-  type: "buy" | "strong-buy" | "avoid";
-  label: string;
-}) {
-  const bgColors = {
-    "buy": "bg-green-600/20",
-    "strong-buy": "bg-green-600/30",
-    "avoid": "bg-red-600/20",
-  };
-
-  const borderColors = {
-    "buy": "border-green-500/40",
-    "strong-buy": "border-green-500/60",
-    "avoid": "border-red-500/40",
-  };
-
-  const textColors = {
-    "buy": "text-green-400",
-    "strong-buy": "text-green-300",
-    "avoid": "text-red-400",
-  };
-
-  return (
-    <div className="flex items-center justify-center my-4">
-      <span className={`px-6 py-2 ${bgColors[type]} backdrop-blur-sm border ${borderColors[type]} rounded-full text-[13px] ${textColors[type]} font-bold tracking-wide select-none shadow-lg`}>
-        {label}
-      </span>
-    </div>
-  );
-}
-
-/* =======================
    Main NewsScreen
 ======================= */
 const GOOGLE_NEWS_TAB_ID = "__google_news__";
@@ -372,27 +335,6 @@ export default function NewsScreen({ assets = [] }: Props) {
     (msg) => msg.text && msg.text.trim() !== "",
   );
 
-  function detectRecommendationType(text: string): "buy" | "strong-buy" | "avoid" | null {
-    if (!text) return null;
-
-    // Check for avoid signals (red circle)
-    if (text.includes("🔴")) {
-      return "avoid";
-    }
-
-    // Check for buy signals (green circle)
-    if (text.includes("🟢")) {
-      // Strong buy keywords
-      if (text.includes("แนะนำซื้อมาก") || text.includes("ซื้อมาก") || text.includes("แนะนำสะสม")) {
-        return "strong-buy";
-      }
-      // Regular buy
-      return "buy";
-    }
-
-    return null;
-  }
-
   function formatDateChip(date: Date): string {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -414,12 +356,10 @@ export default function NewsScreen({ assets = [] }: Props) {
 
   type DisplayItem =
     | { type: "date"; label: string; key: string }
-    | { type: "recommendation"; recommendType: "buy" | "strong-buy" | "avoid"; label: string; key: string }
     | { type: "message"; msg: TelegramMessage; index: number };
 
   const displayItems: DisplayItem[] = [];
   let lastDateKey = "";
-  let lastRecommendationType: string | null = null;
 
   filteredMessages.forEach((msg, index) => {
     const msgDate = new Date(msg.date * 1000);
@@ -433,24 +373,6 @@ export default function NewsScreen({ assets = [] }: Props) {
         key: `date-${dateKey}`,
       });
       lastDateKey = dateKey;
-      lastRecommendationType = null; // Reset recommendation type on new date
-    }
-
-    // Add recommendation pill if recommendation type changed
-    const recommendType = detectRecommendationType(msg.text);
-    if (recommendType && recommendType !== lastRecommendationType) {
-      const labels = {
-        "buy": "แนะนำซื้อ",
-        "strong-buy": "แนะนำซื้อมาก",
-        "avoid": "แนะนำสถาน (ไม่ควรซื้อ หรือ พิจารณาขาย)"
-      };
-      displayItems.push({
-        type: "recommendation",
-        recommendType,
-        label: labels[recommendType],
-        key: `recommend-${dateKey}-${recommendType}-${index}`,
-      });
-      lastRecommendationType = recommendType;
     }
 
     displayItems.push({ type: "message", msg, index });
@@ -654,16 +576,6 @@ export default function NewsScreen({ assets = [] }: Props) {
               displayItems.map((item) => {
                 if (item.type === "date") {
                   return <DateChip key={item.key} label={item.label} />;
-                }
-
-                if (item.type === "recommendation") {
-                  return (
-                    <RecommendationPill
-                      key={item.key}
-                      type={item.recommendType}
-                      label={item.label}
-                    />
-                  );
                 }
 
                 const { msg, index } = item;
