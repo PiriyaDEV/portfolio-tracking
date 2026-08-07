@@ -495,8 +495,8 @@ export default function NewsScreen({ assets = [] }: Props) {
 
         {/* Channel tab pills */}
         <div className="flex items-center gap-2 px-4 py-2.5 bg-black border-b !border-yellow-400/[0.5] overflow-x-auto scrollbar-none">
-          {/* Google News tab — only shown if assets provided */}
-          {assets.length > 0 && (
+          {/* Google News tab — hidden */}
+          {false && assets.length > 0 && (
             <button
               onClick={() => handleChannelChange(GOOGLE_NEWS_TAB_ID)}
               className={`
