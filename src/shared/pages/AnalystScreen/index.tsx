@@ -37,7 +37,7 @@ function SupportTabContent({
   setSelectedSymbol,
 }: {
   sortedSymbols: string[];
-  prices: Record<string, number>;
+  prices: Record<string, number | null>;
   advancedLevels: Record<string, any>;
   setSelectedSymbol: (symbol: string) => void;
 }) {
