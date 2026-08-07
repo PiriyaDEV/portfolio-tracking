@@ -20,9 +20,104 @@ import NewsScreen from "../NewsScreen";
 import Earning from "./components/Earning";
 import StockRecommendScreen from "../CalculateScreen/components/StockRecommand";
 import { GraphModal } from "./components/GraphPrice/components/GraphModal";
+import { isStrongBuy, isNormalBuy, isNearResistance } from "@/app/lib/market.logic";
 
 // Re-export MarketResponse so existing imports still work
 export type { MarketResponse } from "./components/GraphPrice";
+
+/* =======================
+   SupportTabContent Component with Filter Pills
+======================= */
+type FilterType = "all" | "strong-buy" | "buy" | "avoid";
+
+function SupportTabContent({
+  sortedSymbols,
+  prices,
+  advancedLevels,
+  setSelectedSymbol,
+}: {
+  sortedSymbols: string[];
+  prices: Record<string, number>;
+  advancedLevels: Record<string, any>;
+  setSelectedSymbol: (symbol: string) => void;
+}) {
+  const [activeFilter, setActiveFilter] = useState<FilterType>("all");
+
+  const filteredSymbols = sortedSymbols.filter((symbol) => {
+    if (activeFilter === "all") return true;
+
+    const price = prices[symbol];
+    const levels = advancedLevels[symbol];
+
+    const strongBuy = isStrongBuy(price, levels.entry2);
+    const buyZone = isNormalBuy(price, levels.entry1, levels.entry2);
+    const takeProfit = isNearResistance(price, levels.resistance);
+
+    if (activeFilter === "strong-buy") return strongBuy;
+    if (activeFilter === "buy") return buyZone && !strongBuy;
+    if (activeFilter === "avoid") return takeProfit;
+
+    return true;
+  });
+
+  const filters: { key: FilterType; label: string; emoji: string }[] = [
+    { key: "all", label: "ทั้งหมด", emoji: "📊" },
+    { key: "strong-buy", label: "ควรซื้อ", emoji: "✅" },
+    { key: "buy", label: "ซื้อได้", emoji: "🟢" },
+    { key: "avoid", label: "ห้ามซื้อ / ขายได้", emoji: "🔴" },
+  ];
+
+  return (
+    <>
+      {/* Filter Pills */}
+      <div className="sticky top-[160px] z-10 bg-black py-3 border-b border-white/[0.06] -mx-4 px-4 mb-3">
+        <div className="flex items-center gap-2 overflow-x-auto scrollbar-none">
+          {filters.map((filter) => {
+            const isActive = activeFilter === filter.key;
+            return (
+              <button
+                key={filter.key}
+                onClick={() => setActiveFilter(filter.key)}
+                className={`
+                  flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[12px] font-medium
+                  whitespace-nowrap shrink-0 transition-all duration-200
+                  ${
+                    isActive
+                      ? "bg-accent-yellow text-black shadow-[0_0_12px_rgba(255,200,0,0.35)]"
+                      : "bg-white/[0.07] text-white/60 hover:bg-white/[0.12] hover:text-white/90"
+                  }
+                `}
+              >
+                <span>{filter.emoji}</span>
+                <span>{filter.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Stock Cards */}
+      <div className="flex flex-col gap-3">
+        {filteredSymbols.length === 0 ? (
+          <div className="text-center py-12 text-white/40 text-sm">
+            ไม่พบหุ้นในหมวดนี้
+          </div>
+        ) : (
+          filteredSymbols.map((symbol) => (
+            <StockCard
+              key={symbol}
+              symbol={symbol}
+              price={prices[symbol]!}
+              levels={advancedLevels[symbol]}
+              onSelect={(sym) => setSelectedSymbol(sym)}
+              showAnalyst
+            />
+          ))
+        )}
+      </div>
+    </>
+  );
+}
 
 interface Props {
   assets: Asset[];
@@ -68,7 +163,7 @@ export default function AnalystScreen({ assets, wishlist, userId }: Props) {
     { key: "graph", label: "กราฟ", icon: <FaChartLine size={22} /> },
     { key: "compare", label: "เทียบ S&P", icon: <FaChartBar size={22} /> },
     { key: "news", label: "ข่าว", icon: <FaNewspaper size={22} /> },
-    { key: "support", label: "แนวรับ", icon: <FaLayerGroup size={22} /> },
+    { key: "support", label: "แนะนำ", icon: <FaLayerGroup size={22} /> },
     { key: "earning", label: "ไตรมาส", icon: <FaCalendarAlt size={22} /> },
     { key: "recommend", label: "แนะนำหุ้น", icon: <FaChartLine size={22} /> },
   ];
@@ -117,18 +212,12 @@ export default function AnalystScreen({ assets, wishlist, userId }: Props) {
       {/* Content */}
       <div className="pt-[50px] space-y-3">
         {activeTab === "support" && (
-          <div className="flex flex-col gap-3">
-            {sortedSymbols.map((symbol) => (
-              <StockCard
-                key={symbol}
-                symbol={symbol}
-                price={prices[symbol]!}
-                levels={advancedLevels[symbol]}
-                onSelect={(sym) => setSelectedSymbol(sym)}
-                showAnalyst
-              />
-            ))}
-          </div>
+          <SupportTabContent
+            sortedSymbols={sortedSymbols}
+            prices={prices}
+            advancedLevels={advancedLevels}
+            setSelectedSymbol={setSelectedSymbol}
+          />
         )}
 
         {activeTab === "compare" && <SNPCompare assets={assets} />}

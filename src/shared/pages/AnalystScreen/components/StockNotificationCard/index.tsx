@@ -99,7 +99,7 @@ export function StockNotificationCard({
                   : "bg-transparent text-gray-300 border-white/10 hover:border-white/20"
               }`}
             >
-              แนวรับ 1
+              แนะนำ 1
               {entry1 != null && (
                 <span className="block text-[10px] font-normal opacity-60 mt-0.5">
                   {entry1.toFixed(2)}
@@ -116,7 +116,7 @@ export function StockNotificationCard({
                   : "bg-transparent text-gray-300 border-white/10 hover:border-white/20"
               }`}
             >
-              แนวรับ 2
+              แนะนำ 2
               {entry2 != null && (
                 <span className="block text-[10px] font-normal opacity-60 mt-0.5">
                   {entry2.toFixed(2)}

@@ -118,7 +118,7 @@ export default function StockCard({
       pulseColor: "bg-orange-900",
     },
     {
-      label: "คำแนะนำ",
+      label: "คำแนะนำจากกูรู",
       value: getAnalystLabel(getAnalystView(levels.recommendation)),
       icon: <BarChart2 size={8} />,
       color: "!text-gray-400/80",

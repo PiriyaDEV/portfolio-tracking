@@ -159,10 +159,10 @@ export async function GET(req: Request) {
           baseLabel = `ราคาเป้า ${level1.toFixed(2)}`;
         } else if (type === "support1") {
           level1 = levels.entry1;
-          baseLabel = `แนวรับ 1 (${level1.toFixed(2)})`;
+          baseLabel = `แนะนำ 1 (${level1.toFixed(2)})`;
         } else if (type === "support2") {
           level1 = levels.entry2;
-          baseLabel = `แนวรับ 2 (${level1.toFixed(2)})`;
+          baseLabel = `แนะนำ 2 (${level1.toFixed(2)})`;
         }
 
         if (!level1) continue;
