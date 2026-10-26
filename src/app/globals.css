@@ -92,13 +92,13 @@ body {
   .app-header {
     left: env(viewport-segment-left 0 0, 0px);
     right: auto;
-    width: env(viewport-segment-width 0 0, 50vw);
-    max-width: none;
+    width: env(viewport-segment-width 0 0, 50vw) !important;
+    max-width: none !important;
   }
 
   .app-content {
-    width: 100vw;
-    max-width: none;
+    width: 100vw !important;
+    max-width: none !important;
     margin-left: 0;
     margin-right: 0;
   }
@@ -165,14 +165,14 @@ body {
     top: env(viewport-segment-top 0 0, 0px);
     left: env(viewport-segment-left 0 0, 0px);
     right: auto;
-    width: env(viewport-segment-width 0 0, 100vw);
-    max-width: none;
+    width: env(viewport-segment-width 0 0, 100vw) !important;
+    max-width: none !important;
   }
 
   .app-content {
-    width: env(viewport-segment-width 0 0, 100vw);
+    width: env(viewport-segment-width 0 0, 100vw) !important;
     height: env(viewport-segment-height 0 0, 50dvh);
-    max-width: none;
+    max-width: none !important;
     margin: 0;
     flex: 0 0 auto;
     overflow: hidden;
@@ -324,13 +324,13 @@ body {
   .app-header {
     left: 0;
     right: auto;
-    width: 55vw;
-    max-width: none;
+    width: 55vw !important;
+    max-width: none !important;
   }
 
   .app-content {
-    width: 100vw;
-    max-width: none;
+    width: 100vw !important;
+    max-width: none !important;
     margin: 0;
   }
 
