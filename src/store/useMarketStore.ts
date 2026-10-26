@@ -158,9 +158,14 @@ export const useMarketStore = create<MarketState>((set, get) => ({
     });
 
     try {
+      // THB-input assets are priced from the USD/THB rate. Load that dependency
+      // before injecting their prices so they never briefly use the fallback 1.
+      await retry(fetchFxRate).catch((err) => {
+        console.error("loadData FX rate unavailable:", err);
+      });
+
       await Promise.all([
         retry(() => fetchFinancialData(assets)),
-        retry(() => fetchFxRate()),
         retry(() => fetchMarket()),
         retry(() => get().fetchMarketStatus()),
       ]);
@@ -178,9 +183,13 @@ export const useMarketStore = create<MarketState>((set, get) => ({
     set({ isSilentRefreshing: true });
 
     try {
+      // Refresh FX first because the synthetic THB-input prices depend on it.
+      await retry(fetchFxRate).catch((err) => {
+        console.error("silentRefresh FX rate unavailable:", err);
+      });
+
       await Promise.all([
         retry(() => fetchFinancialData(assets)),
-        retry(() => fetchFxRate()),
         retry(() => fetchMarket()),
       ]);
       set({ formattedDate: buildFormattedDate() });
@@ -214,10 +223,13 @@ async function fetchFinancialData(assets: Asset[]) {
   const injectThbProxyPrices = () => {
     if (thbProxyAssets.length === 0) return;
     const { currencyRate } = useMarketStore.getState();
-    const rate = currencyRate > 0 ? currencyRate : 1;
+    // Do not substitute 1 when FX is unavailable: it silently turns a THB
+    // balance into a wrong market value. Keep existing prices until FX recovers.
+    if (!Number.isFinite(currencyRate) || currencyRate <= 0) return;
+
     const patch: Record<string, number> = {};
     for (const a of thbProxyAssets) {
-      patch[a.symbol] = rate;
+      patch[a.symbol] = currencyRate;
     }
     useMarketStore.setState((prev) => ({
       prices: { ...prev.prices, ...patch },
@@ -225,10 +237,9 @@ async function fetchFinancialData(assets: Asset[]) {
     }));
   };
 
-  // If only THB-proxy assets, inject and return early
+  // If only THB-proxy assets, inject now. loadData/silentRefresh await FX first.
   if (realAssets.length === 0) {
-    // Delay slightly to ensure fetchFxRate has completed
-    setTimeout(injectThbProxyPrices, 600);
+    injectThbProxyPrices();
     useMarketStore.setState({ isFirstBatchLoaded: true, isLoading: false });
     return;
   }
@@ -303,9 +314,14 @@ async function fetchFxRate() {
     const res = await fetch("/api/rate", { method: "GET" });
     if (!res.ok) throw new Error(`BOT API Error: ${res.status}`);
     const data = await res.json();
-    useMarketStore.setState({ currencyRate: Number(data.rate) ?? 0 });
+    const rate = Number(data.rate);
+    if (!Number.isFinite(rate) || rate <= 0) {
+      throw new Error("Invalid USD/THB rate in API response");
+    }
+    useMarketStore.setState({ currencyRate: rate });
   } catch (err) {
     console.error("fetchFxRate error:", err);
+    throw err;
   }
 }
 
