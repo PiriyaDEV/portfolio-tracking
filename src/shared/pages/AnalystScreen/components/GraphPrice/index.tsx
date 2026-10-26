@@ -127,6 +127,8 @@ const MARKET_ITEMS = [
 type Props = {
   assets: Asset[];
   market: MarketResponse;
+  isFoldableLayout?: boolean;
+  onSelectSymbol?: (symbol: string) => void;
 };
 
 /* =======================
@@ -145,7 +147,7 @@ function calcPct(
    Component
 ======================= */
 
-export function GraphPrice({ assets, market }: Props) {
+export function GraphPrice({ assets, market, isFoldableLayout = false, onSelectSymbol }: Props) {
   // ─── All market data from shared store ───────────────────────────────────
   const { prices, graphs, previousPrice, currencyRate, marketStatus } =
     useMarketStore();
@@ -266,7 +268,7 @@ export function GraphPrice({ assets, market }: Props) {
         />
       )}
 
-      {selectedSymbol && selectedAsset && (
+      {selectedSymbol && selectedAsset && !isFoldableLayout && (
         <GraphModal
           symbol={selectedSymbol}
           asset={assets.find((a) => a.symbol === selectedSymbol) ?? null}
@@ -277,7 +279,7 @@ export function GraphPrice({ assets, market }: Props) {
 
       {/* HEADER */}
       <div
-        className="fixed top-[160px] left-1/2 -translate-x-1/2 max-w-[450px] w-full gap-3 py-2 px-3 text-[12px] text-gray-400 bg-black z-[99]"
+        className="app-fixed-pane fixed top-[160px] left-1/2 -translate-x-1/2 max-w-[450px] w-full gap-3 py-2 px-3 text-[12px] text-gray-400 bg-black z-[99]"
         style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}
       >
         <div
@@ -319,7 +321,7 @@ export function GraphPrice({ assets, market }: Props) {
                       <div
                         key={item.key}
                         onClick={() =>
-                          marketSymbol && setSelectedSymbol(marketSymbol)
+                          marketSymbol && (isFoldableLayout ? onSelectSymbol?.(marketSymbol) : setSelectedSymbol(marketSymbol))
                         }
                         className="flex items-center gap-2 shrink-0"
                         style={{
@@ -522,7 +524,7 @@ export function GraphPrice({ assets, market }: Props) {
             <React.Fragment key={symbol}>
               <div
                 className="w-full grid grid-cols-[2fr_1fr_1fr] gap-3 py-2 items-center cursor-pointer active:opacity-60 transition-opacity"
-                onClick={() => setSelectedSymbol(symbol)}
+                onClick={() => isFoldableLayout ? onSelectSymbol?.(symbol) : setSelectedSymbol(symbol)}
               >
                 {/* Left */}
                 <div className="flex items-center gap-2">

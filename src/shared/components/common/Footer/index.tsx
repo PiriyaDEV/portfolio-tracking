@@ -115,7 +115,7 @@ export default function FooterPortfolio({
   }, [assets, prices, previousPrice, currencyRate]);
 
   return (
-    <div className="fixed bottom-[52px] left-1/2 -translate-x-1/2 w-full sm:w-[450px] bg-black-lighter shadow-[0_-8px_32px_rgba(0,0,0,0.6)] border-t border-white/[0.05]">
+    <div className="app-fixed-pane app-portfolio-footer fixed bottom-[52px] left-1/2 -translate-x-1/2 w-full sm:w-[450px] bg-black-lighter shadow-[0_-8px_32px_rgba(0,0,0,0.6)] border-t border-white/[0.05]">
       <div
         className="container mx-auto px-5 pt-4 pb-7 text-center"
         onClick={() => setIsOpen(!isOpen)}

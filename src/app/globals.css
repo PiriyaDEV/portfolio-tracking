@@ -65,3 +65,230 @@ body {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }
+
+/* Two-segment foldable layouts: ordinary phones/tablets keep the current UI. */
+.foldable-companion-pane {
+  display: none;
+}
+
+@media (horizontal-viewport-segments: 2) {
+  .app-background-layout {
+    align-items: flex-start;
+  }
+
+  .app-header {
+    left: env(viewport-segment-left 0 0, 0px);
+    right: auto;
+    width: env(viewport-segment-width 0 0, 50vw);
+    max-width: none;
+  }
+
+  .app-content {
+    width: 100vw;
+    max-width: none;
+    margin-left: 0;
+    margin-right: 0;
+  }
+
+  .foldable-app-shell {
+    position: relative;
+    width: 100vw;
+    min-height: 100dvh;
+  }
+
+  .foldable-primary-pane {
+    width: env(viewport-segment-width 0 0, 50vw);
+    min-height: 100dvh;
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+    overflow-x: clip;
+  }
+
+  .foldable-companion-pane {
+    position: fixed;
+    z-index: 20;
+    display: block;
+    top: env(viewport-segment-top 1 0, 0px);
+    left: env(viewport-segment-left 1 0, 50vw);
+    width: env(viewport-segment-width 1 0, 50vw);
+    height: env(viewport-segment-height 1 0, 100dvh);
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+    padding: max(24px, env(safe-area-inset-top, 0px)) max(18px, env(safe-area-inset-right, 0px)) max(28px, env(safe-area-inset-bottom, 0px)) max(18px, env(safe-area-inset-left, 0px));
+    border-left: 1px solid rgba(255, 255, 255, 0.08);
+    background:
+      radial-gradient(ellipse at top right, rgba(250, 204, 21, 0.07), transparent 42%),
+      linear-gradient(180deg, #111 0%, #080808 100%);
+  }
+
+  .foldable-companion-content {
+    max-width: 680px;
+    margin: 0 auto;
+  }
+
+  .app-fixed-pane {
+    left: env(viewport-segment-left 0 0, 0px) !important;
+    right: auto !important;
+    width: env(viewport-segment-width 0 0, 50vw) !important;
+    max-width: none !important;
+    transform: none !important;
+  }
+
+  .app-bottom-navbar {
+    bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .app-portfolio-footer {
+    bottom: calc(52px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+@media (vertical-viewport-segments: 2) {
+  .app-background-layout {
+    align-items: flex-start;
+    height: 100dvh;
+    min-height: 100dvh;
+    overflow: hidden;
+  }
+
+  .app-header {
+    top: env(viewport-segment-top 0 0, 0px);
+    left: env(viewport-segment-left 0 0, 0px);
+    right: auto;
+    width: env(viewport-segment-width 0 0, 100vw);
+    max-width: none;
+  }
+
+  .app-content {
+    width: env(viewport-segment-width 0 0, 100vw);
+    height: env(viewport-segment-height 0 0, 50dvh);
+    max-width: none;
+    margin: 0;
+    flex: 0 0 auto;
+    overflow: hidden;
+  }
+
+  .foldable-app-shell {
+    width: env(viewport-segment-width 0 0, 100vw);
+    height: env(viewport-segment-height 0 0, 50dvh);
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .foldable-primary-pane {
+    width: env(viewport-segment-width 0 0, 100vw);
+    height: env(viewport-segment-height 0 0, 50dvh);
+    min-height: 0;
+    overflow-x: clip;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .foldable-companion-pane {
+    top: env(viewport-segment-top 0 1, 50dvh);
+    left: env(viewport-segment-left 0 1, 0px);
+    width: env(viewport-segment-width 0 1, 100vw);
+    height: env(viewport-segment-height 0 1, 50dvh);
+    border-left: 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .app-fixed-pane {
+    left: env(viewport-segment-left 0 0, 0px) !important;
+    width: env(viewport-segment-width 0 0, 100vw) !important;
+    max-width: none !important;
+    transform: none !important;
+  }
+
+  .app-fixed-pane.top-\[67px\] {
+    top: calc(env(viewport-segment-top 0 0, 0px) + 67px);
+  }
+
+  .app-fixed-pane.top-\[160px\] {
+    top: calc(env(viewport-segment-top 0 0, 0px) + 160px);
+  }
+
+  .app-bottom-navbar {
+    top: calc(env(viewport-segment-top 0 0, 0px) + env(viewport-segment-height 0 0, 50dvh) - 64px);
+  }
+
+  .app-portfolio-footer {
+    top: calc(env(viewport-segment-top 0 0, 0px) + env(viewport-segment-height 0 0, 50dvh) - 180px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .foldable-companion-pane *,
+  .foldable-primary-pane * {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media (horizontal-viewport-segments: 2) {
+  .foldable-primary-pane .fixed.inset-0 {
+    left: env(viewport-segment-left 0 0, 0px) !important;
+    top: env(viewport-segment-top 0 0, 0px) !important;
+    right: auto !important;
+    bottom: auto !important;
+    width: env(viewport-segment-width 0 0, 50vw) !important;
+    height: env(viewport-segment-height 0 0, 100dvh) !important;
+    transform: none !important;
+  }
+}
+
+@media (vertical-viewport-segments: 2) {
+  .foldable-primary-pane .fixed.inset-0 {
+    left: env(viewport-segment-left 0 0, 0px) !important;
+    top: env(viewport-segment-top 0 0, 0px) !important;
+    right: auto !important;
+    bottom: auto !important;
+    width: env(viewport-segment-width 0 0, 100vw) !important;
+    height: env(viewport-segment-height 0 0, 50dvh) !important;
+    transform: none !important;
+  }
+
+  .app-bottom-navbar,
+  .app-portfolio-footer {
+    bottom: auto !important;
+  }
+}
+
+/* On a book-folded portrait viewport, stack the portfolio's compact values in
+   the second column instead of squeezing three unreadable columns together. */
+@media (horizontal-viewport-segments: 2) and (max-width: 740px),
+  (vertical-viewport-segments: 2) and (max-width: 740px) {
+  .portfolio-column-header,
+  .portfolio-asset-row {
+    grid-template-columns: minmax(0, 1fr) minmax(108px, auto) !important;
+    column-gap: 10px !important;
+  }
+
+  .portfolio-column-header {
+    align-items: center;
+  }
+
+  .portfolio-profit-heading-cell {
+    display: none;
+  }
+
+  .portfolio-asset-row {
+    row-gap: 4px !important;
+    align-items: start;
+  }
+
+  .portfolio-value-column {
+    grid-column: 2;
+    grid-row: 1;
+    max-width: 100%;
+  }
+
+  .portfolio-profit-column {
+    grid-column: 2;
+    grid-row: 2;
+    max-width: 100%;
+  }
+}

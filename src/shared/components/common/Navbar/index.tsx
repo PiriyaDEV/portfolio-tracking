@@ -48,7 +48,7 @@ export default function BottomNavbar({
   isFullyLoaded = true,
 }: BottomNavbarProps) {
   return (
-    <div className="fixed bottom-0 w-full bg-black border-t border-gray-600 flex justify-around py-4 z-50 sm:w-[450px]">
+    <div className="app-fixed-pane app-bottom-navbar fixed bottom-0 w-full bg-black border-t border-gray-600 flex justify-around py-4 z-50 sm:w-[450px]">
       {navItems.map((item) => {
         const isDisabled = item.requiresLoad && !isFullyLoaded;
 

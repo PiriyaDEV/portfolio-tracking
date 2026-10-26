@@ -22,6 +22,8 @@ interface Props {
   searchedSymbol: string | null;
   onSearch: (symbol: string) => void;
   onTogglePin: (symbol: string) => void;
+  isFoldableLayout?: boolean;
+  onSelectSymbol?: (symbol: string) => void;
 }
 
 export default function ViewScreen({
@@ -31,6 +33,8 @@ export default function ViewScreen({
   searchedSymbol,
   onSearch,
   onTogglePin,
+  isFoldableLayout = false,
+  onSelectSymbol,
 }: Props) {
   const safeData: StockResult[] = Array.isArray(data) ? data : [];
   const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
@@ -46,11 +50,17 @@ export default function ViewScreen({
 
   const handleSearch = (symbol: string) => {
     onSearch(symbol);
+    if (isFoldableLayout) onSelectSymbol?.(symbol);
+  };
+
+  const handleSelect = (symbol: string) => {
+    if (isFoldableLayout) onSelectSymbol?.(symbol);
+    else setSelectedSymbol(symbol);
   };
 
   return (
     <div className="w-full px-4 mt-4 space-y-3 pb-[120px]">
-      {selectedSymbol && (
+      {selectedSymbol && !isFoldableLayout && (
         <GraphModal
           symbol={selectedSymbol}
           onClose={() => setSelectedSymbol(null)}
@@ -123,7 +133,7 @@ export default function ViewScreen({
               levels={searchedItem.levels}
               pinned={wishlist.includes(searchedItem.symbol)}
               onTogglePin={onTogglePin}
-              onSelect={(sym) => setSelectedSymbol(sym)}
+              onSelect={handleSelect}
             />
           )}
 
@@ -146,7 +156,7 @@ export default function ViewScreen({
                   symbol={item.symbol}
                   price={item.price}
                   levels={item.levels}
-                  onSelect={(sym) => setSelectedSymbol(sym)}
+                  onSelect={handleSelect}
                   pinned
                   onTogglePin={onTogglePin}
                 />

@@ -123,6 +123,8 @@ interface Props {
   assets: Asset[];
   wishlist: any;
   userId: any;
+  isFoldableLayout?: boolean;
+  onSelectSymbol?: (symbol: string) => void;
 }
 
 type TabKey =
@@ -133,7 +135,7 @@ type TabKey =
   | "news"
   | "earning";
 
-export default function AnalystScreen({ assets, wishlist, userId }: Props) {
+export default function AnalystScreen({ assets, wishlist, userId, isFoldableLayout = false, onSelectSymbol }: Props) {
   // ─── Pull everything from shared store ────────────────────────────────────
   const {
     prices,
@@ -170,7 +172,7 @@ export default function AnalystScreen({ assets, wishlist, userId }: Props) {
 
   return (
     <div className="w-full px-4 mt-[50px] pb-[90px]">
-      {selectedSymbol && (
+      {selectedSymbol && !isFoldableLayout && (
         <GraphModal
           symbol={selectedSymbol}
           onClose={() => setSelectedSymbol(null)}
@@ -179,7 +181,7 @@ export default function AnalystScreen({ assets, wishlist, userId }: Props) {
       )}
 
       {/* Tabs */}
-      <div className="fixed top-[67px] left-1/2 -translate-x-1/2 max-w-[450px] w-full z-[99] bg-black py-3 border-b border-black-lighter2">
+      <div className="app-fixed-pane fixed top-[67px] left-1/2 -translate-x-1/2 max-w-[450px] w-full z-[99] bg-black py-3 border-b border-black-lighter2">
         <div className="flex justify-around">
           {tabs.map((tab) => {
             const isActive = activeTab === tab.key;
@@ -216,7 +218,7 @@ export default function AnalystScreen({ assets, wishlist, userId }: Props) {
             sortedSymbols={sortedSymbols}
             prices={prices}
             advancedLevels={advancedLevels}
-            setSelectedSymbol={setSelectedSymbol}
+            setSelectedSymbol={(symbol) => isFoldableLayout ? onSelectSymbol?.(symbol) : setSelectedSymbol(symbol)}
           />
         )}
 
@@ -228,7 +230,7 @@ export default function AnalystScreen({ assets, wishlist, userId }: Props) {
 
         {activeTab === "graph" && (
           // GraphPrice ดึงจาก store เอง — ไม่ต้องส่ง props แล้ว
-          <GraphPrice assets={assets} market={market!} />
+          <GraphPrice assets={assets} market={market!} isFoldableLayout={isFoldableLayout} onSelectSymbol={onSelectSymbol} />
         )}
 
         {activeTab === "earning" && (

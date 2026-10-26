@@ -466,7 +466,7 @@ export default function NewsScreen({ assets = [] }: Props) {
       )}
 
       {/* ======================= HEADER ======================= */}
-      <div className="fixed top-[160px] left-1/2 -translate-x-1/2 max-w-[450px] w-full z-[99]">
+      <div className="app-fixed-pane fixed top-[160px] left-1/2 -translate-x-1/2 max-w-[450px] w-full z-[99]">
         {/* Title row */}
         <div className="flex items-center justify-between px-4 py-2.5 bg-black-lighter border-b border-white/[0.06]">
           <div className="flex items-center gap-2">

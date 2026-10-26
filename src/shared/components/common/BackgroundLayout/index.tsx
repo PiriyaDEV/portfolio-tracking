@@ -11,9 +11,9 @@ interface BackgroundLayoutProps {
 
 const BackgroundLayout: FC<BackgroundLayoutProps> = ({ children }) => {
   return (
-    <div className="bg-black min-h-screen flex flex-col items-center">
+    <div className="app-background-layout bg-black min-h-screen flex flex-col items-center">
       {/* ── App Bar ─────────────────────────────────────────── */}
-      <header className="fixed top-0 w-full sm:max-w-[450px] z-[98] overflow-hidden">
+      <header className="app-header fixed top-0 w-full sm:max-w-[450px] z-[98] overflow-hidden">
         <div className="relative flex items-center px-4 py-4 gap-3 bg-black">
           {/* Logo with glow */}
           <div className="relative shrink-0">
@@ -67,7 +67,7 @@ const BackgroundLayout: FC<BackgroundLayoutProps> = ({ children }) => {
       </header>
 
       {/* ── Content ─────────────────────────────────────────── */}
-      <div className="container sm:max-w-[450px] mx-auto sm:mx-0 flex-grow bg-black">
+      <div className="app-content container sm:max-w-[450px] mx-auto sm:mx-0 flex-grow bg-black">
         {children}
       </div>
     </div>

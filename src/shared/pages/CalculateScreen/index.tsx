@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   FaArrowTrendUp as UpIcon,
   FaArrowTrendDown as DownIcon,
@@ -20,6 +20,7 @@ import DividendSummary from "../AnalystScreen/components/Dividend";
 import StockSelect from "@/shared/components/common/StockSelect";
 import { useMarketStore } from "@/store/useMarketStore";
 import PredictScreen from "./components/PredictScreen";
+import type { CalculatorCompanionContext } from "@/shared/types_foldable";
 
 export type Asset = {
   symbol: string;
@@ -31,17 +32,23 @@ export type Asset = {
 type CalculatorScreenProps = {
   assets: Asset[];
   userId: string;
+  selectedSymbol?: string | null;
+  onSelectSymbol?: (symbol: string) => void;
+  onContextChange?: (context: CalculatorCompanionContext) => void;
 };
 
 export default function CalculateScreen({
   assets,
   userId,
+  selectedSymbol: externalSelectedSymbol,
+  onSelectSymbol,
+  onContextChange,
 }: CalculatorScreenProps) {
   // ─── Pull market data from shared store ──────────────────────────────────
   const { prices, currencyRate, dividend, advancedLevels } = useMarketStore();
 
   const [selectedSymbol, setSelectedSymbol] = useState<string>(
-    assets.find((a) => !isCash(a.symbol))?.symbol ?? "",
+    externalSelectedSymbol ?? assets.find((a) => !isCash(a.symbol))?.symbol ?? "",
   );
   const [newInvestment, setNewInvestment] = useState<string>("");
   const [newPrice, setNewPrice] = useState<string>("");
@@ -63,24 +70,26 @@ export default function CalculateScreen({
     "calculator" | "estimate" | "dividend" | "predict"
   >("calculator");
 
-  const [afterData, setAfterData] = useState<{
-    quantity: number;
-    costPerShare: number;
-    totalCost: number;
-    marketValueBase: number;
-    marketValueThb: number;
-    profit: number;
-    profitPercent: number;
-    estimateCost?: number;
-  } | null>(null);
+  const [afterData, setAfterData] = useState<CalculatorCompanionContext["result"]>(null);
 
-  const resetInputs = () => {
+  const resetInputs = useCallback(() => {
     setAfterData(null);
     setNewInvestment("");
     setNewPrice("");
     setEstimatePrice("");
     setNewCostPerShare(null);
-  };
+  }, []);
+
+  useEffect(() => {
+    if (externalSelectedSymbol && externalSelectedSymbol !== selectedSymbol) {
+      setSelectedSymbol(externalSelectedSymbol);
+      resetInputs();
+    }
+  }, [externalSelectedSymbol, selectedSymbol, resetInputs]);
+
+  useEffect(() => {
+    onContextChange?.({ selectedSymbol, activeTab, result: afterData });
+  }, [selectedSymbol, activeTab, afterData, onContextChange]);
 
   const calculateNewCost = () => {
     const asset = assets.find((a) => a.symbol === selectedSymbol);
@@ -190,7 +199,7 @@ export default function CalculateScreen({
   return (
     <div className="p-4 w-full pb-[100px]">
       {/* Tab bar */}
-      <div className="fixed top-[67px] left-1/2 -translate-x-1/2 max-w-[450px] w-full bg-black py-3 px-5 px-1 border-b border-white/[0.06] z-[99]">
+      <div className="app-fixed-pane fixed top-[67px] left-1/2 -translate-x-1/2 max-w-[450px] w-full bg-black py-3 px-5 px-1 border-b border-white/[0.06] z-[99]">
         <div className="flex justify-start gap-[35px]">
           {tabs.map((tab) => {
             const isActive = activeTab === tab.key;
@@ -238,6 +247,7 @@ export default function CalculateScreen({
             value={selectedSymbol}
             onChange={(val) => {
               setSelectedSymbol(val);
+              onSelectSymbol?.(val);
               resetInputs();
             }}
           />

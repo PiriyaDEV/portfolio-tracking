@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   TiChartPieOutline as ChartIcon,
@@ -51,6 +51,9 @@ import { usePageVisible } from "@/shared/hooks/usePageVisible";
 import { useMarketStore } from "@/store/useMarketStore";
 import { GraphModal } from "@/shared/pages/AnalystScreen/components/GraphPrice/components/GraphModal";
 import { AnimatedNumber } from "@/shared/components/common/AnimatedNumber";
+import { useFoldableLayout } from "@/shared/hooks/useFoldableLayout";
+import FoldableCompanionPanel from "@/shared/components/common/FoldableCompanionPanel";
+import type { CalculatorCompanionContext } from "@/shared/types_foldable";
 
 const isMock = false;
 
@@ -68,6 +71,8 @@ export default function MainApp({
   isSplashDone?: boolean;
 }) {
   const router = useRouter();
+  const isFoldableLayout = useFoldableLayout();
+  const wasFoldableLayout = useRef(isFoldableLayout);
   const onReadyCalled = useRef(false);
 
   // ─── Market state ──────────────────────────────────────────────────────────
@@ -107,6 +112,15 @@ export default function MainApp({
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [sortBy, setSortBy] = useState<"asset" | "value" | "profit">("value");
   const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
+  const [calculatorContext, setCalculatorContext] =
+    useState<CalculatorCompanionContext | null>(null);
+  const handleCalculatorContextChange = useCallback(
+    (context: CalculatorCompanionContext) => {
+      setCalculatorContext(context);
+      setSelectedSymbol(context.selectedSymbol || null);
+    },
+    [],
+  );
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [currentPage, setCurrentPage] = useState<
     "portfolio" | "market" | "calculator" | "view"
@@ -120,6 +134,23 @@ export default function MainApp({
 
   const { isNumbersHidden, setIsNumbersHidden } = useNumbersHidden();
   const maskNumber = useMaskNumber();
+
+  useEffect(() => {
+    if (wasFoldableLayout.current && !isFoldableLayout) {
+      // Foldable-only selection state should not unexpectedly open a modal
+      // when the device returns to its ordinary single-screen layout.
+      setSelectedSymbol(null);
+      setCalculatorContext(null);
+    }
+    wasFoldableLayout.current = isFoldableLayout;
+  }, [isFoldableLayout]);
+
+  useEffect(() => {
+    if (isFoldableLayout && !selectedSymbol && assets?.length) {
+      const firstInvestedAsset = assets.find((asset) => !isCash(asset.symbol));
+      setSelectedSymbol((firstInvestedAsset ?? assets[0]).symbol);
+    }
+  }, [isFoldableLayout, assets, selectedSymbol]);
 
   // ─── Session helpers ───────────────────────────────────────────────────────
   const saveSession = (uid: string, colId: string) => {
@@ -425,7 +456,7 @@ export default function MainApp({
 
   // ─── Profile Header ────────────────────────────────────────────────────────
   const ProfileHeader = ({ showActions = true }: { showActions?: boolean }) => (
-    <div className="fixed top-[67px] left-0 right-0 bg-black z-[99] sm:max-w-[450px] mx-auto">
+    <div className="app-fixed-pane fixed top-[67px] left-0 right-0 bg-black z-[99] sm:max-w-[450px] mx-auto">
       <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-accent-yellow/10">
         <div
           className="flex items-center gap-3 cursor-pointer"
@@ -482,7 +513,9 @@ export default function MainApp({
 
   if (assets?.length === 0) {
     return (
-      <div className="mt-[81px]">
+      <div className="foldable-app-shell">
+        <div className="foldable-primary-pane">
+          <div className="mt-[81px]">
         {isEditOpen && (
           <EditModal
             editAssets={editAssets}
@@ -521,6 +554,15 @@ export default function MainApp({
         <BottomNavbar
           currentPage={currentPage}
           setCurrentPage={setCurrentPage}
+        />
+          </div>
+        </div>
+        <FoldableCompanionPanel
+          page={currentPage}
+          assets={assets}
+          selectedSymbol={selectedSymbol}
+          viewData={data}
+          calculatorContext={calculatorContext}
         />
       </div>
     );
@@ -561,10 +603,12 @@ export default function MainApp({
 
   // ─── Main render ───────────────────────────────────────────────────────────
   return (
+    <div className="foldable-app-shell">
+      <div className="foldable-primary-pane">
     <div
       className={`mt-[81px] ${currentPage === "portfolio" ? "mb-[172px]" : ""}`}
     >
-      {selectedSymbol && (
+      {selectedSymbol && currentPage === "portfolio" && !isFoldableLayout && (
         <GraphModal
           symbol={selectedSymbol}
           asset={assets.find((a) => a.symbol === selectedSymbol) ?? null}
@@ -617,9 +661,9 @@ export default function MainApp({
       )}
 
       {currentPage === "portfolio" && (
-        <div className="fixed top-[67px] left-0 right-0 bg-black z-[99] sm:max-w-[450px] mx-auto">
+        <div className="app-fixed-pane portfolio-fixed-header fixed top-[67px] left-0 right-0 bg-black z-[99] sm:max-w-[450px] mx-auto">
           <ProfileHeader showActions={true} />
-          <div className="mt-[68px] grid grid-cols-[2fr_1fr_1fr] gap-3 px-4 py-2 bg-black border-b border-black-lighter">
+          <div className="portfolio-column-header mt-[68px] grid grid-cols-[2fr_1fr_1fr] gap-3 px-4 py-2 bg-black border-b border-black-lighter">
             <div
               className="text-[11px] text-gray-500 flex items-center gap-1 cursor-pointer hover:text-gray-300 transition-colors select-none"
               onClick={() => toggleSort("asset")}
@@ -643,10 +687,10 @@ export default function MainApp({
               )}
             </div>
             <div
-              className="text-[11px] text-gray-500 text-right flex items-center justify-end gap-1 cursor-pointer hover:text-gray-300 transition-colors select-none"
+              className="portfolio-profit-heading-cell text-[11px] text-gray-500 text-right flex items-center justify-end gap-1 cursor-pointer hover:text-gray-300 transition-colors select-none"
               onClick={() => toggleSort("profit")}
             >
-              % กำไร{" "}
+              <span className="portfolio-profit-heading">% กำไร</span>{" "}
               {sortBy === "profit" && (
                 <span className="text-accent-yellow">
                   {sortOrder === "asc" ? "▲" : "▼"}
@@ -666,12 +710,28 @@ export default function MainApp({
             searchedSymbol={searchedSymbol}
             onSearch={setSearchedSymbol}
             onTogglePin={togglePin}
+            isFoldableLayout={isFoldableLayout}
+            onSelectSymbol={setSelectedSymbol}
           />
         )}
         {currentPage === "market" && (
-          <AnalystScreen assets={assets} wishlist={wishlist} userId={userId} />
+          <AnalystScreen
+            assets={assets}
+            wishlist={wishlist}
+            userId={userId}
+            isFoldableLayout={isFoldableLayout}
+            onSelectSymbol={setSelectedSymbol}
+          />
         )}
-        {currentPage === "calculator" && <CalculateScreen assets={assets} userId={userId}/>}
+        {currentPage === "calculator" && (
+          <CalculateScreen
+            assets={assets}
+            userId={userId}
+            selectedSymbol={isFoldableLayout ? selectedSymbol : undefined}
+            onSelectSymbol={isFoldableLayout ? setSelectedSymbol : undefined}
+            onContextChange={isFoldableLayout ? handleCalculatorContextChange : undefined}
+          />
+        )}
 
         {currentPage === "portfolio" && (
           <div className="mt-[90px] mb-[80px] w-full">
@@ -732,7 +792,7 @@ export default function MainApp({
               return (
                 <div key={asset.symbol} className="w-full">
                   <div
-                    className="w-full grid grid-cols-[2fr_1fr_1fr] gap-3 px-4 py-3 cursor-pointer hover:bg-black-lighter/40 transition-colors"
+                    className="portfolio-asset-row w-full grid grid-cols-[2fr_1fr_1fr] gap-3 px-4 py-3 cursor-pointer hover:bg-black-lighter/40 transition-colors"
                     onClick={() => toggleExpand(asset.symbol)}
                   >
                     {/* ── Left column: logo + name + allocation ── */}
@@ -775,7 +835,7 @@ export default function MainApp({
                     </div>
 
                     {/* ── Middle column: market value THB + USD ── */}
-                    <div className="flex flex-col items-end whitespace-nowrap">
+                    <div className="portfolio-value-column flex flex-col items-end whitespace-nowrap">
                       <div className="font-bold text-[15px] text-white">
                         {isLoadingThis || marketValueThb === 0 ? (
                           <span className="inline-block w-16 h-4 bg-white/10 rounded animate-pulse" />
@@ -810,7 +870,7 @@ export default function MainApp({
                     </div>
 
                     {/* ── Right column: profit % + profit THB ── */}
-                    <div className="flex flex-col items-end text-right">
+                    <div className="portfolio-profit-column flex flex-col items-end text-right">
                       <div
                         className={`font-bold text-[15px] flex items-center gap-1 ${profitColor}`}
                       >
@@ -947,6 +1007,15 @@ export default function MainApp({
         currentPage={currentPage}
         setCurrentPage={setCurrentPage}
         isFullyLoaded={isFullyLoaded}
+      />
+    </div>
+      </div>
+      <FoldableCompanionPanel
+        page={currentPage}
+        assets={assets}
+        selectedSymbol={selectedSymbol}
+        viewData={data}
+        calculatorContext={calculatorContext}
       />
     </div>
   );

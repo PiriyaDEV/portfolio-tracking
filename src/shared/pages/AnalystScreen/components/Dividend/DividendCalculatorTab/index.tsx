@@ -561,7 +561,7 @@ function CalcSummaryFooterPortal({
 
   return (
     <div
-      className="fixed bottom-[70px] left-1/2 -translate-x-1/2 max-w-[450px] w-full z-[98] p-2"
+      className="app-fixed-pane fixed bottom-[70px] left-1/2 -translate-x-1/2 max-w-[450px] w-full z-[98] p-2"
       style={{
         backdropFilter: "blur(20px)",
         borderTop: "1px solid rgba(245,158,11,0.2)",
