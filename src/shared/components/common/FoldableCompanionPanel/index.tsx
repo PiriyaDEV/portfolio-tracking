@@ -6,7 +6,7 @@ import type { StockResult } from "@/shared/pages/ViewScreen";
 import type { CalculatorCompanionContext } from "@/shared/types_foldable";
 import { getSignal } from "@/app/lib/market.logic";
 import { useMarketStore } from "@/store/useMarketStore";
-import { Line, LineChart, ResponsiveContainer } from "recharts";
+import { Line, LineChart, ResponsiveContainer, YAxis } from "recharts";
 
 export type FoldablePage = "portfolio" | "market" | "calculator" | "view";
 
@@ -19,10 +19,10 @@ interface Props {
 }
 
 const PAGE_COPY: Record<FoldablePage, { eyebrow: string; title: string }> = {
-  portfolio: { eyebrow: "PORTFOLIO", title: "Holding details" },
-  market: { eyebrow: "MARKET", title: "Signal overview" },
-  calculator: { eyebrow: "CALCULATOR", title: "Calculation result" },
-  view: { eyebrow: "STOCK RESEARCH", title: "Price history" },
+  portfolio: { eyebrow: "พอร์ตของคุณ", title: "รายละเอียดสินทรัพย์" },
+  market: { eyebrow: "วิเคราะห์ตลาด", title: "ภาพรวมสัญญาณ" },
+  calculator: { eyebrow: "คำนวณ", title: "สรุปการคำนวณ" },
+  view: { eyebrow: "สำรวจหุ้น", title: "แนวโน้มราคา" },
 };
 
 const number = (value: number) => fNumber(value, { decimalNumber: 2 });
@@ -101,6 +101,7 @@ export default function FoldableCompanionPanel({
             selectedPrice={selectedPrice}
             cost={holdingCost}
             changePercent={changePercent}
+            points={graphPoints}
           />
         )}
 
@@ -109,7 +110,6 @@ export default function FoldableCompanionPanel({
             counts={signalCounts}
             selectedSymbol={selectedSymbol}
             selectedPrice={selectedPrice}
-            changePercent={changePercent}
             levels={selectedLevels}
           />
         )}
@@ -140,12 +140,14 @@ function PortfolioDetails({
   selectedPrice,
   cost,
   changePercent,
+  points,
 }: {
   selectedSymbol: string | null;
   selectedAsset?: Asset;
   selectedPrice: number;
   cost: number | null;
   changePercent: number;
+  points: { value: number }[];
 }) {
   if (!selectedSymbol) return <EmptyState text="เลือกสินทรัพย์เพื่อดูรายละเอียดต้นทุนและมูลค่า" />;
 
@@ -172,11 +174,22 @@ function PortfolioDetails({
         {selectedAsset && <Metric label="จำนวนหน่วย" value={fNumber(selectedAsset.quantity, { decimalNumber: 4 })} />}
         {cost != null && <Metric label="ต้นทุนรวม" value={`${number(cost)} ฿`} />}
       </div>
+      {points.length > 1 && (
+        <div className="mt-5 rounded-xl border border-white/[0.06] bg-black/20 p-3">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <p className="text-[11px] font-medium text-gray-400">แนวโน้มระหว่างวัน</p>
+            <span className={`text-[11px] font-semibold ${changePercent >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+              {changePercent > 0 ? "+" : ""}{number(changePercent)}%
+            </span>
+          </div>
+          <PriceSparkline points={points} color={changePercent >= 0 ? "#34d399" : "#fb7185"} height={76} />
+        </div>
+      )}
       {selectedAsset && (
         <p className="mt-5 border-t border-white/[0.07] pt-3 text-[11px] leading-relaxed text-gray-500">
           {isThaiStock(selectedSymbol)
-            ? "ราคาต้นทุนและมูลค่าถือครองแสดงเป็นเงินบาท"
-            : "มูลค่าถือครองคำนวณด้วยอัตราแลกเปลี่ยนล่าสุด"}
+            ? "ต้นทุนและมูลค่าถือครองคำนวณเป็นเงินบาท"
+            : "มูลค่าเงินบาทแปลงด้วยอัตราแลกเปลี่ยนล่าสุด"}
         </p>
       )}
     </section>
@@ -187,13 +200,11 @@ function MarketSignals({
   counts,
   selectedSymbol,
   selectedPrice,
-  changePercent,
   levels,
 }: {
   counts: { strongBuy: number; buy: number; sell: number; neutral: number };
   selectedSymbol: string | null;
   selectedPrice: number;
-  changePercent: number;
   levels?: StockResult["levels"];
 }) {
   return (
@@ -201,7 +212,8 @@ function MarketSignals({
       <section className="foldable-detail-card">
         <p className="text-xs font-semibold text-gray-300">สัญญาณจากสินทรัพย์ที่ติดตาม</p>
         <p className="mt-1 text-xs text-gray-500">ภาพรวมจุดซื้อและแนวต้าน ไม่ใช่คำแนะนำการลงทุน</p>
-        <div className="mt-5 grid grid-cols-2 gap-3">
+        <SignalDistribution counts={counts} />
+        <div className="mt-4 grid grid-cols-2 gap-3">
           <SignalMetric label="ซื้อเด่น" count={counts.strongBuy} color="text-emerald-300" />
           <SignalMetric label="อยู่โซนซื้อ" count={counts.buy} color="text-green-300" />
           <SignalMetric label="ใกล้แนวต้าน" count={counts.sell} color="text-orange-300" />
@@ -211,16 +223,7 @@ function MarketSignals({
       {selectedSymbol && (
         <section className="mt-4 rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4">
           <SymbolHeading symbol={selectedSymbol} />
-          <div className="mt-4 flex items-baseline justify-between gap-3">
-            <span className="text-xs text-gray-500">ราคาปัจจุบัน</span>
-            <span className="text-lg font-semibold text-white">{selectedPrice > 0 ? number(selectedPrice) : "—"}</span>
-          </div>
-          <div className="mt-2 flex items-baseline justify-between gap-3">
-            <span className="text-xs text-gray-500">เปลี่ยนแปลง</span>
-            <span className={`text-sm font-semibold ${changePercent >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-              {changePercent > 0 ? "+" : ""}{number(changePercent)}%
-            </span>
-          </div>
+          <SignalBadge price={selectedPrice} levels={levels} />
           {levels && (
             <div className="mt-4 grid grid-cols-3 gap-2 border-t border-white/[0.07] pt-3">
               <Metric label="ซื้อ 1" value={formatLevel(levels.entry1)} />
@@ -309,18 +312,69 @@ function StockHistory({
       <SymbolHeading symbol={selectedSymbol} />
       <p className="mt-1 text-xs text-gray-500">การเคลื่อนไหวระหว่างวัน</p>
       {points.length > 1 ? (
-        <div className="mt-5 h-36 w-full" aria-label={`${selectedSymbol} price history`}>
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={points}>
-              <Line type="monotone" dataKey="value" stroke="#facc15" strokeWidth={2} dot={false} isAnimationActive={false} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
+        <PriceSparkline points={points} color="#facc15" height={144} />
       ) : (
         <EmptyState text="ยังไม่มีข้อมูลกราฟสำหรับช่วงเวลานี้" compact />
       )}
 
     </section>
+  );
+}
+
+function PriceSparkline({
+  points,
+  color,
+  height,
+}: {
+  points: { value: number }[];
+  color: string;
+  height: number;
+}) {
+  return (
+    <div className="w-full" style={{ height }}>
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={points} margin={{ top: 4, right: 2, bottom: 4, left: 2 }}>
+          <YAxis domain={["dataMin", "dataMax"]} hide />
+          <Line
+            type="monotone"
+            dataKey="value"
+            stroke={color}
+            strokeWidth={2}
+            dot={false}
+            isAnimationActive={false}
+          />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+function SignalDistribution({
+  counts,
+}: {
+  counts: { strongBuy: number; buy: number; sell: number; neutral: number };
+}) {
+  const entries = [
+    { name: "Strong buy", count: counts.strongBuy, color: "bg-emerald-400" },
+    { name: "Buy", count: counts.buy, color: "bg-green-400" },
+    { name: "Near resistance", count: counts.sell, color: "bg-orange-400" },
+    { name: "Wait", count: counts.neutral, color: "bg-slate-500" },
+  ];
+  const total = entries.reduce((sum, entry) => sum + entry.count, 0);
+
+  return (
+    <div className="mt-4" aria-label="สัดส่วนสัญญาณตลาด">
+      <div className="flex h-2 overflow-hidden rounded-full bg-white/[0.06]">
+        {entries.filter((entry) => entry.count > 0).map((entry) => (
+          <span
+            key={entry.name}
+            className={`${entry.color} h-full transition-[width] duration-300`}
+            style={{ width: `${(entry.count / total) * 100}%` }}
+          />
+        ))}
+      </div>
+      <p className="mt-2 text-right text-[10px] text-gray-500">{total} สัญญาณ</p>
+    </div>
   );
 }
 
@@ -330,6 +384,28 @@ function SymbolHeading({ symbol }: { symbol: string }) {
       <p className="truncate text-lg font-bold text-white">{getName(symbol)}</p>
       <p className="truncate text-xs text-gray-500">{symbol}</p>
     </div>
+  );
+}
+
+function SignalBadge({
+  price,
+  levels,
+}: {
+  price: number;
+  levels?: StockResult["levels"];
+}) {
+  const signal = getSignal(price, levels);
+  const signalContent = {
+    STRONG_BUY: { label: "ราคาอยู่ในโซนซื้อเด่น", color: "text-emerald-300", tone: "border-emerald-400/20 bg-emerald-400/[0.07]" },
+    BUY: { label: "ราคาอยู่ในโซนซื้อ", color: "text-green-300", tone: "border-green-400/20 bg-green-400/[0.06]" },
+    SELL: { label: "ราคาใกล้แนวต้าน", color: "text-orange-300", tone: "border-orange-400/20 bg-orange-400/[0.06]" },
+    NORMAL: { label: "รอดูจังหวะ", color: "text-gray-300", tone: "border-white/[0.08] bg-white/[0.03]" },
+  }[signal];
+
+  return (
+    <p className={`mt-4 rounded-xl border px-3 py-2 text-xs font-semibold ${signalContent.tone} ${signalContent.color}`}>
+      {signalContent.label}
+    </p>
   );
 }
 
