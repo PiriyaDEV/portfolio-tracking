@@ -2,14 +2,15 @@
 
 import { useEffect, useState } from "react";
 
-// Only real viewport splits activate the companion layout. This deliberately
-// leaves ordinary wide screens and the unfolded single viewport unchanged.
+// Folded poses use the real viewport segments. A wide continuous inner display
+// uses the same companion layout, while ordinary phones remain unchanged.
 const FOLDABLE_LAYOUT_QUERIES = [
   "(horizontal-viewport-segments: 2)",
   "(vertical-viewport-segments: 2)",
+  "(device-posture: continuous) and (min-width: 650px)",
 ];
 
-/** Detects a real two-segment foldable viewport. */
+/** Detects a folded viewport or a wide unfolded foldable display. */
 export function useFoldableLayout() {
   const [isFoldableLayout, setIsFoldableLayout] = useState(false);
 
