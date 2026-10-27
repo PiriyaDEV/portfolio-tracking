@@ -179,11 +179,11 @@ export default function StockSearchSelect({
                 onClick={() => handleExchangeChange(ex.value)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200"
                 style={{
-                  background: active ? "rgba(244,197,66,0.12)" : "#1a1915",
+                  background: active ? "rgba(244,197,66,0.12)" : "var(--surface)",
                   border: `1px solid ${
-                    active ? "rgba(244,197,66,0.58)" : "rgba(242,225,170,0.10)"
+                    active ? "rgba(244,197,66,0.55)" : "var(--surface-border)"
                   }`,
-                  color: active ? "#f4c542" : "#a19a8a",
+                  color: active ? "#f4c542" : "var(--text-muted)",
                   boxShadow: active ? "0 0 12px rgba(244,197,66,0.10)" : "none",
                 }}
               >
@@ -200,9 +200,9 @@ export default function StockSearchSelect({
         <div
           className="flex items-center rounded-xl"
           style={{
-            background: "#1a1915",
-            border: "1px solid rgba(242,225,170,0.12)",
-            boxShadow: "0 8px 24px rgba(0,0,0,0.18)",
+            background: "var(--surface)",
+            border: "1px solid var(--surface-border)",
+            boxShadow: "0 8px 24px rgba(0,0,0,0.24)",
           }}
         >
           <span aria-hidden="true" className="pl-3 pr-1 text-gray-400 text-xl select-none leading-none">
@@ -244,10 +244,10 @@ export default function StockSearchSelect({
           <ul
             className="absolute top-full left-0 right-0 mt-1 z-50 overflow-y-auto"
             style={{
-              background: "#1a1915",
-              border: "1px solid rgba(242,225,170,0.12)",
+              background: "var(--surface)",
+              border: "1px solid var(--surface-border)",
               borderRadius: "12px",
-              boxShadow: "0 8px 32px rgba(0,0,0,0.8)",
+              boxShadow: "0 12px 28px rgba(0,0,0,0.38)",
               ...(maxDropdownHeight !== undefined && {
                 maxHeight:
                   typeof maxDropdownHeight === "number"
@@ -270,7 +270,7 @@ export default function StockSearchSelect({
                   style={{
                     background:
                       i === activeIndex ? "rgba(244,197,66,0.08)" : "transparent",
-                    borderBottom: "1px solid rgba(242,225,170,0.08)",
+                    borderBottom: "1px solid var(--surface-border)",
                   }}
                 >
                   <div className="flex min-w-0 items-center gap-2.5">
@@ -283,7 +283,7 @@ export default function StockSearchSelect({
                     <span
                       className="text-[11px] font-bold px-2 py-1 rounded-md"
                       style={{
-                        background: "rgba(244,197,66,0.10)",
+                        background: "rgba(244,197,66,0.12)",
                         color: "#f4c542",
                         minWidth: "52px",
                         textAlign: "center",

@@ -2,8 +2,6 @@
 "use client";
 
 import { FC } from "react";
-import Image from "next/image";
-import logoImg from "../../../../../public/images/metaImg.png";
 
 interface BackgroundLayoutProps {
   children: React.ReactNode;
@@ -11,27 +9,22 @@ interface BackgroundLayoutProps {
 
 const BackgroundLayout: FC<BackgroundLayoutProps> = ({ children }) => {
   return (
-    <div className="app-background-layout bg-black min-h-screen flex flex-col items-center">
+    <div className="app-dark-theme app-background-layout bg-black min-h-screen flex flex-col items-center">
       {/* ── App Bar ─────────────────────────────────────────── */}
       <header className="app-header fixed top-0 w-full sm:max-w-[450px] lg:max-w-[1120px] z-[98] overflow-hidden">
         <div className="relative flex items-center px-4 py-3 gap-3 bg-black">
           {/* App mark */}
-          <div className="relative shrink-0">
-            <Image
-              src={logoImg}
-              alt="P'Tracker Logo"
-              width={40}
-              height={40}
-              className="relative rounded-xl object-cover border border-white/10"
-            />
+          <div
+            aria-label="P'Tracker"
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-[14px] bg-accent-yellow text-[18px] font-extrabold text-[#1b1607] shadow-sm"
+          >
+            P
           </div>
 
           {/* Title + tagline */}
           <div className="flex flex-col flex-1">
             <div className="flex items-center gap-2">
-              <span
-                className="font-semibold text-white text-[19px] leading-none tracking-tight"
-              >
+              <span className="font-semibold text-white text-[19px] leading-none tracking-tight">
                 P&apos;Tracker
               </span>
             </div>

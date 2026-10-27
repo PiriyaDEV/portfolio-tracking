@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isNonMarketAssetSymbol, normalizeYahooSymbol } from "@/app/lib/yahoo.helpers";
 
 export const runtime = "edge";
 
@@ -37,9 +38,26 @@ export async function GET(req: NextRequest) {
   const config = RANGE_CONFIG[range] ?? RANGE_CONFIG["1d"];
   const includePrePost = INTRADAY_RANGES.has(range);
 
+  if (isNonMarketAssetSymbol(symbol)) {
+    return NextResponse.json({
+      symbol,
+      range,
+      previousClose: null,
+      shortName: symbol,
+      currency: "THB",
+      data: [],
+      dividendRate: null,
+      dividendYield: null,
+      lastDividendAmount: null,
+      lastDividendDate: null,
+      dividendEvents: [],
+    });
+  }
+
   try {
     // &events=div pulls dividend history into result.events.dividends
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=${config.interval}&range=${config.range}&includePrePost=${includePrePost}&events=div`;
+    const yahooSymbol = normalizeYahooSymbol(symbol);
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?interval=${config.interval}&range=${config.range}&includePrePost=${includePrePost}&events=div`;
 
     const res = await fetch(url, {
       headers: {

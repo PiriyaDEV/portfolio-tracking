@@ -199,8 +199,8 @@ export default function CalculateScreen({
   return (
     <div className="p-4 w-full pb-[100px]">
       {/* Tab bar */}
-      <div className="app-fixed-pane fixed top-[67px] left-1/2 -translate-x-1/2 max-w-[450px] lg:max-w-[1120px] w-full bg-black py-3 px-5 px-1 border-b border-white/[0.06] z-[99]">
-        <div className="flex justify-start gap-[35px]">
+      <div className="app-fixed-pane fixed top-[67px] left-1/2 -translate-x-1/2 max-w-[450px] lg:max-w-[1120px] w-full bg-black px-3 py-2 border-b border-surface-border z-[99]">
+        <div className="flex gap-2 overflow-x-auto">
           {tabs.map((tab) => {
             const isActive = activeTab === tab.key;
             return (
@@ -210,22 +210,14 @@ export default function CalculateScreen({
                   setActiveTab(tab.key as any);
                   resetInputs();
                 }}
-                className="flex flex-col items-center gap-1"
+                className={`flex shrink-0 items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition-colors ${
+                  isActive
+                    ? "border-amber-300/30 bg-accent-yellow/15 text-accent-yellow"
+                    : "border-surface-border bg-black-lighter text-gray-400 hover:bg-black-lighter2"
+                }`}
               >
-                <div
-                  className={`w-12 h-12 flex items-center justify-center rounded-full transition-all duration-200 ${
-                    isActive
-                      ? "bg-accent-yellow text-[#11100e]"
-                      : "bg-black-lighter2 text-white hover:bg-white/10"
-                  }`}
-                >
-                  {tab.icon}
-                </div>
-                <span
-                  className={`text-xs ${isActive ? "text-accent-yellow" : "text-gray-400"}`}
-                >
-                  {tab.label}
-                </span>
+                <span className="text-sm">{tab.icon}</span>
+                <span>{tab.label}</span>
               </button>
             );
           })}

@@ -545,10 +545,10 @@ export default function EarningsPage({
                         transition-all duration-200
                         ${
                           past
-                            ? "bg-[#0d0d0d] border-white/5 !text-white"
-                            : `bg-gradient-to-br from-[#141414] to-[#0f0f0f]
+                            ? "bg-[#171612] border-white/10 !text-white"
+                            : `bg-gradient-to-br from-[#1d1b16] to-[#14130f]
                                border-white/10 !text-white
-                               hover:border-white/20 hover:shadow-xl hover:shadow-black/40
+                               hover:border-amber-300/40 hover:shadow-xl hover:shadow-black/30
                                ${glowClass}`
                         }
                       `}
@@ -556,7 +556,7 @@ export default function EarningsPage({
                       {/* Subtle top shimmer line */}
                       {!past && (
                         <div
-                          className={`absolute top-0 left-4 right-4 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent`}
+                          className={`absolute top-0 left-4 right-4 h-px bg-gradient-to-r from-transparent via-amber-400/30 to-transparent`}
                         />
                       )}
 

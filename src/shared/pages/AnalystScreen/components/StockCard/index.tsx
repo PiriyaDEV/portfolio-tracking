@@ -52,12 +52,12 @@ export default function StockCard({
 
   // ── Card wrapper ──────────────────────────────────────────────────────
   const cardVariant = strongBuy
-    ? "bg-gradient-to-br from-emerald-950/80 via-[#0d1a14] to-[#0d0f14] border-emerald-500/25 shadow-[0_0_0_1px_rgba(52,211,153,0.15),0_8px_32px_rgba(16,185,129,0.10)]"
+    ? "bg-gradient-to-br from-emerald-950/70 via-[#172019] to-[#14130f] border-emerald-500/25 shadow-[0_0_0_1px_rgba(52,211,153,0.12),0_10px_28px_rgba(0,0,0,0.25)]"
     : buyZone
-      ? "bg-gradient-to-br from-emerald-950/30 to-[#0d0f14] border-emerald-500/[0.12]"
+      ? "bg-gradient-to-br from-emerald-950/25 to-[#14130f] border-emerald-500/15"
       : takeProfit
-        ? "bg-gradient-to-br from-red-950/40 to-[#0d0f14] border-red-500/[0.18]"
-        : "bg-[#0d0f14] border-white/[0.06]";
+        ? "bg-gradient-to-br from-red-950/30 to-[#14130f] border-red-500/20"
+        : "bg-[#171612] border-white/[0.08]";
 
   // ── Top accent line ───────────────────────────────────────────────────
   const accentBar = strongBuy
@@ -138,7 +138,7 @@ export default function StockCard({
       {/* Ticker watermark */}
       <span
         aria-hidden
-        className="pointer-events-none select-none absolute -bottom-2 -right-1 text-[72px] font-black leading-none !text-white/[0.02] z-0"
+        className="pointer-events-none select-none absolute -bottom-2 -right-1 text-[72px] font-black leading-none text-black/[0.025] z-0"
       >
         {symbol}
       </span>
@@ -196,10 +196,10 @@ export default function StockCard({
           <div className="flex items-center gap-2.5">
             {/* Price */}
             <div className="shrink-0 text-right">
-              <p className="text-[17px] font-bold text-[#f0f0f0] font-mono leading-none">
+              <p className="text-[17px] font-bold text-[#f4f1e8] font-mono leading-none">
                 {fNumber(price)}
               </p>
-              <p className="text-[9px] font-semibold !text-white/20 uppercase mt-0.5 text-right">
+              <p className="text-[9px] font-semibold text-gray-500 uppercase mt-0.5 text-right">
                 USD
               </p>
             </div>

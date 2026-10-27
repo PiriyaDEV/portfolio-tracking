@@ -206,7 +206,7 @@ function RegisterModal({ onClose }: { onClose: () => void }) {
         style={{
           background:
             "linear-gradient(145deg, rgba(28,28,36,0.97) 0%, rgba(18,18,26,0.99) 100%)",
-          border: "1px solid rgba(255,255,255,0.1)",
+          border: "1px solid rgba(255,255,255,0.12)",
           borderRadius: 24,
           padding: "36px 32px",
           width: 340,
@@ -241,7 +241,7 @@ function RegisterModal({ onClose }: { onClose: () => void }) {
             </p>
             <h2
               style={{
-                color: "rgba(255,255,255,0.92)",
+                color: "rgba(255,255,255,0.9)",
                 fontSize: 20,
                 fontWeight: 600,
                 fontFamily: "'SF Pro Display', -apple-system, sans-serif",
@@ -258,7 +258,7 @@ function RegisterModal({ onClose }: { onClose: () => void }) {
               borderRadius: "50%",
               width: 32,
               height: 32,
-              color: "rgba(255,255,255,0.5)",
+              color: "rgba(255,255,255,0.4)",
               fontSize: 16,
               cursor: "pointer",
               display: "flex",
@@ -641,7 +641,7 @@ export default function LoginModal({
             </div>
             <h1
               style={{
-                color: "rgba(255,255,255,0.92)",
+                color: "rgba(255,255,255,0.9)",
                 fontSize: 26,
                 fontWeight: 600,
                 letterSpacing: "-0.02em",
@@ -652,7 +652,7 @@ export default function LoginModal({
             </h1>
             <p
               style={{
-                color: "rgba(255,255,255,0.35)",
+                color: "rgba(255,255,255,0.4)",
                 fontSize: 13,
                 margin: 0,
               }}
@@ -713,7 +713,7 @@ export default function LoginModal({
                   transform: "translateY(-50%)",
                   background: "none",
                   border: "none",
-                  color: "rgba(255,255,255,0.35)",
+                  color: "rgba(255,255,255,0.4)",
                   cursor: "pointer",
                   fontSize: 16,
                   padding: 0,
@@ -775,7 +775,7 @@ export default function LoginModal({
               style={{
                 background: "none",
                 border: "none",
-                color: "rgba(255,255,255,0.35)",
+                color: "rgba(255,255,255,0.4)",
                 fontSize: 13,
                 cursor: "pointer",
                 padding: "4px 8px",

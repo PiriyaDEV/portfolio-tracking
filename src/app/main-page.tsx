@@ -468,7 +468,7 @@ export default function MainApp({
           />
           <div>
             <p className="text-white font-semibold text-sm leading-tight">
-              {displayName || username}'s
+              สวัสดี, {displayName || username}
             </p>
             <p className="text-accent-yellow/50 text-[11px]">พอร์ตโฟลิโอ</p>
           </div>
@@ -606,7 +606,7 @@ export default function MainApp({
     <div className="foldable-app-shell">
       <div className="foldable-primary-pane">
     <div
-      className={`mt-[81px] ${currentPage === "portfolio" ? "mb-[172px]" : ""}`}
+      className={`mt-[81px] ${currentPage === "portfolio" ? "mb-[96px]" : ""}`}
     >
       {selectedSymbol && currentPage === "portfolio" && !isFoldableLayout && (
         <GraphModal
@@ -660,12 +660,26 @@ export default function MainApp({
         />
       )}
 
-      {currentPage === "portfolio" && (
-        <div className="app-fixed-pane portfolio-fixed-header fixed top-[67px] left-0 right-0 bg-black z-[99] sm:max-w-[450px] lg:max-w-[1120px] mx-auto">
-          <ProfileHeader showActions={true} />
-          <div className="portfolio-column-header mt-[68px] grid grid-cols-[2fr_1fr_1fr] gap-3 px-4 py-2 bg-black border-b border-black-lighter">
+      {currentPage === "portfolio" && <ProfileHeader showActions={true} />}
+
+      <div className="flex flex-wrap w-full">
+        {currentPage === "portfolio" && (
+          <div className="portfolio-summary-slot w-full px-4 pt-[64px]">
+            <FooterPortfolio
+              assets={assets}
+              prices={prices}
+              previousPrice={previousPrice}
+              currencyRate={currencyRate}
+              formattedDate={formattedDate}
+              getProfitColor={getProfitColor}
+              isNumbersHidden={isNumbersHidden}
+            />
+          </div>
+        )}
+        {currentPage === "portfolio" && (
+          <div className="portfolio-column-header grid w-full grid-cols-[2fr_1fr_1fr] gap-3 px-7 pb-2 pt-4">
             <div
-              className="text-[11px] text-gray-500 flex items-center gap-1 cursor-pointer hover:text-gray-300 transition-colors select-none"
+              className="flex cursor-pointer select-none items-center gap-1 text-[11px] text-gray-500 transition-colors hover:text-gray-700"
               onClick={() => toggleSort("asset")}
             >
               สินทรัพย์{" "}
@@ -676,7 +690,7 @@ export default function MainApp({
               )}
             </div>
             <div
-              className="text-[11px] text-gray-500 text-right flex items-center justify-end gap-1 cursor-pointer hover:text-gray-300 transition-colors select-none"
+              className="flex cursor-pointer select-none items-center justify-end gap-1 text-right text-[11px] text-gray-500 transition-colors hover:text-gray-700"
               onClick={() => toggleSort("value")}
             >
               มูลค่า (THB){" "}
@@ -687,7 +701,7 @@ export default function MainApp({
               )}
             </div>
             <div
-              className="portfolio-profit-heading-cell text-[11px] text-gray-500 text-right flex items-center justify-end gap-1 cursor-pointer hover:text-gray-300 transition-colors select-none"
+              className="portfolio-profit-heading-cell flex cursor-pointer select-none items-center justify-end gap-1 text-right text-[11px] text-gray-500 transition-colors hover:text-gray-700"
               onClick={() => toggleSort("profit")}
             >
               <span className="portfolio-profit-heading">% กำไร</span>{" "}
@@ -698,10 +712,7 @@ export default function MainApp({
               )}
             </div>
           </div>
-        </div>
-      )}
-
-      <div className="flex flex-wrap w-full">
+        )}
         {currentPage === "view" && (
           <ViewScreen
             data={data}
@@ -734,7 +745,7 @@ export default function MainApp({
         )}
 
         {currentPage === "portfolio" && (
-          <div className="mt-[90px] mb-[80px] w-full">
+          <div className="portfolio-holdings mb-[96px] mt-1 w-full">
             {sortedAssets.map((asset) => {
               const isThai = isThaiStock(asset.symbol);
               const currentPrice = prices[asset.symbol] ?? 0;
@@ -911,7 +922,7 @@ export default function MainApp({
 
                   {/* ── Expanded detail row ── */}
                   {isExpanded && (
-                    <div className="bg-black-lighter border-y border-accent-yellow/10 text-[12px] grid grid-cols-2 gap-x-4 gap-y-2 px-4 py-3">
+                    <div className="portfolio-asset-detail bg-black-lighter border-y border-accent-yellow/10 text-[12px] grid grid-cols-2 gap-x-4 gap-y-2 px-4 py-3">
                       {/* Today's change */}
                       <div className="col-span-2 flex items-center gap-2 mb-1">
                         <span className="text-gray-500 text-[11px]">
@@ -990,18 +1001,6 @@ export default function MainApp({
           </div>
         )}
       </div>
-
-      {currentPage === "portfolio" && (
-        <FooterPortfolio
-          assets={assets}
-          prices={prices}
-          previousPrice={previousPrice}
-          currencyRate={currencyRate}
-          formattedDate={formattedDate}
-          getProfitColor={getProfitColor}
-          isNumbersHidden={isNumbersHidden}
-        />
-      )}
 
       <BottomNavbar
         currentPage={currentPage}

@@ -834,7 +834,7 @@ export default function StockRecommendScreen({
                         key={m.id}
                         onClick={() => setMarket(m.id)}
                         className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border text-sm font-semibold transition
-                      ${market === m.id ? "bg-yellow-500 border-yellow-500 text-black" : "bg-black-lighter2 border-gray-700 text-gray-300 hover:border-gray-500"}`}
+                      ${market === m.id ? "bg-accent-yellow border-accent-yellow text-[#1b1607]" : "bg-black-lighter2 border-gray-700 text-gray-300 hover:border-gray-500"}`}
                       >
                         <span>{m.flag}</span>
                         <span>{m.label}</span>
@@ -854,15 +854,15 @@ export default function StockRecommendScreen({
                         key={r.id}
                         onClick={() => setRiskLevel(r.id)}
                         className={`flex-1 flex flex-col items-center py-2.5 px-2 rounded-xl border text-sm transition
-                      ${riskLevel === r.id ? "bg-yellow-500 border-yellow-500 text-black" : "bg-black-lighter2 border-gray-700 text-gray-300 hover:border-gray-500"}`}
+                      ${riskLevel === r.id ? "bg-accent-yellow border-accent-yellow text-[#1b1607]" : "bg-black-lighter2 border-gray-700 text-gray-300 hover:border-gray-500"}`}
                       >
                         <span
-                          className={`font-bold text-sm ${riskLevel === r.id ? "text-black" : r.color}`}
+                          className={`font-bold text-sm ${riskLevel === r.id ? "text-[#1b1607]" : r.color}`}
                         >
                           {r.label}
                         </span>
                         <span
-                          className={`text-[10px] mt-0.5 ${riskLevel === r.id ? "text-black/70" : "text-gray-500"}`}
+                          className={`text-[10px] mt-0.5 ${riskLevel === r.id ? "text-[#1b1607]/70" : "text-gray-500"}`}
                         >
                           {r.desc}
                         </span>

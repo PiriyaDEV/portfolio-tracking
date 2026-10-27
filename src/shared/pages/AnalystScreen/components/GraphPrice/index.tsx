@@ -326,12 +326,12 @@ export function GraphPrice({ assets, market, isFoldableLayout = false, onSelectS
                         className="flex items-center gap-2 shrink-0"
                         style={{
                           background: "rgba(255,255,255,0.04)",
-                          border: "1px solid rgba(255,255,255,0.08)",
+                          border: "1px solid var(--surface-border)",
                           borderRadius: "10px",
                           padding: "5px 10px",
                           backdropFilter: "blur(12px)",
                           boxShadow:
-                            "0 1px 3px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)",
+                            "0 4px 14px rgba(48,37,16,0.08), inset 0 1px 0 rgba(255,255,255,0.8)",
                         }}
                       >
                         <img
@@ -355,7 +355,7 @@ export function GraphPrice({ assets, market, isFoldableLayout = false, onSelectS
                               useGrouping: true,
                             }}
                             className="text-[12px] font-semibold tracking-[0.01em] font-mono"
-                            style={{ color: "#f0f0f0" }}
+                            style={{ color: "var(--foreground)" }}
                             {...numberFlowTiming}
                           />
                           {/* ── Animated % change ── */}
@@ -391,12 +391,12 @@ export function GraphPrice({ assets, market, isFoldableLayout = false, onSelectS
                       onClick={() => setShowFearGreedModal(true)}
                       className={`flex items-center gap-2 shrink-0 cursor-pointer ${getFearGreedBg(fg.value)}`}
                       style={{
-                        border: "1px solid rgba(255,255,255,0.08)",
+                        border: "1px solid var(--surface-border)",
                         borderRadius: "10px",
                         padding: "5px 10px",
                         backdropFilter: "blur(12px)",
                         boxShadow:
-                          "0 1px 3px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)",
+                          "0 4px 14px rgba(48,37,16,0.08), inset 0 1px 0 rgba(255,255,255,0.8)",
                       }}
                     >
                       <img
@@ -415,7 +415,7 @@ export function GraphPrice({ assets, market, isFoldableLayout = false, onSelectS
                           style={{
                             fontSize: "12px",
                             fontWeight: 600,
-                            color: "#f0f0f0",
+                            color: "var(--foreground)",
                           }}
                         >
                           กลัว & โลภ

@@ -269,7 +269,7 @@ export default function SNPCompare({ assets }: { assets: Asset[] }) {
     <>
       <style>{`
         .snp-wrap {
-          background: linear-gradient(160deg, #0f1117 0%, #131620 60%, #0d1019 100%);
+          background: linear-gradient(160deg, #13120f 0%, #15140f 60%, #100f0c 100%);
           border: 1px solid rgba(255,255,255,0.07);
           border-radius: 16px;
           padding: 24px;
@@ -282,7 +282,7 @@ export default function SNPCompare({ assets }: { assets: Asset[] }) {
           position: absolute;
           top: -80px; right: -80px;
           width: 260px; height: 260px;
-          background: radial-gradient(circle, rgba(234,179,8,0.07) 0%, transparent 70%);
+          background: radial-gradient(circle, rgba(244,197,66,0.07) 0%, transparent 70%);
           pointer-events: none;
         }
         .snp-wrap::after {
@@ -290,7 +290,7 @@ export default function SNPCompare({ assets }: { assets: Asset[] }) {
           position: absolute;
           bottom: -60px; left: -60px;
           width: 200px; height: 200px;
-          background: radial-gradient(circle, rgba(59,130,246,0.06) 0%, transparent 70%);
+          background: radial-gradient(circle, rgba(244,197,66,0.04) 0%, transparent 70%);
           pointer-events: none;
         }
 
@@ -309,7 +309,7 @@ export default function SNPCompare({ assets }: { assets: Asset[] }) {
           border-radius: 7px;
           font-size: 13px;
           font-weight: 500;
-          color: #6b7280;
+          color: #a19a8a;
           cursor: pointer;
           transition: all 0.18s ease;
           border: none;
@@ -317,14 +317,14 @@ export default function SNPCompare({ assets }: { assets: Asset[] }) {
           letter-spacing: 0.03em;
         }
         .snp-tab:hover:not(.active) {
-          color: #d1d5db;
+          color: #e0dbcf;
           background: rgba(255,255,255,0.05);
         }
         .snp-tab.active {
-          background: linear-gradient(135deg, #ca8a04, #eab308);
+          background: linear-gradient(135deg, #d4a92e, #f4c542);
           color: #000;
           font-weight: 700;
-          box-shadow: 0 2px 10px rgba(234,179,8,0.3);
+          box-shadow: 0 2px 10px rgba(244,197,66,0.3);
         }
 
         /* Refresh btn */
@@ -334,11 +334,11 @@ export default function SNPCompare({ assets }: { assets: Asset[] }) {
           border-radius: 8px;
           background: rgba(255,255,255,0.05);
           border: 1px solid rgba(255,255,255,0.08);
-          color: #6b7280;
+          color: #a19a8a;
           cursor: pointer;
           transition: all 0.18s ease;
         }
-        .snp-refresh:hover { color: #eab308; border-color: rgba(234,179,8,0.3); background: rgba(234,179,8,0.07); }
+        .snp-refresh:hover { color: #f4c542; border-color: rgba(244,197,66,0.3); background: rgba(244,197,66,0.07); }
         .snp-refresh svg { transition: transform 0.5s ease; }
         .snp-refresh.spinning svg { animation: spin 0.6s linear; }
         @keyframes spin { to { transform: rotate(360deg); } }
@@ -369,7 +369,7 @@ export default function SNPCompare({ assets }: { assets: Asset[] }) {
           font-weight: 600;
           letter-spacing: 0.08em;
           text-transform: uppercase;
-          color: #6b7280;
+          color: #a19a8a;
           margin-bottom: 6px;
         }
         .snp-card-value {
@@ -391,7 +391,7 @@ export default function SNPCompare({ assets }: { assets: Asset[] }) {
 
         /* Tooltip */
         .snp-tooltip {
-          background: rgba(15,17,23,0.95);
+          background: rgba(26,25,21,0.96);
           border: 1px solid rgba(255,255,255,0.1);
           border-radius: 10px;
           padding: 10px 14px;
@@ -430,8 +430,8 @@ export default function SNPCompare({ assets }: { assets: Asset[] }) {
           background: linear-gradient(135deg, rgba(34,197,94,0.1) 0%, rgba(22,163,74,0.04) 100%);
         }
         .snp-advice.warn {
-          border-color: rgba(234,179,8,0.3);
-          background: linear-gradient(135deg, rgba(234,179,8,0.1) 0%, rgba(202,138,4,0.04) 100%);
+          border-color: rgba(244,197,66,0.3);
+          background: linear-gradient(135deg, rgba(244,197,66,0.1) 0%, rgba(212,169,46,0.04) 100%);
         }
         .snp-advice.bad {
           border-color: rgba(248,113,113,0.3);
@@ -440,11 +440,11 @@ export default function SNPCompare({ assets }: { assets: Asset[] }) {
         .snp-advice-title {
           font-weight: 700;
           font-size: 14px;
-          color: #f3f4f6;
+          color: #f4f1e8;
         }
         .snp-advice-sub {
           font-size: 12px;
-          color: #6b7280;
+          color: #a19a8a;
         }
         .snp-advice-diff {
           font-size: 12px;
@@ -456,7 +456,7 @@ export default function SNPCompare({ assets }: { assets: Asset[] }) {
           background: rgba(255,255,255,0.06);
         }
         .snp-advice-diff.good { color: #4ade80; }
-        .snp-advice-diff.warn { color: #eab308; }
+        .snp-advice-diff.warn { color: #f4c542; }
         .snp-advice-diff.bad { color: #f87171; }
 
         .snp-divider {
@@ -566,8 +566,8 @@ export default function SNPCompare({ assets }: { assets: Asset[] }) {
             >
               <defs>
                 <linearGradient id="portfolioGlow" x1="0" y1="0" x2="1" y2="0">
-                  <stop offset="0%" stopColor="#ca8a04" />
-                  <stop offset="100%" stopColor="#eab308" />
+                  <stop offset="0%" stopColor="#d4a92e" />
+                  <stop offset="100%" stopColor="#f4c542" />
                 </linearGradient>
               </defs>
               <CartesianGrid
@@ -601,12 +601,12 @@ export default function SNPCompare({ assets }: { assets: Asset[] }) {
               <Line
                 dataKey="portfolio"
                 name="💼 พอร์ตของคุณ"
-                stroke="#eab308"
+                stroke="#f4c542"
                 strokeWidth={2.5}
                 dot={false}
                 activeDot={{
                   r: 4,
-                  fill: "#eab308",
+                  fill: "#f4c542",
                   stroke: "#000",
                   strokeWidth: 2,
                 }}

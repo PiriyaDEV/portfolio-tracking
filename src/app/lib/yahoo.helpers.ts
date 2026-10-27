@@ -8,6 +8,13 @@
    Symbol Normalization
 ======================= */
 
+const NON_MARKET_ASSET_SYMBOLS = new Set(["PVD-THB", "CASH-THB"]);
+
+/** Portfolio-only assets have no Yahoo candle series. */
+export function isNonMarketAssetSymbol(raw: string): boolean {
+  return NON_MARKET_ASSET_SYMBOLS.has(raw.trim().toUpperCase());
+}
+
 const SYMBOL_MAP: Record<string, string> = {
   "GC=F": "GC=F",
   "TISCO-PVD": "THB=X",

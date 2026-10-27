@@ -353,11 +353,11 @@ const EditModal = ({
                             }
                             className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200"
                             style={{
-                              background: active ? "#1a2e1a" : "#1a1a1a",
-                              border: `1px solid ${active ? "#4ade80" : "#2a2a2a"}`,
-                              color: active ? "#4ade80" : "#888",
+                              background: active ? "rgba(244,197,66,0.12)" : "#1a1915",
+                              border: `1px solid ${active ? "rgba(244,197,66,0.55)" : "rgba(240,226,187,0.12)"}`,
+                              color: active ? "#f4c542" : "#a19a8a",
                               boxShadow: active
-                                ? "0 0 8px rgba(74,222,128,0.15)"
+                                ? "0 0 12px rgba(244,197,66,0.10)"
                                 : "none",
                             }}
                           >

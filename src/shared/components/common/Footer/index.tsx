@@ -115,21 +115,21 @@ export default function FooterPortfolio({
   }, [assets, prices, previousPrice, currencyRate]);
 
   return (
-    <div className="app-fixed-pane app-portfolio-footer fixed bottom-[52px] left-1/2 -translate-x-1/2 w-full sm:w-[450px] bg-black-lighter shadow-[0_-8px_32px_rgba(0,0,0,0.6)] border-t border-white/[0.05]">
+    <div className="app-portfolio-footer w-full rounded-2xl border border-surface-border bg-black-lighter shadow-sm">
       <div
-        className="container mx-auto px-5 pt-4 pb-7 text-center"
+        className="px-4 py-4 text-left"
         onClick={() => setIsOpen(!isOpen)}
       >
         {/* TOTAL VALUE */}
         <div>
-          <div className="font-medium text-[9px] uppercase text-gray-300">
+          <div className="font-medium text-[10px] uppercase tracking-[0.12em] text-gray-500">
             มูลค่าเงินทั้งหมด{" "}
             <span className="normal-case tracking-normal opacity-60">
               ({formattedDate})
             </span>
           </div>
 
-          <div className="font-bold text-[27px] mt-1 flex items-center justify-center gap-2 tracking-tight">
+          <div className="mt-1 flex items-baseline gap-2 font-bold text-[28px] tracking-tight">
             <span className="text-white/90">
               {isNumbersHidden ? (
                 <span className="tracking-[0.2em] text-white/20 text-xl">
@@ -142,12 +142,12 @@ export default function FooterPortfolio({
               )}
             </span>
 
-            <span className="text-[12px] font-medium text-gray-600 self-end mb-1.5">
+            <span className="text-[12px] font-medium text-gray-500">
               บาท
             </span>
 
             <HiChevronDown
-              className={`self-end mb-1.5 text-[14px] text-gray-700 hover:text-gray-400 cursor-pointer transition-all duration-300 ${
+              className={`ml-auto text-[14px] text-gray-500 hover:text-gray-700 cursor-pointer transition-all duration-300 ${
                 !isOpen ? "rotate-180" : "rotate-0"
               }`}
             />
@@ -156,10 +156,10 @@ export default function FooterPortfolio({
 
         {/* DETAILS */}
         {isOpen && (
-          <div className="mt-2 pt-2 border-t border-accent-yellow/50 flex items-center justify-between gap-2 text-[10px]">
+          <div className="mt-3 grid grid-cols-3 items-start gap-2 border-t border-surface-border pt-3 text-[10px]">
             {/* DAILY */}
-            <div className="flex flex-col items-center gap-0.5 flex-1">
-              <span className="text-gray-600">วันนี้</span>
+            <div className="flex min-w-0 flex-col items-start gap-0.5">
+              <span className="text-gray-500">วันนี้</span>
 
               <span
                 className={`flex items-center gap-0.5 font-bold ${getProfitColor(
@@ -198,11 +198,9 @@ export default function FooterPortfolio({
               </span>
             </div>
 
-            <span className="w-px h-8 bg-white/10" />
-
             {/* PROFIT */}
-            <div className="flex flex-col items-center gap-0.5 flex-1">
-              <span className="text-gray-600">กำไรสะสม</span>
+            <div className="flex min-w-0 flex-col items-start gap-0.5">
+              <span className="text-gray-500">กำไรสะสม</span>
 
               <span
                 className={`flex items-center gap-0.5 font-bold ${getProfitColor(
@@ -245,20 +243,18 @@ export default function FooterPortfolio({
               </span>
             </div>
 
-            <span className="w-px h-8 bg-white/10" />
-
             {/* USD RATE */}
-            <div className="flex flex-col items-center gap-0.5 flex-1">
+            <div className="flex min-w-0 flex-col items-start gap-0.5">
               <div className="flex items-center gap-1">
                 <img
                   alt="USD"
                   className="w-3.5 h-3.5 rounded-full object-cover bg-white"
                   src="https://cdn-icons-png.flaticon.com/512/3909/3909383.png"
                 />
-                <span className="text-gray-600">USD</span>
+                <span className="text-gray-500">USD</span>
               </div>
 
-              <span className="text-white/50 font-medium">
+              <span className="text-gray-700 font-medium">
                 <AnimatedNumber value={currencyRate} decimals={2} />
               </span>
 

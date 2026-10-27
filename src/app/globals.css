@@ -4,13 +4,16 @@
 
 :root {
   color-scheme: dark;
-  --background: #11100e;
-  --foreground: #f5f3ed;
-  --surface: #181714;
-  --surface-raised: #211f1a;
-  --surface-border: rgba(242, 225, 170, 0.10);
-  --text-muted: #a39c8b;
+  --background: #100f0c;
+  --foreground: #f4f1e8;
+  --surface: #1a1915;
+  --surface-raised: #222018;
+  --surface-border: rgba(240, 226, 187, 0.12);
+  --surface-shadow: 0 8px 24px rgba(0, 0, 0, 0.24);
+  --text-muted: #a19a8a;
   --accent-yellow: #f4c542;
+  --accent-ink: #1b1607;
+  --font-app-ui: "Noto Sans Thai", "Leelawadee UI", "Thonburi", Tahoma, system-ui, sans-serif;
 }
 
 input,
@@ -36,14 +39,14 @@ body {
   color: var(--foreground);
   background:
     radial-gradient(ellipse at 50% -18%, rgba(244, 197, 66, 0.07), transparent 38%),
-    linear-gradient(145deg, #11100e 0%, #15130f 55%, #0d0c0a 100%);
-  font-family: var(--font-ibm-plex-sans-thai), sans-serif;
+    linear-gradient(145deg, #100f0c 0%, #14130f 55%, #0c0b09 100%);
+  font-family: var(--font-app-ui);
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
 }
 
 * {
-  font-family: var(--font-ibm-plex-sans-thai), sans-serif !important;
+  font-family: var(--font-app-ui) !important;
 }
 
 #tv-attr-logo {
@@ -51,7 +54,7 @@ body {
 }
 
 ::placeholder {
-  color: #89857b !important;
+  color: var(--text-muted) !important;
 }
 
 :focus-visible {
@@ -88,25 +91,7 @@ body {
   border: 1px solid var(--surface-border);
   border-radius: 20px;
   padding: clamp(14px, 2vw, 20px);
-  background: linear-gradient(145deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.018));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025);
-}
-
-/* Two-segment foldable layouts: ordinary phones/tablets keep the current UI. */
-.foldable-companion-pane {
-  display: none;
-}
-
-.foldable-companion-content {
-  max-width: 680px;
-  margin: 0 auto;
-}
-
-.foldable-detail-card {
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 20px;
-  padding: clamp(14px, 2vw, 20px);
-  background: linear-gradient(145deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.018));
+  background: var(--surface);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025);
 }
 
@@ -155,11 +140,11 @@ body {
     overflow-x: hidden;
     overscroll-behavior: contain;
     padding: max(24px, env(safe-area-inset-top, 0px)) max(18px, env(safe-area-inset-right, 0px)) max(28px, env(safe-area-inset-bottom, 0px)) max(18px, env(safe-area-inset-left, 0px));
-    border-left: 1px solid rgba(255, 255, 255, 0.1);
+    border-left: 1px solid var(--surface-border);
     box-shadow: -12px 0 24px rgba(0, 0, 0, 0.32);
     background:
-      radial-gradient(ellipse at top right, rgba(250, 204, 21, 0.07), transparent 42%),
-      linear-gradient(180deg, #111 0%, #080808 100%);
+      radial-gradient(ellipse at top right, rgba(244, 197, 66, 0.07), transparent 42%),
+      linear-gradient(180deg, #15140f 0%, #0f0e0c 100%);
   }
 
   .app-fixed-pane {
@@ -233,11 +218,11 @@ body {
     overscroll-behavior: contain;
     padding: max(24px, env(safe-area-inset-top, 0px)) max(18px, env(safe-area-inset-right, 0px)) max(28px, env(safe-area-inset-bottom, 0px)) max(18px, env(safe-area-inset-left, 0px));
     border-left: 0;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    border-top: 1px solid var(--surface-border);
     box-shadow: 0 -12px 24px rgba(0, 0, 0, 0.32);
     background:
-      radial-gradient(ellipse at top right, rgba(250, 204, 21, 0.07), transparent 42%),
-      linear-gradient(180deg, #111 0%, #080808 100%);
+      radial-gradient(ellipse at top right, rgba(244, 197, 66, 0.07), transparent 42%),
+      linear-gradient(180deg, #15140f 0%, #0f0e0c 100%);
   }
 
   .app-fixed-pane {
@@ -384,11 +369,11 @@ body {
     overflow-x: hidden;
     overscroll-behavior: contain;
     padding: max(24px, env(safe-area-inset-top, 0px)) max(18px, env(safe-area-inset-right, 0px)) max(28px, env(safe-area-inset-bottom, 0px)) 18px;
-    border-left: 1px solid rgba(255, 255, 255, 0.1);
+    border-left: 1px solid var(--surface-border);
     box-shadow: -12px 0 24px rgba(0, 0, 0, 0.32);
     background:
-      radial-gradient(ellipse at top right, rgba(250, 204, 21, 0.07), transparent 42%),
-      linear-gradient(180deg, #111 0%, #080808 100%);
+      radial-gradient(ellipse at top right, rgba(244, 197, 66, 0.07), transparent 42%),
+      linear-gradient(180deg, #15140f 0%, #0f0e0c 100%);
   }
 
   .app-fixed-pane {
@@ -410,20 +395,54 @@ body {
   }
 }
 
-/* Core surfaces and desktop canvas */
+.app-dark-theme {
+  color: var(--foreground);
+  background: var(--background);
+}
+
+.app-dark-theme [class*="text-white/50"],
+.app-dark-theme [class*="text-white/40"],
+.app-dark-theme [class*="text-white/35"],
+.app-dark-theme [class*="text-white/30"] {
+  color: var(--text-muted) !important;
+}
+
+.app-dark-theme [class*="text-gray-500"] {
+  color: #a19a8a !important;
+}
+
+.app-dark-theme [class*="text-gray-600"] {
+  color: #918a7b !important;
+}
+
+.app-dark-theme [class*="text-gray-700"] {
+  color: #c4bbaa !important;
+}
+
+.app-dark-theme [class*="border-gray-600"],
+.app-dark-theme [class*="border-gray-700"] {
+  border-color: var(--surface-border) !important;
+}
+
+.app-dark-theme [class*="bg-gray-700"],
+.app-dark-theme [class*="bg-gray-800"],
+.app-dark-theme [class*="bg-gray-900"] {
+  background-color: var(--surface-raised) !important;
+}
+
 .app-background-layout {
   background: transparent !important;
 }
 
 .app-header {
   border-bottom: 1px solid var(--surface-border);
-  background: rgba(17, 16, 14, 0.92);
+  background: rgba(16, 15, 12, 0.92);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
 }
 
 .app-header > div {
-  background: rgba(17, 16, 14, 0.92) !important;
+  background: rgba(16, 15, 12, 0.92) !important;
 }
 
 .app-content {
@@ -435,11 +454,31 @@ body {
 }
 
 .portfolio-asset-row {
-  border-bottom: 1px solid rgba(242, 225, 170, 0.055);
+  width: calc(100% - 28px);
+  margin: 0 14px 8px;
+  padding: 12px 10px;
+  border: 1px solid var(--surface-border);
+  border-radius: 15px;
+  background: var(--surface);
+  box-shadow: var(--surface-shadow);
 }
 
 .portfolio-asset-row:hover {
-  background: rgba(244, 197, 66, 0.035) !important;
+  background: rgba(244, 197, 66, 0.06) !important;
+  border-color: rgba(244, 197, 66, 0.32);
+}
+
+.portfolio-asset-detail {
+  width: calc(100% - 44px);
+  margin: -8px 22px 8px;
+  border: 1px solid var(--surface-border);
+  border-top: 0;
+  border-radius: 0 0 13px 13px;
+  background: var(--surface-raised) !important;
+}
+
+.portfolio-column-header {
+  color: var(--text-muted);
 }
 
 .app-bottom-navbar {
@@ -450,10 +489,10 @@ body {
   padding: 8px 5px calc(8px + env(safe-area-inset-bottom, 0px));
   justify-content: space-around;
   gap: 4px;
-  border: 1px solid rgba(242, 225, 170, 0.11);
+  border: 1px solid var(--surface-border);
   border-radius: 20px;
-  background: rgba(24, 23, 20, 0.96) !important;
-  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.42);
+  background: rgba(26, 25, 21, 0.96) !important;
+  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.36);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
 }
@@ -463,21 +502,19 @@ body {
   padding: 7px 12px;
   gap: 4px;
   border-radius: 14px;
-  color: #9a958a;
+  color: #a19a8a;
 }
 
 .app-bottom-navbar button[aria-current="page"] {
   color: var(--accent-yellow) !important;
-  background: rgba(244, 197, 66, 0.1);
+  background: rgba(244, 197, 66, 0.12);
 }
 
 .app-portfolio-footer {
-  border: 1px solid rgba(242, 225, 170, 0.10);
-  border-bottom: 0;
-  border-radius: 22px 22px 0 0;
-  background: rgba(24, 23, 20, 0.97) !important;
-  box-shadow: 0 -12px 38px rgba(0, 0, 0, 0.3) !important;
-  backdrop-filter: blur(18px);
+  border: 1px solid var(--surface-border);
+  border-radius: 18px;
+  background: rgba(26, 25, 21, 0.98) !important;
+  box-shadow: 0 12px 38px rgba(0, 0, 0, 0.32) !important;
 }
 
 @media (min-width: 768px) {
@@ -492,12 +529,7 @@ body {
   }
 
   .app-portfolio-footer {
-    left: 50%;
-    width: min(800px, calc(100vw - 48px));
-    transform: translateX(-50%);
-    border-bottom: 1px solid rgba(242, 225, 170, 0.10);
-    border-radius: 22px;
-    bottom: 88px !important;
+    border-radius: 18px;
   }
 
   .app-bottom-navbar {

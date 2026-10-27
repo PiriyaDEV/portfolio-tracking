@@ -92,7 +92,7 @@ export default function FoldableCompanionPanel({
     >
       <div className="foldable-companion-content">
         <header className="mb-5 border-b border-white/10 pb-4">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-yellow-400/70">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-700/80">
             {PAGE_COPY[page].eyebrow}
           </p>
           <h2 className="mt-1 text-xl font-bold text-white">
@@ -318,7 +318,7 @@ function StockHistory({
       <SymbolHeading symbol={selectedSymbol} />
       <p className="mt-1 text-xs text-gray-500">การเคลื่อนไหวระหว่างวัน</p>
       {points.length > 1 ? (
-        <PriceSparkline points={points} color="#facc15" height={144} />
+        <PriceSparkline points={points} color="#f4c542" height={144} />
       ) : (
         <EmptyState text="ยังไม่มีข้อมูลกราฟสำหรับช่วงเวลานี้" compact />
       )}

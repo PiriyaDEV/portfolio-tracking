@@ -4,6 +4,7 @@ import {
   fetchPreviousClose,
   fetchYahooChart,
   isInUSTradingHoursTH,
+  isNonMarketAssetSymbol,
 } from "@/app/lib/yahoo.helpers";
 
 export interface AdvancedLevels {
@@ -63,6 +64,8 @@ function calcEMA(data: number[], period: number, end = data.length): number {
 export async function getAdvancedLevels(
   symbol: string = "TSLA",
 ): Promise<AdvancedLevels> {
+  if (isNonMarketAssetSymbol(symbol)) return INITIAL_LEVELS(symbol);
+
   try {
     /* ================= FETCH =================
        Previously route.ts made a separate fetchYahooChart(symbol, "1d", "1d")

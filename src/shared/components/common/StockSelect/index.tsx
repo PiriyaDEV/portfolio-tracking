@@ -60,9 +60,9 @@ export default function StockSelect({
         onClick={() => setOpen((p) => !p)}
         className="w-full flex items-center rounded-xl transition-colors"
         style={{
-          background: "#111111",
-          border: `1px solid ${open ? "#3a3a3a" : "#2a2a2a"}`,
-          boxShadow: "0 2px 12px rgba(0,0,0,0.6)",
+          background: "var(--surface)",
+          border: `1px solid ${open ? "rgba(244,197,66,0.55)" : "var(--surface-border)"}`,
+          boxShadow: "0 6px 18px rgba(0,0,0,0.24)",
         }}
       >
         {/* Icon slot — mirrors the 🔍 position */}
@@ -78,7 +78,7 @@ export default function StockSelect({
 
         <span
           className="flex-1 px-2 py-3 text-sm text-left"
-          style={{ color: selected ? "#ffffff" : "#555" }}
+          style={{ color: selected ? "var(--foreground)" : "var(--text-muted)" }}
         >
           {selected ? (
             <span className="flex items-center gap-2">
@@ -117,10 +117,10 @@ export default function StockSelect({
           ref={listRef}
           className="absolute top-full left-0 right-0 mt-1 z-50 overflow-y-auto"
           style={{
-            background: "#0d0d0d",
-            border: "1px solid #2a2a2a",
+            background: "var(--surface)",
+            border: "1px solid var(--surface-border)",
             borderRadius: "12px",
-            boxShadow: "0 8px 32px rgba(0,0,0,0.8)",
+            boxShadow: "0 12px 28px rgba(0,0,0,0.38)",
             maxHeight: "240px",
           }}
         >
@@ -136,9 +136,9 @@ export default function StockSelect({
                 }}
                 className="flex items-center justify-between px-4 py-2.5 cursor-pointer text-sm transition-colors"
                 style={{
-                  background: isActive ? "#1a1a1a" : "transparent",
+                  background: isActive ? "rgba(244,197,66,0.08)" : "transparent",
                   borderBottom:
-                    i < options.length - 1 ? "1px solid #1c1c1c" : "none",
+                    i < options.length - 1 ? "1px solid var(--surface-border)" : "none",
                 }}
               >
                 <div className="flex items-center gap-3">
@@ -154,8 +154,8 @@ export default function StockSelect({
                   <span
                     className="text-xs font-bold px-2 py-0.5 rounded"
                     style={{
-                      background: isActive ? "#1e2e1e" : "#181818",
-                      color: isActive ? "#4ade80" : "#888",
+                      background: isActive ? "rgba(244,197,66,0.12)" : "#181714",
+                      color: isActive ? "#f4c542" : "#a19a8a",
                       minWidth: "52px",
                       textAlign: "center",
                     }}
@@ -167,7 +167,7 @@ export default function StockSelect({
                   </span>
                 </div>
                 {isActive && (
-                  <span className="text-green-400 text-xs ml-2 shrink-0">
+                  <span className="text-accent-yellow text-xs ml-2 shrink-0">
                     ✓
                   </span>
                 )}
