@@ -34,7 +34,7 @@ export const NoItem: React.FC<NoItemProps> = ({
           <h2 className="text-xl font-bold text-white mb-2">ยังไม่มีข้อมูล</h2>
           <p className="text-sm mb-6">เริ่มต้นโดยการเพิ่มสินทรัพย์ของคุณ</p>
           <button
-            className="bg-accent-yellow text-black px-6 py-3 rounded font-semibold hover:bg-yellow-500 transition-colors"
+            className="bg-accent-yellow text-black px-6 py-3 rounded font-semibold hover:brightness-110 transition-colors"
             onClick={onAddClick}
           >
             เพิ่มสินทรัพย์แรก

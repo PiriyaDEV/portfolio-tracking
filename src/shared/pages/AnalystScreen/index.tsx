@@ -181,7 +181,7 @@ export default function AnalystScreen({ assets, wishlist, userId, isFoldableLayo
       )}
 
       {/* Tabs */}
-      <div className="app-fixed-pane fixed top-[67px] left-1/2 -translate-x-1/2 max-w-[450px] w-full z-[99] bg-black py-3 border-b border-black-lighter2">
+      <div className="app-fixed-pane fixed top-[67px] left-1/2 -translate-x-1/2 max-w-[450px] lg:max-w-[1120px] w-full z-[99] bg-black py-3 border-b border-black-lighter2">
         <div className="flex justify-around">
           {tabs.map((tab) => {
             const isActive = activeTab === tab.key;
@@ -194,14 +194,14 @@ export default function AnalystScreen({ assets, wishlist, userId, isFoldableLayo
                 <div
                   className={`w-12 h-12 flex items-center justify-center rounded-full transition-all duration-200 ${
                     isActive
-                      ? "bg-yellow-500 shadow-[0_0_18px_rgba(234,179,8,0.55)]"
+                      ? "bg-accent-yellow text-[#11100e]"
                       : "bg-black-lighter2 text-white hover:bg-white/10"
                   }`}
                 >
                   {tab.icon}
                 </div>
                 <span
-                  className={`text-xs ${isActive ? "text-yellow-400" : "text-gray-300"}`}
+                  className={`text-xs ${isActive ? "text-accent-yellow" : "text-gray-300"}`}
                 >
                   {tab.label}
                 </span>

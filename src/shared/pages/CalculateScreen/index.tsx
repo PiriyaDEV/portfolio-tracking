@@ -199,7 +199,7 @@ export default function CalculateScreen({
   return (
     <div className="p-4 w-full pb-[100px]">
       {/* Tab bar */}
-      <div className="app-fixed-pane fixed top-[67px] left-1/2 -translate-x-1/2 max-w-[450px] w-full bg-black py-3 px-5 px-1 border-b border-white/[0.06] z-[99]">
+      <div className="app-fixed-pane fixed top-[67px] left-1/2 -translate-x-1/2 max-w-[450px] lg:max-w-[1120px] w-full bg-black py-3 px-5 px-1 border-b border-white/[0.06] z-[99]">
         <div className="flex justify-start gap-[35px]">
           {tabs.map((tab) => {
             const isActive = activeTab === tab.key;
@@ -215,14 +215,14 @@ export default function CalculateScreen({
                 <div
                   className={`w-12 h-12 flex items-center justify-center rounded-full transition-all duration-200 ${
                     isActive
-                      ? "bg-yellow-500 text-white shadow-[0_0_18px_rgba(234,179,8,0.55)]"
+                      ? "bg-accent-yellow text-[#11100e]"
                       : "bg-black-lighter2 text-white hover:bg-white/10"
                   }`}
                 >
                   {tab.icon}
                 </div>
                 <span
-                  className={`text-xs ${isActive ? "text-yellow-400" : "text-gray-400"}`}
+                  className={`text-xs ${isActive ? "text-accent-yellow" : "text-gray-400"}`}
                 >
                   {tab.label}
                 </span>
@@ -309,7 +309,7 @@ export default function CalculateScreen({
           />
           <button
             onClick={calculateNewCost}
-            className="bg-yellow-500 shadow-[0_0_18px_rgba(234,179,8,0.55)] py-2.5 rounded-lg font-bold text-black transition-transform active:scale-[0.98]"
+            className="bg-accent-yellow text-[#11100e] py-2.5 rounded-lg font-bold text-black transition-transform active:scale-[0.98]"
           >
             ⚡ คำนวณต้นทุนเฉลี่ย
           </button>
@@ -333,7 +333,7 @@ export default function CalculateScreen({
           />
           <button
             onClick={calculateEstimateCost}
-            className="py-2.5 bg-yellow-500 shadow-[0_0_18px_rgba(234,179,8,0.55)] rounded-lg font-bold text-black transition-transform active:scale-[0.98]"
+            className="py-2.5 bg-accent-yellow text-[#11100e] rounded-lg font-bold text-black transition-transform active:scale-[0.98]"
           >
             🚀 คำนวณเป้าหมาย
           </button>

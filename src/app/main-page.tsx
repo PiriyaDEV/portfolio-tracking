@@ -456,7 +456,7 @@ export default function MainApp({
 
   // ─── Profile Header ────────────────────────────────────────────────────────
   const ProfileHeader = ({ showActions = true }: { showActions?: boolean }) => (
-    <div className="app-fixed-pane fixed top-[67px] left-0 right-0 bg-black z-[99] sm:max-w-[450px] mx-auto">
+    <div className="app-fixed-pane fixed top-[67px] left-0 right-0 bg-black z-[99] sm:max-w-[450px] lg:max-w-[1120px] mx-auto">
       <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-accent-yellow/10">
         <div
           className="flex items-center gap-3 cursor-pointer"
@@ -661,7 +661,7 @@ export default function MainApp({
       )}
 
       {currentPage === "portfolio" && (
-        <div className="app-fixed-pane portfolio-fixed-header fixed top-[67px] left-0 right-0 bg-black z-[99] sm:max-w-[450px] mx-auto">
+        <div className="app-fixed-pane portfolio-fixed-header fixed top-[67px] left-0 right-0 bg-black z-[99] sm:max-w-[450px] lg:max-w-[1120px] mx-auto">
           <ProfileHeader showActions={true} />
           <div className="portfolio-column-header mt-[68px] grid grid-cols-[2fr_1fr_1fr] gap-3 px-4 py-2 bg-black border-b border-black-lighter">
             <div

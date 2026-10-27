@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { getLogo } from "@/app/lib/utils";
 
 interface SymbolSuggestion {
   description: string;
@@ -178,10 +179,12 @@ export default function StockSearchSelect({
                 onClick={() => handleExchangeChange(ex.value)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200"
                 style={{
-                  background: active ? "#1a2e1a" : "#141414",
-                  border: `1px solid ${active ? "#4ade80" : "#2a2a2a"}`,
-                  color: active ? "#4ade80" : "#555",
-                  boxShadow: active ? "0 0 8px rgba(74,222,128,0.15)" : "none",
+                  background: active ? "rgba(244,197,66,0.12)" : "#1a1915",
+                  border: `1px solid ${
+                    active ? "rgba(244,197,66,0.58)" : "rgba(242,225,170,0.10)"
+                  }`,
+                  color: active ? "#f4c542" : "#a19a8a",
+                  boxShadow: active ? "0 0 12px rgba(244,197,66,0.10)" : "none",
                 }}
               >
                 <span>{ex.flag}</span>
@@ -197,13 +200,13 @@ export default function StockSearchSelect({
         <div
           className="flex items-center rounded-xl"
           style={{
-            background: "#111111",
-            border: "1px solid #2a2a2a",
-            boxShadow: "0 2px 12px rgba(0,0,0,0.6)",
+            background: "#1a1915",
+            border: "1px solid rgba(242,225,170,0.12)",
+            boxShadow: "0 8px 24px rgba(0,0,0,0.18)",
           }}
         >
-          <span className="pl-3 pr-1 text-gray-500 text-base select-none">
-            🔍
+          <span aria-hidden="true" className="pl-3 pr-1 text-gray-400 text-xl select-none leading-none">
+            ⌕
           </span>
 
           <input
@@ -230,7 +233,7 @@ export default function StockSearchSelect({
           <button
             type="button"
             onClick={handleConfirm}
-            className="px-4 py-3 text-sm font-semibold text-green-400 hover:text-green-300 transition-colors shrink-0"
+            className="px-4 py-3 text-sm font-semibold text-accent-yellow hover:brightness-110 transition-colors shrink-0"
           >
             ค้นหา
           </button>
@@ -241,8 +244,8 @@ export default function StockSearchSelect({
           <ul
             className="absolute top-full left-0 right-0 mt-1 z-50 overflow-y-auto"
             style={{
-              background: "#0d0d0d",
-              border: "1px solid #2a2a2a",
+              background: "#1a1915",
+              border: "1px solid rgba(242,225,170,0.12)",
               borderRadius: "12px",
               boxShadow: "0 8px 32px rgba(0,0,0,0.8)",
               ...(maxDropdownHeight !== undefined && {
@@ -263,18 +266,25 @@ export default function StockSearchSelect({
                   key={`${s.symbol}-${i}`}
                   onMouseDown={() => handleSelect(s)}
                   onMouseEnter={() => setActiveIndex(i)}
-                  className="flex items-center justify-between px-4 py-2.5 cursor-pointer text-sm transition-colors"
+                  className="flex items-center justify-between gap-3 px-3.5 py-2.5 cursor-pointer text-sm transition-colors"
                   style={{
-                    background: i === activeIndex ? "#1a1a1a" : "transparent",
-                    borderBottom: "1px solid #1c1c1c",
+                    background:
+                      i === activeIndex ? "rgba(244,197,66,0.08)" : "transparent",
+                    borderBottom: "1px solid rgba(242,225,170,0.08)",
                   }}
                 >
-                  <div className="flex items-center gap-3">
+                  <div className="flex min-w-0 items-center gap-2.5">
+                    <img
+                      src={getLogo(s.symbol)}
+                      alt={`${s.displaySymbol} logo`}
+                      loading="lazy"
+                      className="h-8 w-8 shrink-0 rounded-full border border-white/10 bg-white object-cover"
+                    />
                     <span
-                      className="text-xs font-bold px-2 py-0.5 rounded"
+                      className="text-[11px] font-bold px-2 py-1 rounded-md"
                       style={{
-                        background: "#1e2e1e",
-                        color: "#4ade80",
+                        background: "rgba(244,197,66,0.10)",
+                        color: "#f4c542",
                         minWidth: "52px",
                         textAlign: "center",
                       }}

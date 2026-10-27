@@ -1,6 +1,12 @@
 "use client";
 
-import { fNumber, getName, isCash, isThaiStock } from "@/app/lib/utils";
+import {
+  fNumber,
+  getLogo,
+  getName,
+  isCash,
+  isThaiStock,
+} from "@/app/lib/utils";
 import type { Asset } from "@/app/lib/interface";
 import type { StockResult } from "@/shared/pages/ViewScreen";
 import type { CalculatorCompanionContext } from "@/shared/types_foldable";
@@ -379,10 +385,27 @@ function SignalDistribution({
 }
 
 function SymbolHeading({ symbol }: { symbol: string }) {
+  const logoUrl = getLogo(symbol);
+  const name = getName(symbol);
+
   return (
-    <div className="min-w-0">
-      <p className="truncate text-lg font-bold text-white">{getName(symbol)}</p>
-      <p className="truncate text-xs text-gray-500">{symbol}</p>
+    <div className="flex min-w-0 items-center gap-3">
+      <div className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full border border-white/10 bg-white text-sm font-bold text-[#11100e]">
+        {logoUrl ? (
+          <img
+            src={logoUrl}
+            alt={`${name} logo`}
+            loading="lazy"
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          name.slice(0, 1)
+        )}
+      </div>
+      <div className="min-w-0">
+        <p className="truncate text-lg font-bold text-white">{name}</p>
+        <p className="truncate text-xs text-gray-500">{symbol}</p>
+      </div>
     </div>
   );
 }

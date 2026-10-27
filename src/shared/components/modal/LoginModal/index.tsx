@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import CommonLoading from "../../common/CommonLoading";
 import { validateNewPassword } from "@/app/lib/password.utils";
 import { PasswordStrengthHint } from "../../common/PasswordHint";
+import { FaLock } from "react-icons/fa6";
 
 type Props = {
   isLoggedIn: boolean;
@@ -628,13 +629,15 @@ export default function LoginModal({
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                fontSize: 32,
+                fontSize: 23,
                 marginBottom: 4,
+                color: "#f4c542",
+                background: "rgba(244,197,66,0.07)",
                 boxShadow:
-                  "0 8px 32px rgba(99,102,241,0.2), 0 0 0 1px rgba(255,255,255,0.05) inset",
+                  "0 8px 32px rgba(244,197,66,0.12), 0 0 0 1px rgba(255,255,255,0.05) inset",
               }}
             >
-              🔐
+              <FaLock aria-hidden="true" />
             </div>
             <h1
               style={{
@@ -754,9 +757,9 @@ export default function LoginModal({
                 borderRadius: 14,
                 border: "none",
                 background: canSubmit
-                  ? "rgba(255,255,255,0.92)"
+                  ? "#f4c542"
                   : "rgba(255,255,255,0.08)",
-                color: canSubmit ? "#0d0d14" : "rgba(255,255,255,0.25)",
+                color: canSubmit ? "#11100e" : "rgba(255,255,255,0.25)",
                 fontWeight: 600,
                 fontSize: 16,
                 cursor: canSubmit ? "pointer" : "not-allowed",

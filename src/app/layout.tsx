@@ -1,14 +1,14 @@
 // app/layout.tsx
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import { Sarabun } from "next/font/google";
+import { IBM_Plex_Sans_Thai } from "next/font/google";
 import BackgroundLayout from "@/shared/components/common/BackgroundLayout";
 
-const sarabun = Sarabun({
-  weight: ["100", "200", "300", "400", "500", "600", "700", "800"],
-  style: ["normal", "italic"],
+const ibmPlexSansThai = IBM_Plex_Sans_Thai({
+  weight: ["400", "500", "600", "700"],
   subsets: ["thai", "latin"],
-  variable: "--font-sarabun",
+  variable: "--font-ibm-plex-sans-thai",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -24,15 +24,15 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: "#171616ff",
+  themeColor: "#11100e",
 };
 
 export default function AppLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={sarabun.variable}>
-      <body className="antialiased font-sarabun">
+    <html lang="th" className={ibmPlexSansThai.variable}>
+      <body className="antialiased font-sans">
         <BackgroundLayout>{children}</BackgroundLayout>
       </body>
     </html>

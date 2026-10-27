@@ -56,7 +56,9 @@ export default function BottomNavbar({
           <button
             key={item.page}
             disabled={isDisabled}
-            className={`flex flex-col items-center text-[12px] transition-opacity ${
+            aria-current={currentPage === item.page ? "page" : undefined}
+            aria-label={item.label}
+            className={`flex flex-col items-center text-[12px] transition-all ${
               isDisabled
                 ? "opacity-30 cursor-not-allowed"
                 : currentPage === item.page
