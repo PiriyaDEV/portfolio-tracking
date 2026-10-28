@@ -166,7 +166,7 @@ export default function PredictScreen({ assets }: PredictScreenProps) {
   return (
     <div className="p-4 w-full pb-[100px]">
       {/* Header */}
-      <div className="mb-3 mt-[70px]">
+      <div className="mb-3">
         <h2 className="text-base font-bold text-white flex items-center gap-2">
           🔮 คาดการณ์เงินในพอร์ต
         </h2>

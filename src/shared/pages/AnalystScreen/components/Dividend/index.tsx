@@ -638,8 +638,8 @@ export default function DividendSummary({
   return (
     <div className="flex flex-col">
       {/* Sticky tab pills with W-8BEN */}
-      <div className="app-fixed-pane fixed top-[160px] left-1/2 -translate-x-1/2 max-w-none sm:max-w-[450px] lg:max-w-[1120px] w-full z-[99]">
-        <div className="flex items-center justify-between px-4 py-2.5 bg-black-lighter border-b border-white/[0.06] border-b border-yellow-400/[0.5]">
+      <div className="relative z-10 mb-3 w-full">
+        <div className="flex items-center justify-between gap-2 border-b border-yellow-400/[0.5] bg-black-lighter px-4 py-2.5">
           <TabPills
             active={activeTab}
             onChange={setActiveTab}
@@ -650,7 +650,7 @@ export default function DividendSummary({
       </div>
 
       {/* Tab content */}
-      <div className="mt-[140px]">
+      <div className="mt-3">
         {activeTab === "my_stocks" ? (
           <MyStocksTab data={data} usW8Ben={usW8Ben} />
         ) : (
