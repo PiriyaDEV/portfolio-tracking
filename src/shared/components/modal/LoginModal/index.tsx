@@ -205,7 +205,7 @@ function RegisterModal({ onClose }: { onClose: () => void }) {
       <div
         style={{
           background:
-            "linear-gradient(145deg, rgba(28,28,36,0.97) 0%, rgba(18,18,26,0.99) 100%)",
+            "linear-gradient(145deg, rgba(34,32,26,0.98) 0%, rgba(24,23,20,0.99) 100%)",
           border: "1px solid rgba(255,255,255,0.12)",
           borderRadius: 24,
           padding: "36px 32px",

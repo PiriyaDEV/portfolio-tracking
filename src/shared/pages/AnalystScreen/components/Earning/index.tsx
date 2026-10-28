@@ -652,7 +652,7 @@ export default function EarningsPage({
 
       {/* Ambient background glow */}
       <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-900/10 rounded-full blur-3xl" />
+        <div className="absolute top-0 left-1/4 w-96 h-96 bg-amber-900/10 rounded-full blur-3xl" />
         <div className="absolute top-1/3 right-1/4 w-80 h-80 bg-purple-900/8 rounded-full blur-3xl" />
       </div>
 

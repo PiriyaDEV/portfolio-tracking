@@ -129,7 +129,7 @@ export function FearGreedGauge({ value, onClose }: Props) {
       <div
         className="relative rounded-3xl"
         style={{
-          background: "#0f0f0f",
+          background: "#1a1915",
           border: "1px solid rgba(255,255,255,0.1)",
           padding: "32px 28px 28px",
           width: "min(340px, 92vw)",
@@ -252,7 +252,7 @@ export function FearGreedGauge({ value, onClose }: Props) {
               strokeLinecap="round"
             />
             <circle cx="0" cy="0" r="5" fill="white" />
-            <circle cx="0" cy="0" r="2.5" fill="#0f0f0f" />
+            <circle cx="0" cy="0" r="2.5" fill="#1a1915" />
           </g>
         </svg>
 

@@ -433,7 +433,7 @@ export default function NewsScreen({ assets = [] }: Props) {
             href={fullMatch}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-blue-400 underline break-words hover:text-blue-300 transition-colors"
+            className="text-accent-yellow underline break-words hover:brightness-110 transition-colors"
           >
             {fullMatch}
           </a>,

@@ -92,7 +92,7 @@ function ImageCropModal({
 
   return (
     <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/90 backdrop-blur-sm px-4">
-      <div className="bg-[#111] border border-white/10 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl">
+      <div className="bg-black-lighter border border-white/10 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl">
         <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
           <h2 className="text-white font-semibold text-[15px] flex items-center gap-2">
             <FaCrop className="text-accent-yellow" />
@@ -362,7 +362,7 @@ export function EditProfileModal({
       )}
 
       <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm px-4">
-        <div className="bg-[#111] border border-white/10 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl">
+        <div className="bg-black-lighter border border-white/10 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl">
           {/* Header */}
           <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
             <h2 className="text-white font-semibold text-[15px]">

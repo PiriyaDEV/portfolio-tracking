@@ -427,7 +427,7 @@ function StockCard({
       {/* ── Stats grid (4 cols) ── */}
       <div className="grid grid-cols-4 gap-[1px] bg-gray-800/60 mx-4 rounded-xl overflow-hidden mb-3">
         {/* ราคา */}
-        <div className="bg-[#111] px-2 py-2.5">
+        <div className="bg-black-lighter px-2 py-2.5">
           <p className="text-gray-500 text-[10px]">ราคา</p>
           <p className="text-white text-xs font-bold mt-0.5">
             {rec.currentPrice.toLocaleString("en-US", {
@@ -449,7 +449,7 @@ function StockCard({
         </div>
 
         {/* 1 เดือน */}
-        <div className="bg-[#111] px-2 py-2.5">
+        <div className="bg-black-lighter px-2 py-2.5">
           <p className="text-gray-500 text-[10px]">1 เดือน</p>
           <div
             className={`flex items-center gap-1 font-black text-sm mt-0.5 ${return1MColor}`}
@@ -470,7 +470,7 @@ function StockCard({
         </div>
 
         {/* Upside */}
-        <div className="bg-[#111] px-2 py-2.5">
+        <div className="bg-black-lighter px-2 py-2.5">
           <p className="text-gray-500 text-[10px]">โอกาสกำไร</p>
           <div className="flex items-center gap-1 font-black text-sm mt-0.5 text-yellow-400">
             <UpIcon className="text-[10px]" />+{rec.upside}%
@@ -479,7 +479,7 @@ function StockCard({
         </div>
 
         {/* ปันผล */}
-        <div className="bg-[#111] px-2 py-2.5">
+        <div className="bg-black-lighter px-2 py-2.5">
           <p className="text-gray-500 text-[10px]">ปันผล</p>
           {rec.dividendYield != null && rec.dividendYield > 0 ? (
             <>
