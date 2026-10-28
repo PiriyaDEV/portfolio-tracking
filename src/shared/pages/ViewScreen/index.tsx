@@ -82,7 +82,7 @@ export default function ViewScreen({
       {!loading && (
         <>
           <div className="flex items-center gap-2 mt-2">
-            <span className="text-xs font-semibold uppercase text-gray-500">
+            <span className="app-section-heading uppercase">
               ผลการค้นหา
             </span>
             <div className="flex-1 h-px bg-gray-700/60" />
@@ -141,7 +141,7 @@ export default function ViewScreen({
           {wishlistItems.length > 0 && (
             <>
               <div className="flex items-center gap-2 mt-4">
-                <span className="text-xs font-semibold uppercase text-gray-500">
+                <span className="app-section-heading uppercase">
                   รายการโปรด
                 </span>
                 <span className="text-xs text-gray-600 bg-gray-800 border border-gray-700 rounded-full px-2 py-0.5 leading-none">

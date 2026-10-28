@@ -269,8 +269,8 @@ export default function SNPCompare({ assets }: { assets: Asset[] }) {
     <>
       <style>{`
         .snp-wrap {
-          background: linear-gradient(160deg, #13120f 0%, #15140f 60%, #100f0c 100%);
-          border: 1px solid rgba(255,255,255,0.07);
+          background: linear-gradient(160deg, var(--surface) 0%, var(--background) 65%, var(--surface-raised) 100%);
+          border: 1px solid var(--surface-border);
           border-radius: 16px;
           padding: 24px;
           min-height: 542px;
@@ -290,7 +290,7 @@ export default function SNPCompare({ assets }: { assets: Asset[] }) {
           position: absolute;
           bottom: -60px; left: -60px;
           width: 200px; height: 200px;
-          background: radial-gradient(circle, rgba(244,197,66,0.04) 0%, transparent 70%);
+          background: radial-gradient(circle, rgba(244,197,66,0.05) 0%, transparent 70%);
           pointer-events: none;
         }
 
@@ -298,18 +298,18 @@ export default function SNPCompare({ assets }: { assets: Asset[] }) {
         .snp-tabs {
           display: flex;
           gap: 2px;
-          background: rgba(255,255,255,0.04);
-          border: 1px solid rgba(255,255,255,0.07);
+          background: var(--surface-raised);
+          border: 1px solid var(--surface-border);
           padding: 4px;
-          border-radius: 10px;
+          border-radius: 999px;
           width: fit-content;
         }
         .snp-tab {
-          padding: 5px 14px;
-          border-radius: 7px;
-          font-size: 13px;
+          padding: 7px 14px;
+          border-radius: 999px;
+          font-size: 12px;
           font-weight: 500;
-          color: #a19a8a;
+          color: var(--text-muted);
           cursor: pointer;
           transition: all 0.18s ease;
           border: none;
@@ -317,12 +317,12 @@ export default function SNPCompare({ assets }: { assets: Asset[] }) {
           letter-spacing: 0.03em;
         }
         .snp-tab:hover:not(.active) {
-          color: #e0dbcf;
-          background: rgba(255,255,255,0.05);
+          color: var(--foreground);
+          background: var(--surface-raised);
         }
         .snp-tab.active {
-          background: linear-gradient(135deg, #d4a92e, #f4c542);
-          color: #000;
+          background: var(--accent-yellow);
+          color: var(--accent-ink);
           font-weight: 700;
           box-shadow: 0 2px 10px rgba(244,197,66,0.3);
         }
@@ -332,9 +332,9 @@ export default function SNPCompare({ assets }: { assets: Asset[] }) {
           width: 34px; height: 34px;
           display: flex; align-items: center; justify-content: center;
           border-radius: 8px;
-          background: rgba(255,255,255,0.05);
+          background: var(--surface-raised);
           border: 1px solid rgba(255,255,255,0.08);
-          color: #a19a8a;
+          color: var(--text-muted);
           cursor: pointer;
           transition: all 0.18s ease;
         }
@@ -345,8 +345,8 @@ export default function SNPCompare({ assets }: { assets: Asset[] }) {
 
         /* Summary cards */
         .snp-card {
-          border-radius: 12px;
-          padding: 16px 20px;
+          border-radius: 16px;
+          padding: 16px 18px;
           position: relative;
           overflow: hidden;
           transition: transform 0.18s ease;
@@ -369,7 +369,7 @@ export default function SNPCompare({ assets }: { assets: Asset[] }) {
           font-weight: 600;
           letter-spacing: 0.08em;
           text-transform: uppercase;
-          color: #a19a8a;
+          color: var(--text-muted);
           margin-bottom: 6px;
         }
         .snp-card-value {
@@ -391,16 +391,16 @@ export default function SNPCompare({ assets }: { assets: Asset[] }) {
 
         /* Tooltip */
         .snp-tooltip {
-          background: rgba(26,25,21,0.96);
-          border: 1px solid rgba(255,255,255,0.1);
-          border-radius: 10px;
+          background: var(--surface);
+          border: 1px solid var(--surface-border);
+          border-radius: 14px;
           padding: 10px 14px;
           font-size: 12px;
           backdrop-filter: blur(12px);
           box-shadow: 0 8px 24px rgba(0,0,0,0.4);
         }
         .snp-tooltip-label {
-          color: #9ca3af;
+          color: var(--text-muted);
           font-size: 11px;
           margin-bottom: 6px;
           font-weight: 500;
@@ -418,7 +418,7 @@ export default function SNPCompare({ assets }: { assets: Asset[] }) {
         .snp-advice {
           margin-top: 12px;
           padding: 12px 18px;
-          border-radius: 12px;
+          border-radius: 14px;
           border: 1px solid;
           display: flex;
           align-items: center;
@@ -440,11 +440,11 @@ export default function SNPCompare({ assets }: { assets: Asset[] }) {
         .snp-advice-title {
           font-weight: 700;
           font-size: 14px;
-          color: #f4f1e8;
+          color: var(--foreground);
         }
         .snp-advice-sub {
           font-size: 12px;
-          color: #a19a8a;
+          color: var(--text-muted);
         }
         .snp-advice-diff {
           font-size: 12px;
@@ -453,7 +453,7 @@ export default function SNPCompare({ assets }: { assets: Asset[] }) {
           white-space: nowrap;
           padding: 4px 10px;
           border-radius: 6px;
-          background: rgba(255,255,255,0.06);
+          background: var(--surface-raised);
         }
         .snp-advice-diff.good { color: #4ade80; }
         .snp-advice-diff.warn { color: #f4c542; }
@@ -461,12 +461,17 @@ export default function SNPCompare({ assets }: { assets: Asset[] }) {
 
         .snp-divider {
           height: 1px;
-          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent);
+          background: linear-gradient(90deg, transparent, var(--surface-border), transparent);
           margin: 16px 0;
+        }
+        @media (max-width: 480px) {
+          .snp-wrap { padding: 14px; border-radius: 14px; }
+          .snp-card { padding: 12px; }
+          .snp-card-value { font-size: 23px; }
         }
       `}</style>
 
-      <div className="snp-wrap">
+      <div className="snp-wrap app-card-frame">
         {/* Header */}
         <div className="flex justify-between items-center mb-5">
           <div className="snp-tabs">
@@ -578,14 +583,14 @@ export default function SNPCompare({ assets }: { assets: Asset[] }) {
               <XAxis
                 dataKey="date"
                 stroke="rgba(255,255,255,0.15)"
-                tick={{ fill: "#4b5563", fontSize: 11 }}
+                tick={{ fill: "#a19a8a", fontSize: 11 }}
                 axisLine={{ stroke: "rgba(255,255,255,0.06)" }}
                 tickLine={false}
               />
               <YAxis
                 tickFormatter={(v) => `${v.toFixed(1)}%`}
                 stroke="rgba(255,255,255,0.15)"
-                tick={{ fill: "#4b5563", fontSize: 11 }}
+                tick={{ fill: "#a19a8a", fontSize: 11 }}
                 axisLine={false}
                 tickLine={false}
               />

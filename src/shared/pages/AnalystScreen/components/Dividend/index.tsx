@@ -92,14 +92,14 @@ function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
   return (
     <span className="inline-flex flex-col leading-none ml-1 opacity-60">
       <span
-        className={`text-[8px] leading-none ${
+        className={`text-[9px] leading-tight ${
           active && dir === "asc" ? "!text-amber-400" : "!text-gray-600"
         }`}
       >
         ▲
       </span>
       <span
-        className={`text-[8px] leading-none ${
+        className={`text-[9px] leading-tight ${
           active && dir === "desc" ? "!text-amber-400" : "!text-gray-600"
         }`}
       >

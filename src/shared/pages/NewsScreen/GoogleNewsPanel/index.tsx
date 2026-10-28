@@ -285,17 +285,7 @@ const GoogleNewsPanel = forwardRef<GoogleNewsPanelRef, Props>(
                   href={item.link}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="
-                    group relative block
-                    bg-[#1a1915]
-                    rounded-2xl
-                    border border-white/[0.07]
-                    hover:border-white/[0.15]
-                    hover:bg-[#211f1a]
-                    transition-all duration-200
-                    overflow-hidden
-                    mb-2
-                  "
+                  className="app-surface-card app-news-card group relative mb-2 block overflow-hidden transition-all duration-200"
                 >
                   {/* left border */}
                   <div

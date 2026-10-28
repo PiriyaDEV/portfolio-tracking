@@ -471,7 +471,7 @@ export default function NewsScreen({ assets = [] }: Props) {
         <div className="flex items-center justify-between px-4 py-2.5 bg-black-lighter border-b border-white/[0.06]">
           <div className="flex items-center gap-2">
             <span className="text-lg">{isGoogleTab ? "📰" : "📢"}</span>
-            <h2 className="text-[13px] font-semibold text-white/90 tracking-wide">
+            <h2 className="text-[13px] font-semibold text-white tracking-wide">
               {isGoogleTab
                 ? "ข่าวหุ้นของคุณ"
                 : `${activeChannelInfo?.emoji ?? ""} ${activeChannelInfo?.label ?? "ข่าวหุ้น"}`}
@@ -589,12 +589,7 @@ export default function NewsScreen({ assets = [] }: Props) {
                   <div
                     key={`${msg.id}-${index}`}
                     className="
-                      group relative
-                      bg-[#1a1915]
-                      rounded-2xl
-                      border border-white/[0.07]
-                      hover:border-white/[0.15]
-                      hover:bg-[#211f1a]
+                      app-surface-card app-news-card group relative
                       transition-all duration-200
                       overflow-hidden
                     "

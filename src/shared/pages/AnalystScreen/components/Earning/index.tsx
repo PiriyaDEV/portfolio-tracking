@@ -251,7 +251,7 @@ const PriceChange = ({
               className="flex items-center gap-1 text-[13px] font-bold px-2.5 py-1 rounded-lg ml-1"
               style={chipStyle}
             >
-              <span className="text-[9px]">{isUp ? "▲" : "▼"}</span>
+              <span className="text-[10px]">{isUp ? "▲" : "▼"}</span>
               {pctStr}
             </div>
           )}

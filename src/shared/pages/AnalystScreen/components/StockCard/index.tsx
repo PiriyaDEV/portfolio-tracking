@@ -129,7 +129,7 @@ export default function StockCard({
 
   return (
     <div
-      className={`relative rounded-[14px] border p-3.5 overflow-hidden transition-transform duration-150 hover:-translate-y-px cursor-default backdrop-blur-xl ${cardVariant}`}
+      className={`app-card-frame relative border p-3.5 overflow-hidden transition-transform duration-150 hover:-translate-y-px cursor-default backdrop-blur-xl ${cardVariant}`}
     >
       {/* Top accent line */}
       <div

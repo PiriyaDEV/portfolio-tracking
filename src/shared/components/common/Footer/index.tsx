@@ -115,7 +115,7 @@ export default function FooterPortfolio({
   }, [assets, prices, previousPrice, currencyRate]);
 
   return (
-    <div className="app-portfolio-footer w-full rounded-2xl border border-surface-border bg-black-lighter shadow-sm">
+    <div className="app-surface-card app-portfolio-footer w-full rounded-2xl bg-black-lighter shadow-sm">
       <div
         className="px-4 py-4 text-left"
         onClick={() => setIsOpen(!isOpen)}

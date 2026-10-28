@@ -343,7 +343,7 @@ export default function CalculateScreen({
       {(activeTab === "calculator" || activeTab === "estimate") && (
         <div className="grid grid-cols-1 gap-4">
           {/* Before */}
-          <div className="w-full shadow-sm rounded-xl overflow-hidden border border-white/[0.06]">
+          <div className="app-surface-card w-full overflow-hidden rounded-2xl">
             <div className="text-white font-bold px-4 py-1 bg-gray-800/70 text-sm">
               📋 ก่อน
             </div>
