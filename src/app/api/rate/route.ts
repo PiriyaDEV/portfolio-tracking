@@ -1,6 +1,7 @@
 // app/api/rate/route.ts
 
 import { NextResponse } from "next/server";
+import { isUpstreamUnavailable } from "@/app/lib/upstream-errors";
 
 /** In-memory cache */
 let cachedRate: number | null = null;
@@ -66,9 +67,14 @@ export async function GET() {
       );
     }
 
+    const unavailable = isUpstreamUnavailable(error);
     return NextResponse.json(
-      { error: "Failed to fetch FX rate" },
-      { status: 500 },
+      {
+        error: unavailable
+          ? "อัตราแลกเปลี่ยนชั่วคราวไม่พร้อมใช้งาน"
+          : "โหลดอัตราแลกเปลี่ยนไม่สำเร็จ",
+      },
+      { status: unavailable ? 503 : 500 },
     );
   }
 }

@@ -135,6 +135,40 @@ type TabKey =
   | "news"
   | "earning";
 
+type AnalystTab = { key: TabKey; label: string; icon: JSX.Element };
+
+function AnalystTabs({
+  tabs,
+  activeTab,
+  onSelect,
+}: {
+  tabs: AnalystTab[];
+  activeTab: TabKey;
+  onSelect: (tab: TabKey) => void;
+}) {
+  return (
+    <div className="analyst-tabs-grid grid gap-2">
+      {tabs.map((tab) => {
+        const isActive = activeTab === tab.key;
+        return (
+          <button
+            key={tab.key}
+            onClick={() => onSelect(tab.key)}
+            className={`flex min-w-0 items-center justify-center gap-1.5 rounded-full border px-2 py-2 text-[11px] font-semibold transition-colors sm:gap-2 sm:px-3 sm:text-xs ${
+              isActive
+                ? "border-amber-300/30 bg-accent-yellow/15 text-accent-yellow"
+                : "border-surface-border bg-black-lighter text-gray-400 hover:bg-black-lighter2"
+            }`}
+          >
+            <span className="shrink-0 text-sm">{tab.icon}</span>
+            <span className="min-w-0 truncate">{tab.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function AnalystScreen({ assets, wishlist, userId, isFoldableLayout = false, onSelectSymbol }: Props) {
   // ─── Pull everything from shared store ────────────────────────────────────
   const {
@@ -171,7 +205,7 @@ export default function AnalystScreen({ assets, wishlist, userId, isFoldableLayo
   ];
 
   return (
-    <div className="w-full px-4 mt-[50px] pb-[90px]">
+    <div className="analyst-screen-container w-full px-4 pb-[90px]">
       {selectedSymbol && !isFoldableLayout && (
         <GraphModal
           symbol={selectedSymbol}
@@ -180,31 +214,19 @@ export default function AnalystScreen({ assets, wishlist, userId, isFoldableLayo
         />
       )}
 
-      {/* Tabs */}
-      <div className="app-fixed-pane fixed top-[67px] left-1/2 -translate-x-1/2 max-w-[450px] lg:max-w-[1120px] w-full z-[99] bg-black px-3 py-2 border-b border-surface-border">
-        <div className="flex gap-2 overflow-x-auto">
-          {tabs.map((tab) => {
-            const isActive = activeTab === tab.key;
-            return (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={`flex shrink-0 items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition-colors ${
-                  isActive
-                    ? "border-amber-300/30 bg-accent-yellow/15 text-accent-yellow"
-                    : "border-surface-border bg-black-lighter text-gray-400 hover:bg-black-lighter2"
-                }`}
-              >
-                <span className="text-sm">{tab.icon}</span>
-                <span>{tab.label}</span>
-              </button>
-            );
-          })}
+      {/* One sticky header keeps the tab bar and graph market strip in sync. */}
+      {activeTab !== "graph" && (
+        <div className="analyst-sticky-header sticky top-[67px] z-[99] -mx-4 border-b border-surface-border bg-black px-4 py-2">
+          <AnalystTabs
+            tabs={tabs}
+            activeTab={activeTab}
+            onSelect={setActiveTab}
+          />
         </div>
-      </div>
+      )}
 
       {/* Content */}
-      <div className="pt-[50px] space-y-3">
+      <div className="analyst-screen-content space-y-3">
         {activeTab === "support" && (
           <SupportTabContent
             sortedSymbols={sortedSymbols}
@@ -222,7 +244,19 @@ export default function AnalystScreen({ assets, wishlist, userId, isFoldableLayo
 
         {activeTab === "graph" && (
           // GraphPrice ดึงจาก store เอง — ไม่ต้องส่ง props แล้ว
-          <GraphPrice assets={assets} market={market!} isFoldableLayout={isFoldableLayout} onSelectSymbol={onSelectSymbol} />
+          <GraphPrice
+            assets={assets}
+            market={market!}
+            isFoldableLayout={isFoldableLayout}
+            onSelectSymbol={onSelectSymbol}
+            header={
+              <AnalystTabs
+                tabs={tabs}
+                activeTab={activeTab}
+                onSelect={setActiveTab}
+              />
+            }
+          />
         )}
 
         {activeTab === "earning" && (

@@ -481,6 +481,55 @@ body {
   color: var(--text-muted);
 }
 
+.analyst-screen-container,
+.calc-screen-container {
+  container-type: inline-size;
+}
+
+.analyst-screen-container {
+  container-name: analyst-screen;
+}
+
+.calc-screen-container {
+  container-name: calc-screen;
+}
+
+.analyst-tabs-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.analyst-screen-content {
+  padding-top: 12px;
+}
+
+.calc-screen-tabs {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.calc-screen-content {
+  padding-top: 12px;
+}
+
+@container analyst-screen (min-width: 600px) {
+  .analyst-tabs-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .analyst-screen-content {
+    padding-top: 12px;
+  }
+}
+
+@container calc-screen (min-width: 520px) {
+  .calc-screen-tabs {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .calc-screen-content {
+    padding-top: 12px;
+  }
+}
+
 .app-bottom-navbar {
   left: 50%;
   width: calc(100% - 28px);

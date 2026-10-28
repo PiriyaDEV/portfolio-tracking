@@ -129,6 +129,7 @@ type Props = {
   market: MarketResponse;
   isFoldableLayout?: boolean;
   onSelectSymbol?: (symbol: string) => void;
+  header?: React.ReactNode;
 };
 
 /* =======================
@@ -147,7 +148,13 @@ function calcPct(
    Component
 ======================= */
 
-export function GraphPrice({ assets, market, isFoldableLayout = false, onSelectSymbol }: Props) {
+export function GraphPrice({
+  assets,
+  market,
+  isFoldableLayout = false,
+  onSelectSymbol,
+  header,
+}: Props) {
   // ─── All market data from shared store ───────────────────────────────────
   const { prices, graphs, previousPrice, currencyRate, marketStatus } =
     useMarketStore();
@@ -260,7 +267,7 @@ export function GraphPrice({ assets, market, isFoldableLayout = false, onSelectS
     : null;
 
   return (
-    <div className="mt-[90px] flex flex-col">
+    <div className="mt-0 flex flex-col">
       {showFearGreedModal && market?.fearGreed?.value !== null && (
         <FearGreedGauge
           value={market.fearGreed.value!}
@@ -277,15 +284,14 @@ export function GraphPrice({ assets, market, isFoldableLayout = false, onSelectS
         />
       )}
 
-      {/* HEADER */}
-      <div
-        className="app-fixed-pane fixed top-[160px] left-1/2 -translate-x-1/2 max-w-[450px] lg:max-w-[1120px] w-full gap-3 py-2 px-3 text-[12px] text-gray-400 bg-black z-[99]"
-        style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}
-      >
-        <div
-          className="mt-[5px] overflow-x-auto"
-          style={{ scrollbarWidth: "none" }}
-        >
+      {/* Combined analyst tabs + market strip: one sticky header avoids overlap on scroll. */}
+      <div className="analyst-header-stack sticky top-[67px] z-[99] -mx-4 border-b border-surface-border bg-black px-4 pb-2">
+        {header}
+        <div className="graph-market-bar mt-2 w-full text-[12px] text-gray-400">
+          <div
+            className="overflow-x-auto"
+            style={{ scrollbarWidth: "none" }}
+          >
           {isMarketLoading ? (
             <SkeletonMarketBar />
           ) : (
@@ -438,9 +444,11 @@ export function GraphPrice({ assets, market, isFoldableLayout = false, onSelectS
               </div>
             )
           )}
+          </div>
         </div>
+      </div>
 
-        {/* Column headers */}
+      {/* Column headers */}
         <div
           className="mt-[15px] grid grid-cols-[2fr_1fr_1fr]"
           style={{
@@ -485,7 +493,6 @@ export function GraphPrice({ assets, market, isFoldableLayout = false, onSelectS
             />
           </div>
         </div>
-      </div>
 
       {/* Skeleton rows */}
       {isLoading &&

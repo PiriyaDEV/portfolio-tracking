@@ -287,11 +287,11 @@ const GoogleNewsPanel = forwardRef<GoogleNewsPanelRef, Props>(
                   rel="noopener noreferrer"
                   className="
                     group relative block
-                    bg-[#161616]
+                    bg-[#1a1915]
                     rounded-2xl
                     border border-white/[0.07]
                     hover:border-white/[0.15]
-                    hover:bg-[#1a1a1a]
+                    hover:bg-[#211f1a]
                     transition-all duration-200
                     overflow-hidden
                     mb-2
@@ -306,7 +306,7 @@ const GoogleNewsPanel = forwardRef<GoogleNewsPanelRef, Props>(
                     }`}
                   />
 
-                  <div className="px-4 pt-3.5 pb-4 pl-5 bg-white !text-black">
+                  <div className="px-4 pt-3.5 pb-4 pl-5 bg-transparent text-white">
                     {/* HEADER */}
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-3">
@@ -366,7 +366,7 @@ const GoogleNewsPanel = forwardRef<GoogleNewsPanelRef, Props>(
                     </p>
 
                     {/* SOURCE */}
-                    <div className="mt-2 text-[11px] text-black/80">
+                    <div className="mt-2 text-[11px] text-white/50">
                       จาก {item.source ?? "Google News"}
                     </div>
 

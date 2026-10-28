@@ -10,6 +10,7 @@ const ADMIN_BYPASS = false;
 import { google } from "googleapis";
 import { decrypt } from "@/app/lib/utils";
 import { SESSION_COOKIE_MAX_AGE, SESSION_KEY } from "@/app/lib/constants";
+import { isUpstreamUnavailable } from "@/app/lib/upstream-errors";
 
 let sheetsClient: ReturnType<typeof google.sheets> | null = null;
 
@@ -156,12 +157,19 @@ export async function POST(req: Request) {
     );
   } catch (error: any) {
     console.error("POST /api/login error:", error);
+
+    const upstreamUnavailable = isUpstreamUnavailable(error);
+
     return new Response(
       JSON.stringify({
-        error: "Internal Server Error",
-        details: error?.message ?? "Unknown error",
+        error: upstreamUnavailable
+          ? "เชื่อมต่อบริการบัญชีไม่ได้ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่"
+          : "เข้าสู่ระบบไม่สำเร็จ กรุณาลองใหม่",
       }),
-      { status: 500, headers: { "Content-Type": "application/json" } },
+      {
+        status: upstreamUnavailable ? 503 : 500,
+        headers: { "Content-Type": "application/json" },
+      },
     );
   }
 }

@@ -244,7 +244,7 @@ function SummaryFooter({
 
   return (
     <div
-      className="app-fixed-pane fixed bottom-[70px] left-1/2 -translate-x-1/2 max-w-[450px] lg:max-w-[1120px] w-full z-[98] p-2"
+      className="app-fixed-pane fixed bottom-[70px] left-1/2 -translate-x-1/2 max-w-none sm:max-w-[450px] lg:max-w-[1120px] w-full z-[98] p-2"
       style={{
         backdropFilter: "blur(20px)",
         borderTop: "1px solid rgba(245,158,11,0.2)",
@@ -638,7 +638,7 @@ export default function DividendSummary({
   return (
     <div className="flex flex-col">
       {/* Sticky tab pills with W-8BEN */}
-      <div className="app-fixed-pane fixed top-[160px] left-1/2 -translate-x-1/2 max-w-[450px] lg:max-w-[1120px] w-full z-[99]">
+      <div className="app-fixed-pane fixed top-[160px] left-1/2 -translate-x-1/2 max-w-none sm:max-w-[450px] lg:max-w-[1120px] w-full z-[99]">
         <div className="flex items-center justify-between px-4 py-2.5 bg-black-lighter border-b border-white/[0.06] border-b border-yellow-400/[0.5]">
           <TabPills
             active={activeTab}

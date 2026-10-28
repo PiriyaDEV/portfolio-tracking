@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isNonMarketAssetSymbol, normalizeYahooSymbol } from "@/app/lib/yahoo.helpers";
+import { isUpstreamUnavailable } from "@/app/lib/upstream-errors";
 
 export const runtime = "edge";
 
@@ -152,7 +153,15 @@ export async function GET(req: NextRequest) {
     });
   } catch (err) {
     console.error("chart-history error", err);
-    return NextResponse.json({ error: "Internal error" }, { status: 500 });
+    const unavailable = isUpstreamUnavailable(err);
+    return NextResponse.json(
+      {
+        error: unavailable
+          ? "ข้อมูลกราฟชั่วคราวไม่พร้อมใช้งาน"
+          : "โหลดข้อมูลกราฟไม่สำเร็จ",
+      },
+      { status: unavailable ? 503 : 500 },
+    );
   }
 }
 

@@ -18,7 +18,6 @@ import {
 } from "react-icons/fa";
 import {
   fNumber,
-  getLogo,
   getName,
   getProfitColor,
   isCash,
@@ -53,6 +52,7 @@ import { GraphModal } from "@/shared/pages/AnalystScreen/components/GraphPrice/c
 import { AnimatedNumber } from "@/shared/components/common/AnimatedNumber";
 import { useFoldableLayout } from "@/shared/hooks/useFoldableLayout";
 import FoldableCompanionPanel from "@/shared/components/common/FoldableCompanionPanel";
+import StockLogo from "@/shared/components/common/StockLogo";
 import type { CalculatorCompanionContext } from "@/shared/types_foldable";
 
 const isMock = false;
@@ -781,7 +781,6 @@ export default function MainApp({
                   ? ((currentPrice - previousClose) / previousClose) * 100
                   : 0;
               const currencyLabel = isThai ? "THB" : "USD";
-              const logoUrl = getLogo(asset.symbol);
               const isLoadingThis =
                 !(asset.symbol in prices) ||
                 prices[asset.symbol] == null ||
@@ -816,10 +815,7 @@ export default function MainApp({
                             setSelectedSymbol(asset.symbol);
                           }}
                         >
-                          <div
-                            className={`w-[32px] h-[32px] rounded-full bg-cover bg-center border border-white/10 shrink-0 bg-white ${logoUrl ? "" : "bg-white"}`}
-                            style={{ backgroundImage: `url(${logoUrl})` }}
-                          />
+                          <StockLogo symbol={asset.symbol} className="h-8 w-8" />
                           <div>
                             <div className="font-bold text-[15px] text-white leading-tight">
                               {getName(asset.symbol)}

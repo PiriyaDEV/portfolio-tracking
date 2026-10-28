@@ -6,6 +6,7 @@
 
 import { google } from "googleapis";
 import { encrypt, decrypt } from "@/app/lib/utils";
+import { isUpstreamUnavailable } from "@/app/lib/upstream-errors";
 
 let sheetsClient: ReturnType<typeof google.sheets> | null = null;
 
@@ -114,10 +115,14 @@ export async function GET(req: Request, context: any) {
     console.error("GET /api/user/[id] error:", error);
     return new Response(
       JSON.stringify({
-        error: "Internal Server Error",
-        details: error?.message ?? "Unknown error",
+        error: isUpstreamUnavailable(error)
+          ? "เชื่อมต่อข้อมูลพอร์ตไม่ได้ กรุณาลองใหม่"
+          : "โหลดข้อมูลผู้ใช้ไม่สำเร็จ กรุณาลองใหม่",
       }),
-      { status: 500, headers: { "Content-Type": "application/json" } },
+      {
+        status: isUpstreamUnavailable(error) ? 503 : 500,
+        headers: { "Content-Type": "application/json" },
+      },
     );
   }
 }
@@ -191,10 +196,14 @@ export async function POST(req: Request, context: any) {
     console.error("POST /api/user/[id] error:", error);
     return new Response(
       JSON.stringify({
-        error: "Internal Server Error",
-        details: error?.message ?? "Unknown error",
+        error: isUpstreamUnavailable(error)
+          ? "เชื่อมต่อข้อมูลพอร์ตไม่ได้ กรุณาลองใหม่"
+          : "บันทึกข้อมูลพอร์ตไม่สำเร็จ กรุณาลองใหม่",
       }),
-      { status: 500, headers: { "Content-Type": "application/json" } },
+      {
+        status: isUpstreamUnavailable(error) ? 503 : 500,
+        headers: { "Content-Type": "application/json" },
+      },
     );
   }
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { getLogo } from "@/app/lib/utils";
+import StockLogo from "@/shared/components/common/StockLogo";
 import { useState, useEffect, useRef } from "react";
 
 interface Option {
@@ -68,12 +68,7 @@ export default function StockSelect({
         {/* Icon slot — mirrors the 🔍 position */}
 
         {selected && (
-          <div
-            className={`ml-3 w-[25px] h-[25px] rounded-full bg-cover bg-center border border-gray-600 ${
-              getLogo(selected.value) ? "" : "bg-white"
-            }`}
-            style={{ backgroundImage: `url(${getLogo(selected.value)})` }}
-          />
+          <StockLogo symbol={selected.value} className="ml-3 h-[25px] w-[25px]" />
         )}
 
         <span
@@ -142,14 +137,7 @@ export default function StockSelect({
                 }}
               >
                 <div className="flex items-center gap-3">
-                  <div
-                    className={`ml-3 w-[25px] h-[25px] rounded-full bg-cover bg-center border border-gray-600 ${
-                      getLogo(opt.value) ? "" : "bg-white"
-                    }`}
-                    style={{
-                      backgroundImage: `url(${getLogo(opt.value)})`,
-                    }}
-                  />
+                  <StockLogo symbol={opt.value} className="ml-3 h-[25px] w-[25px]" />
 
                   <span
                     className="text-xs font-bold px-2 py-0.5 rounded"

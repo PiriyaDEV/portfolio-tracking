@@ -1,5 +1,6 @@
 import { MARKET_KEY_TO_SYMBOL } from "@/app/config";
 import { NextResponse } from "next/server";
+import { isUpstreamUnavailable } from "@/app/lib/upstream-errors";
 
 // FIX: MARKET_SYMBOLS is kept here as an alias for backward compatibility
 // with any other code that imports it from this file directly.
@@ -176,12 +177,15 @@ export async function GET() {
       timestamp: Date.now(),
     });
   } catch (err) {
+    const unavailable = isUpstreamUnavailable(err);
     return NextResponse.json(
       {
         success: false,
-        error: (err as Error).message,
+        error: unavailable
+          ? "ข้อมูลตลาดชั่วคราวไม่พร้อมใช้งาน"
+          : (err as Error).message,
       },
-      { status: 500 },
+      { status: unavailable ? 503 : 500 },
     );
   }
 }

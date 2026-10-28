@@ -1,5 +1,6 @@
 // app/wishlist/[id]/route.ts
 import { google } from "googleapis";
+import { isUpstreamUnavailable } from "@/app/lib/upstream-errors";
 
 async function getGoogleSheets() {
   const auth = new google.auth.GoogleAuth({
@@ -48,7 +49,14 @@ export async function GET(req: Request, context: any) {
     return Response.json({ userId: id, assets: wishlist });
   } catch (err: any) {
     console.error(err);
-    return Response.json({ error: "Internal Server Error" }, { status: 500 });
+    return Response.json(
+      {
+        error: isUpstreamUnavailable(err)
+          ? "เชื่อมต่อรายการโปรดไม่ได้ กรุณาลองใหม่"
+          : "โหลดรายการโปรดไม่สำเร็จ กรุณาลองใหม่",
+      },
+      { status: isUpstreamUnavailable(err) ? 503 : 500 },
+    );
   }
 }
 
@@ -104,6 +112,13 @@ export async function POST(req: Request, context: any) {
     return Response.json({ message: "Wishlist updated", userId: id });
   } catch (err) {
     console.error(err);
-    return Response.json({ error: "Internal Server Error" }, { status: 500 });
+    return Response.json(
+      {
+        error: isUpstreamUnavailable(err)
+          ? "บันทึกรายการโปรดไม่ได้ กรุณาลองใหม่"
+          : "บันทึกรายการโปรดไม่สำเร็จ กรุณาลองใหม่",
+      },
+      { status: isUpstreamUnavailable(err) ? 503 : 500 },
+    );
   }
 }

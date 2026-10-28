@@ -456,7 +456,7 @@ export default function NewsScreen({ assets = [] }: Props) {
      Render
   ======================= */
   return (
-    <div className="max-w-[600px] mx-auto">
+    <div className="w-full max-w-[600px] mx-auto">
       {selectedSymbol && (
         <GraphModal
           symbol={selectedSymbol}
@@ -466,7 +466,7 @@ export default function NewsScreen({ assets = [] }: Props) {
       )}
 
       {/* ======================= HEADER ======================= */}
-      <div className="app-fixed-pane fixed top-[160px] left-1/2 -translate-x-1/2 max-w-[450px] lg:max-w-[1120px] w-full z-[99]">
+      <div className="news-screen-header relative z-10 w-full mb-3">
         {/* Title row */}
         <div className="flex items-center justify-between px-4 py-2.5 bg-black-lighter border-b border-white/[0.06]">
           <div className="flex items-center gap-2">
@@ -544,7 +544,7 @@ export default function NewsScreen({ assets = [] }: Props) {
       </div>
 
       {/* ======================= CONTENT ======================= */}
-      <div className="space-y-3 pt-[98px] pb-6">
+      <div className="space-y-3 pt-2 pb-6">
         {/* ── Google News Panel ── */}
         {isGoogleTab && (
           <GoogleNewsPanel
@@ -590,17 +590,17 @@ export default function NewsScreen({ assets = [] }: Props) {
                     key={`${msg.id}-${index}`}
                     className="
                       group relative
-                      bg-[#161616]
+                      bg-[#1a1915]
                       rounded-2xl
                       border border-white/[0.07]
                       hover:border-white/[0.15]
-                      hover:bg-[#1a1a1a]
+                      hover:bg-[#211f1a]
                       transition-all duration-200
                       overflow-hidden
                     "
                   >
                     <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-accent-yellow/60 rounded-l-2xl" />
-                    <div className="px-4 pt-3.5 pb-4 pl-5 bg-white !text-black">
+                    <div className="px-4 pt-3.5 pb-4 pl-5 bg-transparent text-white">
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-3">
                           <div className="relative shrink-0">

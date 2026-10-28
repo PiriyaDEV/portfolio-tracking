@@ -11,13 +11,13 @@ import {
 } from "react-icons/fa6";
 import {
   fNumber,
-  getLogo,
   getName,
   isCash,
   isThaiStock,
 } from "@/app/lib/utils";
 import DividendSummary from "../AnalystScreen/components/Dividend";
 import StockSelect from "@/shared/components/common/StockSelect";
+import StockLogo from "@/shared/components/common/StockLogo";
 import { useMarketStore } from "@/store/useMarketStore";
 import PredictScreen from "./components/PredictScreen";
 import type { CalculatorCompanionContext } from "@/shared/types_foldable";
@@ -197,10 +197,10 @@ export default function CalculateScreen({
   ];
 
   return (
-    <div className="p-4 w-full pb-[100px]">
+    <div className="calc-screen-container p-4 w-full pb-[100px]">
       {/* Tab bar */}
-      <div className="app-fixed-pane fixed top-[67px] left-1/2 -translate-x-1/2 max-w-[450px] lg:max-w-[1120px] w-full bg-black px-3 py-2 border-b border-surface-border z-[99]">
-        <div className="flex gap-2 overflow-x-auto">
+      <div className="calc-sticky-header sticky top-[67px] z-[99] -mx-4 border-b border-surface-border bg-black px-4 py-2">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {tabs.map((tab) => {
             const isActive = activeTab === tab.key;
             return (
@@ -210,7 +210,7 @@ export default function CalculateScreen({
                   setActiveTab(tab.key as any);
                   resetInputs();
                 }}
-                className={`flex shrink-0 items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition-colors ${
+                className={`flex min-w-0 items-center justify-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition-colors ${
                   isActive
                     ? "border-amber-300/30 bg-accent-yellow/15 text-accent-yellow"
                     : "border-surface-border bg-black-lighter text-gray-400 hover:bg-black-lighter2"
@@ -226,7 +226,7 @@ export default function CalculateScreen({
 
       {/* Asset selector */}
       {(activeTab === "calculator" || activeTab === "estimate") && (
-        <div className="pt-[85px] mb-6 flex flex-col gap-2">
+        <div className="calc-screen-content mb-6 flex flex-col gap-2">
           <label className="text-gray-400 text-sm">🔍 เลือกหุ้น</label>
           <StockSelect
             options={assets
@@ -350,10 +350,7 @@ export default function CalculateScreen({
             <div className="w-full grid grid-cols-[2fr_1fr_1fr] gap-3 px-4 py-2 bg-black-lighter">
               <div className="flex flex-col gap-1">
                 <div className="flex items-center gap-2">
-                  <div
-                    className={`w-[30px] h-[30px] rounded-full bg-cover bg-center border border-gray-600 ${getLogo(asset.symbol) ? "" : "bg-white"}`}
-                    style={{ backgroundImage: `url(${getLogo(asset.symbol)})` }}
-                  />
+                  <StockLogo symbol={asset.symbol} className="h-[30px] w-[30px]" />
                   <div className="font-bold text-[16px]">
                     {getName(asset.symbol)}
                   </div>
@@ -432,12 +429,7 @@ export default function CalculateScreen({
               <div className="w-full grid grid-cols-[2fr_1fr_1fr] gap-3 px-4 py-2 bg-black-lighter">
                 <div className="flex flex-col gap-1">
                   <div className="flex items-center gap-2">
-                    <div
-                      className={`w-[30px] h-[30px] rounded-full bg-cover bg-center border border-gray-600 ${getLogo(asset.symbol) ? "" : "bg-white"}`}
-                      style={{
-                        backgroundImage: `url(${getLogo(asset.symbol)})`,
-                      }}
-                    />
+                    <StockLogo symbol={asset.symbol} className="h-[30px] w-[30px]" />
                     <div className="font-bold text-[16px]">
                       {getName(asset.symbol)}
                     </div>

@@ -15,7 +15,7 @@ import {
 } from "react-icons/fa6";
 import { FaSeedling, FaShieldAlt, FaUniversity } from "react-icons/fa";
 import { TbMoneybag } from "react-icons/tb";
-import { getLogo } from "@/app/lib/utils";
+import StockLogo from "@/shared/components/common/StockLogo";
 import CommonLoading from "@/shared/components/common/CommonLoading";
 import { GraphModal } from "@/shared/pages/AnalystScreen/components/GraphPrice/components/GraphModal";
 
@@ -393,12 +393,7 @@ function StockCard({
           className="flex items-center gap-3"
           onClick={() => onSelect?.(rec.ticker)}
         >
-          <div
-            className={`w-[30px] h-[30px] rounded-full bg-cover bg-center border border-gray-600 ${
-              getLogo(rec.ticker) ? "" : "bg-white"
-            }`}
-            style={{ backgroundImage: `url(${getLogo(rec.ticker)})` }}
-          />
+          <StockLogo symbol={rec.ticker} className="h-[30px] w-[30px]" />
           <div>
             <div className="flex items-center gap-2">
               <span className="text-white font-black text-base tracking-wide">

@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { getLogo } from "@/app/lib/utils";
+import StockLogo from "@/shared/components/common/StockLogo";
 
 interface SymbolSuggestion {
   description: string;
@@ -274,12 +274,7 @@ export default function StockSearchSelect({
                   }}
                 >
                   <div className="flex min-w-0 items-center gap-2.5">
-                    <img
-                      src={getLogo(s.symbol)}
-                      alt={`${s.displaySymbol} logo`}
-                      loading="lazy"
-                      className="h-8 w-8 shrink-0 rounded-full border border-white/10 bg-white object-cover"
-                    />
+                    <StockLogo symbol={s.symbol} className="h-8 w-8" />
                     <span
                       className="text-[11px] font-bold px-2 py-1 rounded-md"
                       style={{

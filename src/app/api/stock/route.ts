@@ -3,6 +3,7 @@ import { getAdvancedLevels } from "./support.function";
 import { getRecommendation } from "./recommendation.function";
 import { isThaiStock } from "@/app/lib/utils";
 import { fetchUSDTHBRate } from "@/app/lib/yahoo.helpers";
+import { isUpstreamUnavailable } from "@/app/lib/upstream-errors";
 
 const API_KEY = process.env.FINNHUB_API_KEY || "";
 
@@ -272,6 +273,14 @@ export async function POST(req: NextRequest) {
     });
   } catch (error: any) {
     console.error(error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    const unavailable = isUpstreamUnavailable(error);
+    return NextResponse.json(
+      {
+        error: unavailable
+          ? "ข้อมูลตลาดเชื่อมต่อไม่ได้ กรุณาลองใหม่"
+          : error.message,
+      },
+      { status: unavailable ? 503 : 500 },
+    );
   }
 }

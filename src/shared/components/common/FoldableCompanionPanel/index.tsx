@@ -2,7 +2,6 @@
 
 import {
   fNumber,
-  getLogo,
   getName,
   isCash,
   isThaiStock,
@@ -12,6 +11,7 @@ import type { StockResult } from "@/shared/pages/ViewScreen";
 import type { CalculatorCompanionContext } from "@/shared/types_foldable";
 import { getSignal } from "@/app/lib/market.logic";
 import { useMarketStore } from "@/store/useMarketStore";
+import StockLogo from "@/shared/components/common/StockLogo";
 import { Line, LineChart, ResponsiveContainer, YAxis } from "recharts";
 
 export type FoldablePage = "portfolio" | "market" | "calculator" | "view";
@@ -385,23 +385,11 @@ function SignalDistribution({
 }
 
 function SymbolHeading({ symbol }: { symbol: string }) {
-  const logoUrl = getLogo(symbol);
   const name = getName(symbol);
 
   return (
     <div className="flex min-w-0 items-center gap-3">
-      <div className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full border border-white/10 bg-white text-sm font-bold text-[#11100e]">
-        {logoUrl ? (
-          <img
-            src={logoUrl}
-            alt={`${name} logo`}
-            loading="lazy"
-            className="h-full w-full object-cover"
-          />
-        ) : (
-          name.slice(0, 1)
-        )}
-      </div>
+      <StockLogo symbol={symbol} className="h-10 w-10" />
       <div className="min-w-0">
         <p className="truncate text-lg font-bold text-white">{name}</p>
         <p className="truncate text-xs text-gray-500">{symbol}</p>

@@ -1,6 +1,7 @@
 "use client";
 
-import { getLogo, getName, fNumber } from "@/app/lib/utils";
+import { getName, fNumber } from "@/app/lib/utils";
+import StockLogo from "@/shared/components/common/StockLogo";
 import {
   isStrongBuy,
   isNormalBuy,
@@ -157,13 +158,13 @@ export default function StockCard({
             onClick={() => onSelect?.(symbol)}
           >
             {/* Logo — click opens detail modal */}
-            <div
-              className={`w-9 h-9 rounded-full bg-cover bg-center bg-white border border-white/15 shrink-0 shadow-[0_0_0_1px_rgba(255,255,255,0.06)] ${
+            <StockLogo
+              symbol={symbol}
+              className={`h-9 w-9 border-white/15 shadow-[0_0_0_1px_rgba(255,255,255,0.06)] ${
                 onSelect
                   ? "cursor-pointer hover:ring-2 hover:ring-white/30 hover:scale-110 transition-all duration-150"
                   : ""
               }`}
-              style={{ backgroundImage: `url(${getLogo(symbol)})` }}
             />
 
             {/* Name + pill */}
