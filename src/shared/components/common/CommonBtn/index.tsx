@@ -18,8 +18,8 @@ const CommonBtn: FC<CommonBtnProps> = ({
   const baseStyles = "btn w-full px-5 max-w-xs font-bold text-md";
   const disabledStyles = "bg-[#c5c6c7] cursor-not-allowed text-white";
 
-  const primaryStyles = "bg-[#4366f4] text-white border-none";
-  const secondaryStyles = "bg-white text-[#4366f4] !border border-[1px] border-[#4366f4]";
+  const primaryStyles = "bg-accent-yellow text-[#1b1607] border-none";
+  const secondaryStyles = "bg-black-lighter text-accent-yellow !border border-[1px] border-accent-yellow/40";
 
   const finalStyles = disabled
     ? disabledStyles

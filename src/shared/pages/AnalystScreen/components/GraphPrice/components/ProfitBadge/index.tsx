@@ -86,7 +86,7 @@ export function ProfitBadge({ percentChange }: { percentChange: number }) {
         ...baseStyle,
         background: "rgba(156,163,175,0.15)",
         border: "1px solid rgba(156,163,175,0.2)",
-        color: "#9ca3af",
+        color: "#a19a8a",
       }}
     >
       <span style={{ fontSize: "9px" }}>—</span>
@@ -94,7 +94,7 @@ export function ProfitBadge({ percentChange }: { percentChange: number }) {
         value={percentChange}
         format={{ minimumFractionDigits: 2, maximumFractionDigits: 2 }}
         suffix="%"
-        style={{ color: "#9ca3af" }}
+        style={{ color: "#a19a8a" }}
         transformTiming={{
           duration: 900,
           easing: "cubic-bezier(0.22, 1, 0.36, 1)",

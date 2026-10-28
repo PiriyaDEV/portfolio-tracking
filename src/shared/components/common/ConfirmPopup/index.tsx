@@ -35,7 +35,7 @@ const ConfirmPopup: React.FC<ConfirmPopupProps> = ({
             {message && <p className="py-4">{message}</p>}
             <div className="flex justify-end space-x-3 mt-4">
               <button
-                className="btn bg-[#4366f4] btn-sm text-white w-full"
+                className="btn bg-accent-yellow btn-sm text-[#1b1607] w-full"
                 onClick={onConfirm}
               >
                 {confirmText}

@@ -524,7 +524,7 @@ export function GraphPrice({
               ? "#22c55e"
               : percentChange < 0
                 ? "#ef4444"
-                : "#999";
+                : "#a19a8a";
           const isLast = index === sortedAssets.length - 1;
 
           return (
@@ -574,7 +574,7 @@ export function GraphPrice({
                         />
                         <ReferenceLine
                           y={prevPrice ?? 0}
-                          stroke="#777"
+                          stroke="#a19a8a"
                           strokeDasharray="3 3"
                         />
                         <Line

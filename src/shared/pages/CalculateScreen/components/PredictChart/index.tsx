@@ -44,12 +44,12 @@ export default function PredictChart({ rows, years }: PredictChartProps) {
       height: 220,
       layout: {
         background: { type: ColorType.Solid, color: "transparent" },
-        textColor: "#6b7280",
+        textColor: "#a19a8a",
         fontSize: 11,
       },
       grid: {
-        vertLines: { color: "rgba(255,255,255,0.04)", style: LineStyle.Solid },
-        horzLines: { color: "rgba(255,255,255,0.04)", style: LineStyle.Solid },
+        vertLines: { color: "rgba(240,226,187,0.08)", style: LineStyle.Solid },
+        horzLines: { color: "rgba(240,226,187,0.08)", style: LineStyle.Solid },
       },
       crosshair: {
         vertLine: {

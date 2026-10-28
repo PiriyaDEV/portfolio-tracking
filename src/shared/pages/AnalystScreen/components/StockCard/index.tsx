@@ -169,7 +169,7 @@ export default function StockCard({
 
             {/* Name + pill */}
             <div className="flex-1 min-w-0">
-              <p className="text-[14px] font-bold text-[#f0f0f0] leading-tight truncate">
+              <p className="text-[14px] font-bold text-[#f4f1e8] leading-tight truncate">
                 {getName(symbol)}
               </p>
               <div className="flex items-center gap-1.5 mt-0.5">

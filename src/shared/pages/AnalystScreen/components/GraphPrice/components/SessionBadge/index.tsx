@@ -13,7 +13,7 @@ export function SessionBadge({
   const label =
     session === "pre" ? "ก่อน:" : session === "post" ? "หลัง:" : "ตลาดปิด";
 
-  const color = isUp ? "#4ade80" : isDown ? "#f87171" : "#6b7280";
+  const color = isUp ? "#4ade80" : isDown ? "#f87171" : "#a19a8a";
 
   return (
     <div

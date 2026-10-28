@@ -401,7 +401,7 @@ function MyStocksTab({
   const thStyle: React.CSSProperties = {
     background: "rgba(255,255,255,0.04)",
     borderBottom: "1px solid rgba(255,255,255,0.07)",
-    color: "#6b7280",
+    color: "#a19a8a",
   };
 
   const thClass =

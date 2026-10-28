@@ -167,7 +167,7 @@ const PriceChange = ({
   const downStyle = { background: "rgba(248,113,113,0.1)", color: "#f87171" };
   const chipStyle =
     pct === undefined
-      ? { background: "rgba(255,255,255,0.06)", color: "#6b7280" }
+      ? { background: "rgba(255,255,255,0.06)", color: "#a19a8a" }
       : isUp
         ? upStyle
         : downStyle;
@@ -196,7 +196,7 @@ const PriceChange = ({
         ) : (
           <div
             className="text-[12px] px-3 py-1.5 rounded-lg"
-            style={{ background: "rgba(255,255,255,0.06)", color: "#6b7280" }}
+            style={{ background: "rgba(255,255,255,0.06)", color: "#a19a8a" }}
           >
             ไม่มีข้อมูล
           </div>
@@ -282,7 +282,7 @@ const PriceChange = ({
           ) : (
             <div
               className="text-[12px] px-3 py-1.5 rounded-lg"
-              style={{ background: "rgba(255,255,255,0.06)", color: "#6b7280" }}
+              style={{ background: "rgba(255,255,255,0.06)", color: "#a19a8a" }}
             >
               ไม่มีข้อมูล
             </div>
